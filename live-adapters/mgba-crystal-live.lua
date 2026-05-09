@@ -12,6 +12,9 @@ local PARTY_MON_SIZE = 0x30
 local NAME_SIZE = 11
 local BOX_MON_SIZE = 0x20
 local BOX_CAPACITY = 20
+local BOX_NAME_LENGTH = 9
+local NUM_BOXES = 14
+local BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES
 local BOX_RECORD_SIZE = 1 + BOX_CAPACITY + 1 + (BOX_CAPACITY * BOX_MON_SIZE) + (BOX_CAPACITY * NAME_SIZE * 2)
 local CURRENT_BOX_OFFSET = 0x2D10
 local BOX_SCAN_START = 0x2400
@@ -55,6 +58,9 @@ local GB_CHARS = {
   [0xad] = "n", [0xae] = "o", [0xaf] = "p", [0xb0] = "q", [0xb1] = "r",
   [0xb2] = "s", [0xb3] = "t", [0xb4] = "u", [0xb5] = "v", [0xb6] = "w",
   [0xb7] = "x", [0xb8] = "y", [0xb9] = "z",
+  [0x2d] = "&", [0xe9] = "&",
+  [0xf6] = "0", [0xf7] = "1", [0xf8] = "2", [0xf9] = "3", [0xfa] = "4",
+  [0xfb] = "5", [0xfc] = "6", [0xfd] = "7", [0xfe] = "8", [0xff] = "9",
 }
 
 local server = nil
@@ -65,6 +71,7 @@ local lastSramHealth = "unknown"
 local pcCache = nil
 local pcCacheRemaining = 0
 local PC_CACHE_SNAPSHOTS = 5
+local boxNamesAddressCache = nil
 
 local function log(message)
   if console and console.log then
@@ -245,6 +252,76 @@ local function read_sram_offset_name(offset)
     result = result .. (GB_CHARS[byte] or "")
   end
   return result
+end
+
+local function read_name_at(address, maxLength)
+  local result = ""
+  for i = 0, maxLength - 1 do
+    local byte = read8(address + i)
+    if byte == 0x50 or byte == 0x00 then break end
+    result = result .. (GB_CHARS[byte] or "")
+  end
+  return result
+end
+
+local function is_reasonable_box_name(name)
+  if not name or #name == 0 or #name > (BOX_NAME_LENGTH - 1) then return false end
+  return name:match("^[%w %-%._'!?&]+$") ~= nil
+end
+
+local function score_box_names_block(baseAddress)
+  local nonEmpty = 0
+  local reasonable = 0
+
+  for i = 0, NUM_BOXES - 1 do
+    local name = read_name_at(baseAddress + (i * BOX_NAME_LENGTH), BOX_NAME_LENGTH)
+    if #name > 0 then nonEmpty = nonEmpty + 1 end
+    if is_reasonable_box_name(name) then reasonable = reasonable + 1 end
+  end
+
+  return nonEmpty, reasonable
+end
+
+local function find_box_names_address()
+  if boxNamesAddressCache then return boxNamesAddressCache end
+
+  local bestAddress = nil
+  local bestScore = -1
+
+  for base = 0xC003, 0xDFFF - BOX_NAMES_TOTAL_LENGTH + 1 do
+    local curBoxCandidate = read8(base - 3)
+    if curBoxCandidate <= (NUM_BOXES - 1) then
+      local nonEmpty, reasonable = score_box_names_block(base)
+      local score = (reasonable * 2) + nonEmpty
+      if nonEmpty >= 8 and reasonable >= 8 and score > bestScore then
+        bestAddress = base
+        bestScore = score
+      end
+    end
+  end
+
+  boxNamesAddressCache = bestAddress
+  return boxNamesAddressCache
+end
+
+local function read_box_names()
+  local names = {}
+  for i = 1, NUM_BOXES do
+    names[i] = "Box " .. tostring(i)
+  end
+
+  local base = find_box_names_address()
+  if not base then return names, nil end
+
+  for i = 0, NUM_BOXES - 1 do
+    local parsed = read_name_at(base + (i * BOX_NAME_LENGTH), BOX_NAME_LENGTH)
+    if is_reasonable_box_name(parsed) then
+      names[i + 1] = parsed
+    end
+  end
+
+  local currentBox = read8(base - 3) % NUM_BOXES
+  return names, currentBox
 end
 
 local function read_party()
@@ -457,14 +534,24 @@ local read_current_pc_count
 local function read_pc_boxes()
   local boxes = {}
   local currentBox = read_current_pc_box()
-
-  if #currentBox.pokemon > 0 then
-    currentBox.name = "Current Box (Live)"
-    table.insert(boxes, currentBox)
-  end
+  local boxNames, currentBoxIndex = read_box_names()
 
   for index, offset in ipairs(BOX_OFFSETS) do
-    local box = parse_pc_box_record(offset, "Box " .. tostring(index))
+    local isCurrentSlot = currentBoxIndex ~= nil and (currentBoxIndex + 1) == index
+    local box = nil
+
+    if isCurrentSlot and #currentBox.pokemon > 0 then
+      box = currentBox
+      box.name = boxNames[index] or ("Box " .. tostring(index))
+      box.capacity = BOX_CAPACITY
+      box.isCurrent = true
+    else
+      box = parse_pc_box_record(offset, boxNames[index] or ("Box " .. tostring(index)))
+      if box then
+        box.isCurrent = isCurrentSlot
+      end
+    end
+
     if box then table.insert(boxes, box) end
   end
 
@@ -473,8 +560,10 @@ local function read_pc_boxes()
   local offset = BOX_SCAN_START
 
   while offset <= BOX_SCAN_END and #boxes < 14 do
-    local box = parse_pc_box_record(offset, "Box " .. tostring(#boxes + 1))
+    local dynamicIndex = #boxes + 1
+    local box = parse_pc_box_record(offset, boxNames[dynamicIndex] or ("Box " .. tostring(dynamicIndex)))
     if box then
+      box.isCurrent = currentBoxIndex ~= nil and (currentBoxIndex + 1) == dynamicIndex
       table.insert(boxes, box)
       offset = offset + BOX_RECORD_SIZE
     else
@@ -483,7 +572,18 @@ local function read_pc_boxes()
   end
 
   if #boxes > 0 then return boxes end
-  return { currentBox }
+
+  if #currentBox.pokemon > 0 then
+    if currentBoxIndex ~= nil and boxNames[currentBoxIndex + 1] then
+      currentBox.name = boxNames[currentBoxIndex + 1]
+    else
+      currentBox.name = "Current Box (Live)"
+    end
+    currentBox.isCurrent = true
+    return { currentBox }
+  end
+
+  return {}
 end
 
 function read_current_pc_box()

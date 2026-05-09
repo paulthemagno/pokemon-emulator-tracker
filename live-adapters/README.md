@@ -39,6 +39,7 @@ The mGBA adapter currently exposes:
 - Johto and Kanto badge flags
 - party species, nickname, HP, stats, EXP, status, held item, happiness, moves
 - PC box species, nicknames, original trainer, EXP, held items, happiness, moves
+- PC box names (read from live WRAM when available, with generic fallback)
 - bag pockets: Items, Key Items, Poke Balls, TMs/HMs
 - live map group / map id / local X/Y
 

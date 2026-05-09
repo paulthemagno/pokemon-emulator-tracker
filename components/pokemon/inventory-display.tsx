@@ -131,7 +131,11 @@ function ItemList({ items, generation }: { items: InventoryItem[]; generation?: 
 
   return (
     <div className="space-y-2">
-      <div className="grid max-h-80 grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2 overflow-y-auto pr-1">
+      <div
+        className={`grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2 pr-1 ${
+          showAll ? "" : "max-h-80 overflow-y-auto"
+        }`}
+      >
         {displayItems.map((item, index) => (
           <ItemInfoTooltip key={index} itemName={item.name} generation={generation}>
             <div className="flex cursor-help items-center gap-2 rounded-lg bg-muted/50 px-2 py-2 transition-colors hover:bg-muted/80">
@@ -151,12 +155,12 @@ function ItemList({ items, generation }: { items: InventoryItem[]; generation?: 
           </ItemInfoTooltip>
         ))}
       </div>
-      {hasMore && !showAll && (
+      {hasMore && (
         <button
-          onClick={() => setShowAll(true)}
+          onClick={() => setShowAll((prev) => !prev)}
           className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
         >
-          Show {items.length - 12} more items...
+          {showAll ? "Show fewer items" : `Show ${items.length - 12} more items...`}
         </button>
       )}
     </div>

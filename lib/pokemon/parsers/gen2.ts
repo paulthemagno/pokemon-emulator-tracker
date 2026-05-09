@@ -40,9 +40,10 @@ const OFFSETS = {
     PARTY_DATA: 0x2892,
     CURRENT_MAP_GROUP: 0x2000,
     CURRENT_MAP: 0x2001,
-    BAG_ITEMS: 0x23e6,
-    BAG_KEY_ITEMS: 0x2417,
-    BAG_BALLS: 0x2449,
+    BAG_TMS_HMS: 0x23e6,
+    BAG_ITEMS: 0x241f,
+    BAG_KEY_ITEMS: 0x2449,
+    BAG_BALLS: 0x2464,
   },
   // Crystal offsets (slightly different)
   CRYSTAL: {
@@ -58,15 +59,27 @@ const OFFSETS = {
     PARTY_DATA: 0x286d,
     CURRENT_MAP_GROUP: 0x2000,
     CURRENT_MAP: 0x2001,
-    BAG_ITEMS: 0x23e7,
-    BAG_KEY_ITEMS: 0x2418,
-    BAG_BALLS: 0x244a,
+    BAG_TMS_HMS: 0x23e7,
+    BAG_ITEMS: 0x2420,
+    BAG_KEY_ITEMS: 0x244a,
+    BAG_BALLS: 0x2465,
   },
 };
+
+const NUM_TMS = 50;
+const NUM_HMS = 7;
 
 const PARTY_POKEMON_SIZE = 48;
 const BOX_POKEMON_SIZE = 32;
 const BOX_CAPACITY = 20;
+const NUM_BOXES = 14;
+const BOX_NAME_LENGTH = 9;
+const BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES;
+const CURRENT_BOX_OFFSET = 0x2d10;
+const BOX_OFFSETS = [
+  0x4000, 0x4450, 0x48a0, 0x4cf0, 0x5140, 0x5590, 0x59e0,
+  0x6000, 0x6450, 0x68a0, 0x6cf0, 0x7140, 0x7590, 0x79e0,
+];
 const BOX_RECORD_SIZE = 1 + BOX_CAPACITY + 1 + BOX_CAPACITY * BOX_POKEMON_SIZE + BOX_CAPACITY * 11 + BOX_CAPACITY * 11;
 
 function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
@@ -355,6 +368,35 @@ function parseInventory(data: Uint8Array, offsets: typeof OFFSETS.GS): Inventory
   }
   sections.push({ name: "Poke Balls", items: balls });
 
+  // TMs/HMs are fixed-size quantity bytes in Gen 2 save data
+  const tmhmItems: InventoryItem[] = [];
+  for (let i = 0; i < NUM_TMS; i++) {
+    const quantity = data[offsets.BAG_TMS_HMS + i];
+    if (quantity > 0) {
+      const itemId = 0xbf + i;
+      tmhmItems.push({
+        id: itemId,
+        name: getGen2ItemName(itemId),
+        quantity,
+        pocket: "TMs/HMs",
+      });
+    }
+  }
+
+  for (let i = 0; i < NUM_HMS; i++) {
+    const quantity = data[offsets.BAG_TMS_HMS + NUM_TMS + i];
+    if (quantity > 0) {
+      const itemId = 0xf3 + i;
+      tmhmItems.push({
+        id: itemId,
+        name: getGen2ItemName(itemId),
+        quantity,
+        pocket: "TMs/HMs",
+      });
+    }
+  }
+  sections.push({ name: "TMs/HMs", items: tmhmItems });
+
   return sections;
 }
 
@@ -397,40 +439,122 @@ function parsePCBoxRecord(data: Uint8Array, offset: number, name: string): PCBox
   return { name, pokemon, capacity: BOX_CAPACITY };
 }
 
-function findPCBoxRecords(data: Uint8Array): PCBox[] {
-  const candidates: Array<{ offset: number; box: PCBox }> = [];
+function isReasonableBoxName(name: string): boolean {
+  if (!name || name.length === 0 || name.length > BOX_NAME_LENGTH - 1) return false;
+  return /^[\w \-._'!?&]+$/i.test(name);
+}
+
+function getGen2BoxNameInfo(data: Uint8Array): { names: string[]; currentBoxIndex?: number } {
+  const fallbackNames = Array.from({ length: NUM_BOXES }, (_, i) => `Box ${i + 1}`);
+  let bestBase = -1;
+  let bestScore = -1;
+
+  for (let base = 3; base <= data.length - BOX_NAMES_TOTAL_LENGTH; base++) {
+    const currentCandidate = data[base - 3];
+    if (currentCandidate > NUM_BOXES - 1) continue;
+
+    let nonEmpty = 0;
+    let reasonable = 0;
+    for (let i = 0; i < NUM_BOXES; i++) {
+      const name = decodeGen1String(data, base + i * BOX_NAME_LENGTH, BOX_NAME_LENGTH).trim();
+      if (name.length > 0) nonEmpty++;
+      if (isReasonableBoxName(name)) reasonable++;
+    }
+
+    const score = reasonable * 2 + nonEmpty;
+    if (nonEmpty >= 8 && reasonable >= 8 && score > bestScore) {
+      bestBase = base;
+      bestScore = score;
+    }
+  }
+
+  if (bestBase < 0) return { names: fallbackNames };
+
+  const names = fallbackNames.slice();
+  for (let i = 0; i < NUM_BOXES; i++) {
+    const parsed = decodeGen1String(data, bestBase + i * BOX_NAME_LENGTH, BOX_NAME_LENGTH).trim();
+    if (isReasonableBoxName(parsed)) names[i] = parsed;
+  }
+
+  return {
+    names,
+    currentBoxIndex: data[bestBase - 3] % NUM_BOXES,
+  };
+}
+
+function findPCBoxRecords(
+  data: Uint8Array,
+  names: string[],
+  currentBoxIndex?: number
+): PCBox[] {
+  const candidates: Array<{ offset: number; box: PCBox; index: number }> = [];
 
   for (let offset = 0x2400; offset <= data.length - BOX_RECORD_SIZE; offset++) {
-    const box = parsePCBoxRecord(data, offset, `Box ${candidates.length + 1}`);
+    const matchedIndex = BOX_OFFSETS.indexOf(offset);
+    const boxIndex = matchedIndex >= 0 ? matchedIndex : candidates.length;
+    const box = parsePCBoxRecord(data, offset, names[boxIndex] ?? `Box ${boxIndex + 1}`);
     if (!box || box.pokemon.length === 0) continue;
+    box.isCurrent = currentBoxIndex !== undefined && boxIndex === currentBoxIndex;
 
     const overlapsExisting = candidates.some(
       (candidate) => Math.abs(candidate.offset - offset) < BOX_RECORD_SIZE
     );
     if (!overlapsExisting) {
-      candidates.push({ offset, box });
+      candidates.push({ offset, box, index: boxIndex });
     }
   }
 
-  return candidates.slice(0, 14).map((candidate, index) => ({
-    ...candidate.box,
-    name: `Box ${index + 1}`,
-  }));
+  return candidates
+    .slice(0, NUM_BOXES)
+    .sort((a, b) => a.index - b.index)
+    .map((candidate) => candidate.box);
 }
 
 function parsePCBoxes(data: Uint8Array): PCBox[] {
-  const parsedBoxes = findPCBoxRecords(data);
+  const { names, currentBoxIndex } = getGen2BoxNameInfo(data);
+
+  const currentBox = parsePCBoxRecord(
+    data,
+    CURRENT_BOX_OFFSET,
+    names[currentBoxIndex ?? 0] ?? "Current Box"
+  );
+
+  const parsedBoxes: PCBox[] = [];
+
+  for (let i = 0; i < BOX_OFFSETS.length; i++) {
+    const isCurrent = currentBoxIndex !== undefined && i === currentBoxIndex;
+    if (isCurrent && currentBox && currentBox.pokemon.length > 0) {
+      parsedBoxes.push({ ...currentBox, isCurrent: true, name: names[i] ?? `Box ${i + 1}` });
+      continue;
+    }
+
+    const box = parsePCBoxRecord(data, BOX_OFFSETS[i], names[i] ?? `Box ${i + 1}`);
+    if (box && box.pokemon.length > 0) {
+      box.isCurrent = isCurrent;
+      parsedBoxes.push(box);
+    }
+  }
+
   if (parsedBoxes.length > 0) return parsedBoxes;
 
-  const boxes: PCBox[] = [];
-  for (let i = 0; i < 14; i++) {
-    boxes.push({
-      name: `Box ${i + 1}`,
+  const scannedBoxes = findPCBoxRecords(data, names, currentBoxIndex);
+  if (scannedBoxes.length > 0) return scannedBoxes;
+
+  if (currentBox && currentBox.pokemon.length > 0) {
+    currentBox.isCurrent = true;
+    return [currentBox];
+  }
+
+  const emptyBoxes: PCBox[] = [];
+  for (let i = 0; i < NUM_BOXES; i++) {
+    emptyBoxes.push({
+      name: names[i] ?? `Box ${i + 1}`,
       pokemon: [],
       capacity: BOX_CAPACITY,
+      isCurrent: currentBoxIndex !== undefined && i === currentBoxIndex,
     });
   }
-  return boxes;
+  return emptyBoxes;
 }
 
 function detectGen2Version(data: Uint8Array, filename = ""): { game: GameVersion; offsets: typeof OFFSETS.GS } {

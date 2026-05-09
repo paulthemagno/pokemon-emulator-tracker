@@ -237,19 +237,26 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                 <div className="flex min-w-0 items-center gap-2">
                   <Award className="h-4 w-4 shrink-0 text-amber-500" />
                   <span className="text-xs text-muted-foreground">Badges</span>
-                  <div className="flex min-w-0 flex-wrap gap-1">
+                  <div className="flex min-w-0 flex-wrap gap-1.5">
                     {Array.from({ length: totalBadges }).map((_, i) => {
                       const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
                       const badge = getBadgeState(i);
                       return (
-                        <img
+                        <div
                           key={badge.name}
-                          src={badge.sprite}
-                          alt={badge.name}
-                          className={`h-5 w-5 object-contain [image-rendering:pixelated] ${earned ? "" : "opacity-35 grayscale"}`}
-                          draggable={false}
+                          className={`w-11 text-center ${earned ? "" : "opacity-45 grayscale"}`}
                           title={badge.name}
-                        />
+                        >
+                          <img
+                            src={badge.sprite}
+                            alt={badge.name}
+                            className="mx-auto h-5 w-5 object-contain [image-rendering:pixelated]"
+                            draggable={false}
+                          />
+                          <span className="mt-0.5 block truncate text-[9px] font-semibold uppercase leading-none text-muted-foreground">
+                            {badge.shortName}
+                          </span>
+                        </div>
                       );
                     })}
                   </div>

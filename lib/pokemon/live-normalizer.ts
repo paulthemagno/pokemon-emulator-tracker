@@ -153,6 +153,7 @@ function normalizePCBoxes(pcBoxes: unknown): PCBox[] {
         name: String(record.name ?? `Box ${index + 1}`),
         pokemon,
         capacity: Number(record.capacity ?? 20),
+        isCurrent: Boolean(record.isCurrent),
       };
     })
     .filter((box) => box.pokemon.length > 0);

@@ -111,6 +111,7 @@ export interface PCBox {
   name: string;
   pokemon: (Pokemon | null)[];
   capacity: number;
+  isCurrent?: boolean;
 }
 
 export interface InventoryItem {

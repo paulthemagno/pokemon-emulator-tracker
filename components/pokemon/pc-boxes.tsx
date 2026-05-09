@@ -13,6 +13,12 @@ interface PCBoxesProps {
   className?: string;
 }
 
+function getDisplayBoxName(box: PCBox, index: number): string {
+  const rawName = box.name?.trim();
+  if (!rawName) return `Box ${index + 1}`;
+  return rawName;
+}
+
 function getSpriteUrl(species: number): string {
   if (species <= 0 || species > 386) {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/0.png`;
@@ -21,7 +27,7 @@ function getSpriteUrl(species: number): string {
 }
 
 export function PCBoxes({ boxes, className }: PCBoxesProps) {
-  const [currentBoxIndex, setCurrentBoxIndex] = useState(0);
+  const [currentBoxIndex, setCurrentBoxIndex] = useState(-1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const boxesWithPokemon = boxes.map((box) => ({
@@ -31,6 +37,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
 
   // Filter to boxes that have Pokemon
   const nonEmptyBoxes = boxesWithPokemon.filter((box) => box.pokemon.length > 0);
+  const liveCurrentBoxIndex = nonEmptyBoxes.findIndex((box) => box.isCurrent);
 
   if (nonEmptyBoxes.length === 0) {
     return (
@@ -50,17 +57,30 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
     );
   }
 
-  const currentBox = nonEmptyBoxes[currentBoxIndex];
+  const selectedIndexCandidate =
+    currentBoxIndex >= 0
+      ? currentBoxIndex
+      : liveCurrentBoxIndex >= 0
+      ? liveCurrentBoxIndex
+      : 0;
+  const selectedBoxIndex = Math.min(
+    Math.max(selectedIndexCandidate, 0),
+    nonEmptyBoxes.length - 1
+  );
+  const currentBox = nonEmptyBoxes[selectedBoxIndex];
+  const currentBoxName = getDisplayBoxName(currentBox, selectedBoxIndex);
 
   const goToPrevBox = () => {
-    setCurrentBoxIndex((prev) =>
-      prev === 0 ? nonEmptyBoxes.length - 1 : prev - 1
+    const baseIndex = selectedBoxIndex;
+    setCurrentBoxIndex(
+      baseIndex === 0 ? nonEmptyBoxes.length - 1 : baseIndex - 1
     );
   };
 
   const goToNextBox = () => {
-    setCurrentBoxIndex((prev) =>
-      prev === nonEmptyBoxes.length - 1 ? 0 : prev + 1
+    const baseIndex = selectedBoxIndex;
+    setCurrentBoxIndex(
+      baseIndex === nonEmptyBoxes.length - 1 ? 0 : baseIndex + 1
     );
   };
 
@@ -89,13 +109,13 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
             variant="ghost"
             size="icon"
             onClick={goToPrevBox}
-            className="h-8 w-8"
+            className="h-10 w-10"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
 
           <div className="flex items-center gap-2">
-            <span className="font-medium">{currentBox.name}</span>
+            <span className="font-medium">{currentBoxName}</span>
             <span className="text-xs text-muted-foreground">
               ({currentBox.pokemon.length}/{currentBox.capacity})
             </span>
@@ -105,10 +125,38 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
             variant="ghost"
             size="icon"
             onClick={goToNextBox}
-            className="h-8 w-8"
+            className="h-10 w-10"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-5 w-5" />
           </Button>
+        </div>
+
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {nonEmptyBoxes.map((box, index) => {
+            const isActive = index === selectedBoxIndex;
+            const isLiveCurrent = index === liveCurrentBoxIndex;
+            return (
+              <button
+                key={`${box.name}-${index}`}
+                onClick={() => setCurrentBoxIndex(index)}
+                className={`shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  isActive
+                    ? "border-primary bg-primary/10 text-primary"
+                    : isLiveCurrent
+                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700"
+                    : "border-border bg-background/50 text-muted-foreground hover:bg-muted/70"
+                }`}
+                title={`${getDisplayBoxName(box, index)} (${box.pokemon.length}/${box.capacity})`}
+              >
+                {getDisplayBoxName(box, index)}
+                {isLiveCurrent && (
+                  <span className="ml-1 rounded bg-emerald-500/20 px-1 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
+                    Current
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* View Mode Toggle */}
@@ -128,7 +176,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
       <CardContent>
         {viewMode === "grid" ? (
           // Grid view - shows sprites in a 6x5 grid like the game
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(52px,1fr))] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(70px,1fr))] gap-2.5">
             {Array.from({ length: currentBox.capacity }).map((_, index) => {
               const pokemon = currentBox.pokemon[index];
               return (
@@ -142,8 +190,8 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
                       <Image
                         src={getSpriteUrl(pokemon.species)}
                         alt={pokemon.speciesName}
-                        width={40}
-                        height={40}
+                        width={56}
+                        height={56}
                         className="pixelated"
                         unoptimized
                       />
@@ -169,16 +217,19 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
         )}
 
         {/* Box selector dots */}
-        <div className="flex justify-center gap-1 mt-4">
-          {nonEmptyBoxes.map((_, index) => (
+        <div className="flex justify-center gap-2 mt-4">
+          {nonEmptyBoxes.map((box, index) => (
             <button
               key={index}
               onClick={() => setCurrentBoxIndex(index)}
-              className={`h-2 w-2 rounded-full transition-colors ${
-                index === currentBoxIndex
+              className={`h-4 w-4 rounded-full transition-colors ${
+                index === selectedBoxIndex
                   ? "bg-primary"
+                  : box.isCurrent
+                  ? "bg-emerald-500"
                   : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-              }`}
+              } ${box.isCurrent ? "ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-background" : ""}`}
+              title={getDisplayBoxName(nonEmptyBoxes[index], index)}
             />
           ))}
         </div>

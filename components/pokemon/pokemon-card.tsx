@@ -20,6 +20,8 @@ interface PokemonCardProps {
   className?: string;
 }
 
+const BASE_STAT_REFERENCE = 255;
+
 function getHpColor(current: number, max: number): string {
   if (max === 0) return "bg-muted";
   const percentage = (current / max) * 100;
@@ -196,19 +198,19 @@ export function PokemonCard({
   const statRows =
     generation === 1
       ? [
-          { label: "ATK", value: pokemon.stats.attack },
-          { label: "DEF", value: pokemon.stats.defense },
-          { label: "Special", value: pokemon.stats.special ?? pokemon.stats.specialAttack ?? 0 },
-          { label: "Speed", value: pokemon.stats.speed },
+          { label: "Atk", value: pokemon.stats.attack },
+          { label: "Def", value: pokemon.stats.defense },
+          { label: "Spc", value: pokemon.stats.special ?? pokemon.stats.specialAttack ?? 0 },
+          { label: "Spe", value: pokemon.stats.speed },
         ]
       : [
-          { label: "ATK", value: pokemon.stats.attack },
-          { label: "DEF", value: pokemon.stats.defense },
-          { label: "Sp. Atk", value: pokemon.stats.specialAttack ?? pokemon.stats.special ?? 0 },
-          { label: "Sp. Def", value: pokemon.stats.specialDefense ?? pokemon.stats.special ?? 0 },
-          { label: "Speed", value: pokemon.stats.speed },
+          { label: "Atk", value: pokemon.stats.attack },
+          { label: "Def", value: pokemon.stats.defense },
+          { label: "SpA", value: pokemon.stats.specialAttack ?? pokemon.stats.special ?? 0 },
+          { label: "SpD", value: pokemon.stats.specialDefense ?? pokemon.stats.special ?? 0 },
+          { label: "Spe", value: pokemon.stats.speed },
         ];
-  const maxStat = Math.max(1, ...statRows.map((stat) => stat.value));
+  const statBarReference = Math.max(BASE_STAT_REFERENCE, ...statRows.map((stat) => stat.value));
 
   if (compact) {
     return (
@@ -389,7 +391,7 @@ export function PokemonCard({
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${Math.max(8, Math.min(100, (stat.value / maxStat) * 100))}%`,
+                      width: `${Math.max(8, Math.min(100, (stat.value / statBarReference) * 100))}%`,
                       backgroundColor: primaryTypeColor,
                     }}
                   />

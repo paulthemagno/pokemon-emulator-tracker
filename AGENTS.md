@@ -83,12 +83,32 @@ public/badges/
 
 Do not hotlink Bulbagarden directly in the UI: some assets break or are unstable in browsers.
 
+- In compact trainer cards, badges should show a short visible label (not only tooltip) so names remain readable at a glance.
+
 ## Things not to repeat
 
 - Do not use stretched/cropped map screenshots with coordinates from another map.
 - Do not place city labels over the map if they hurt readability.
 - Do not calibrate Kanto in a way that breaks Johto, or vice versa.
 - Do not assume one offset works for every landmark.
+
+## UI stats notes
+
+- Pokemon stat labels in cards are intentionally short and consistent: `Atk`, `Def`, `SpA`, `SpD`, `Spe` (Gen 1 uses `Spc`).
+- Stat bars in cards use 255 as the default reference scale; if any displayed stat exceeds 255, that card scales to the highest displayed stat.
+
+## Inventory notes
+
+- Gen 2 Crystal save inventory offsets differ from TM/HM bytes; keep bag pockets aligned to the correct save addresses (`BAG_ITEMS`, `BAG_KEY_ITEMS`, `BAG_BALLS`, and `BAG_TMS_HMS`).
+- Inventory "Show more" should visibly expand/collapse the list and not keep extra items hidden behind a fixed-height scroll area.
+
+## PC boxes UI notes
+
+- Box grid sprites are intentionally larger for readability.
+- Box navigation shows visible clickable box names; if parser-provided names are missing, fallback should stay generic (`Box N`) and not use Pokemon names.
+- Box navigation dots should remain easy to click on touch devices.
+- Live payload can mark the currently active box; UI should default selection to it and keep a distinct visual highlight for it.
+- Save-file parsing and live adapter payload are separate pipelines; box names/current-box flags must be handled in both.
 
 ## Minimum verification
 

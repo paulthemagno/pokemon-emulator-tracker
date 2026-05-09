@@ -79,6 +79,7 @@ const GEN1_CHAR_TABLE: Record<number, string> = {
   0xe6: "?",
   0xe7: "!",
   0xe8: ".",
+  0xe9: "&",
   0xef: "♂",
   0xf0: "¥",
   0xf1: "×",
