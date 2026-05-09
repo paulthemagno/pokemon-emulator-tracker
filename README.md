@@ -1,17 +1,17 @@
 # Pokemon Tracker
 
-Dashboard web per leggere salvataggi Pokemon e, in modalita live, seguire Pokemon Crystal mentre gira in mGBA.
+Web dashboard for reading Pokemon save files and, in live mode, following Pokemon Crystal while it runs in mGBA.
 
-## Cosa fa
+## What it does
 
-- Importa file `.sav` / `.srm` Gen 1, Gen 2 e parte Gen 3.
-- Mostra trainer, party, PC box, inventario e posizione.
-- Supporta una modalita live per Pokemon Crystal tramite script Lua in mGBA.
-- In live mode aggiorna party, HP, EXP, mosse, badge, trainer info e landmark Pokégear.
+- Imports Gen 1, Gen 2, and partial Gen 3 `.sav` / `.srm` files.
+- Shows trainer data, party, PC boxes, inventory, and location.
+- Supports live mode for Pokemon Crystal through a Lua script in mGBA.
+- In live mode, updates party, HP, EXP, moves, badges, trainer info, and Pokégear landmarks.
 
 ## Setup
 
-Richiede Node.js recente e Corepack.
+Requires a recent Node.js version and Corepack.
 
 ```bash
 corepack enable
@@ -19,44 +19,44 @@ corepack pnpm install
 corepack pnpm dev
 ```
 
-Apri:
+Open:
 
 ```text
 http://localhost:3000
 ```
 
-Per esporre la UI ad altri dispositivi sulla stessa rete:
+To expose the UI to other devices on the same network:
 
 ```bash
 corepack pnpm dev --hostname 0.0.0.0
 ```
 
-Poi apri l'IP del computer host, per esempio:
+Then open the host computer's IP address, for example:
 
 ```text
 http://192.168.1.83:3000
 ```
 
-## Live con mGBA
+## Live with mGBA
 
-1. Apri Pokemon Crystal in mGBA.
-2. Apri `Tools -> Scripting...`.
-3. Carica `live-adapters/mgba-crystal-live.lua`.
-4. Nella web app premi **Start Live**.
+1. Open Pokemon Crystal in mGBA.
+2. Open `Tools -> Scripting...`.
+3. Load `live-adapters/mgba-crystal-live.lua`.
+4. In the web app, press **Start Live**.
 
-Lo script mGBA espone un piccolo server locale su:
+The mGBA script exposes a small local server at:
 
 ```text
 http://127.0.0.1:8080/snapshot
 ```
 
-La web app chiama `/api/live`, che fa proxy verso lo script live.
+The web app calls `/api/live`, which proxies to the live script.
 
-## Condivisione del progetto
+## Sharing the project
 
-Quando condividi il codice, passa la repository intera ma non `node_modules`.
+When sharing the code, share the whole repository but not `node_modules`.
 
-File/cartelle importanti:
+Important files/folders:
 
 - `app/`
 - `components/`
@@ -69,7 +69,7 @@ File/cartelle importanti:
 - `next.config.mjs`
 - `tsconfig.json`
 
-Chi riceve il progetto deve eseguire:
+Whoever receives the project should run:
 
 ```bash
 corepack enable
@@ -77,25 +77,25 @@ corepack pnpm install
 corepack pnpm dev
 ```
 
-## Stato noto
+## Known status
 
-- La modalita `.sav` rimane la via piu universale per gli emulatori senza adapter live.
-- Il live vero dipende dall'emulatore. Al momento l'adapter curato e' `mGBA + Pokemon Crystal`.
-- La mappa live usa landmark stile Pokégear, non coordinate passo-passo.
-- Alcune aree Gen 3 hanno ancora errori TypeScript storici e vanno ripulite prima di considerare il progetto stabile.
+- `.sav` mode remains the most universal path for emulators without a live adapter.
+- True live mode depends on the emulator. The maintained adapter right now is `mGBA + Pokemon Crystal`.
+- The live map uses Pokégear-style landmarks, not step-by-step coordinates.
+- Some Gen 3 areas still have legacy TypeScript errors and should be cleaned up before considering the project stable.
 
-## Dati generati
+## Generated data
 
-Le descrizioni degli item nei tooltip sono locali in `lib/pokemon/data/item-descriptions.ts`.
-Il file viene generato da PokeAPI per gli item Gen 1-3 che l'app puo' parsare.
+Item descriptions in tooltips are stored locally in `lib/pokemon/data/item-descriptions.ts`.
+The file is generated from PokeAPI for the Gen 1-3 items the app can parse.
 
-Per rigenerarlo dopo modifiche alle tabelle item:
+To regenerate it after item table changes:
 
 ```bash
 node scripts/generate-item-descriptions.mjs
 ```
 
-## Documenti
+## Documents
 
 - [Live adapters](live-adapters/README.md)
 - [Agent notes](AGENTS.md)

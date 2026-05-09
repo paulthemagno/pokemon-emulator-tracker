@@ -1,10 +1,10 @@
 # Agent Notes
 
-Queste note sono per Codex o altri agenti che riprendono il lavoro.
+These notes are for Codex or other agents picking up the work.
 
-## Regola principale
+## Main rule
 
-Aggiorna questi `.md` mentre lavori. Se cambi setup, live adapter, mappa, coordinate, endpoint, o workflow utente, aggiorna almeno uno tra:
+Update these `.md` files as you work. If you change setup, live adapters, maps, coordinates, endpoints, or the user workflow, update at least one of:
 
 - `README.md`
 - `live-adapters/README.md`
@@ -12,14 +12,14 @@ Aggiorna questi `.md` mentre lavori. Se cambi setup, live adapter, mappa, coordi
 - `docs/known-issues.md`
 - `AGENTS.md`
 
-## Contesto progetto
+## Project context
 
-Il progetto e' una app Next/React per Pokemon save tracking. Ha due sorgenti dati:
+This project is a Next/React app for Pokemon save tracking. It has two data sources:
 
-- Upload `.sav` / `.srm`
-- Live emulator memory tramite `/api/live`
+- `.sav` / `.srm` uploads
+- Live emulator memory through `/api/live`
 
-Il live corrente e' focalizzato su Pokemon Crystal in mGBA.
+The current live mode is focused on Pokemon Crystal in mGBA.
 
 ## Live mGBA
 
@@ -29,67 +29,67 @@ File principale:
 live-adapters/mgba-crystal-live.lua
 ```
 
-Lo script legge WRAM Crystal e serve JSON su `127.0.0.1:8080`.
+The script reads Crystal WRAM and serves JSON on `127.0.0.1:8080`.
 
-Endpoint usato dalla UI:
+Endpoint used by the UI:
 
 ```text
 GET /api/live
 ```
 
-che normalizza con:
+which is normalized by:
 
 ```text
 lib/pokemon/live-normalizer.ts
 ```
 
-## Mappa Pokégear
+## Pokégear Map
 
-La UI usa mappe locali in:
+The UI uses local maps in:
 
 ```text
 public/maps/
 ```
 
-La conversione `mapGroup/mapId -> landmark -> coordinate` vive in:
+The `mapGroup/mapId -> landmark -> coordinates` conversion lives in:
 
 ```text
 lib/pokemon/data/gen2-map-landmarks.ts
 ```
 
-Non usare un offset globale per tutte le mappe. Alcuni landmark possono richiedere `offsetX` / `offsetY` specifici. Goldenrod e' stato calibrato manualmente.
+Do not use a global offset for every map. Some landmarks may require specific `offsetX` / `offsetY` values. Goldenrod was calibrated manually.
 
-Le coordinate Kanto e Johto devono restare coerenti con `pokecrystal` `data/maps/landmarks.asm`.
+Kanto and Johto coordinates must stay consistent with `pokecrystal` `data/maps/landmarks.asm`.
 
 ## Badge
 
-Gli sprite badge sono locali:
+Badge sprites are local:
 
 ```text
 public/badges/
 ```
 
-Non hotlinkare Bulbagarden direttamente nella UI: alcuni asset si rompono o sono instabili nel browser.
+Do not hotlink Bulbagarden directly in the UI: some assets break or are unstable in browsers.
 
-## Cose da non rifare
+## Things not to repeat
 
-- Non usare mappe screenshot allungate/croppate con coordinate di un'altra mappa.
-- Non mettere label citta' sovrapposte alla mappa se rovinano la leggibilita'.
-- Non calibrare Kanto rompendo Johto, o viceversa.
-- Non assumere che un offset funzioni per tutti i landmark.
+- Do not use stretched/cropped map screenshots with coordinates from another map.
+- Do not place city labels over the map if they hurt readability.
+- Do not calibrate Kanto in a way that breaks Johto, or vice versa.
+- Do not assume one offset works for every landmark.
 
-## Verifica minima
+## Minimum verification
 
-Dopo modifiche frontend:
+After frontend changes:
 
 ```bash
 curl -I http://127.0.0.1:3000
 ```
 
-Se il server non e' acceso:
+If the server is not running:
 
 ```bash
 ./node_modules/.bin/next dev --hostname 0.0.0.0
 ```
 
-In sandbox puo' servire escalation per bindare `0.0.0.0:3000`.
+In the sandbox, escalation may be required to bind `0.0.0.0:3000`.
