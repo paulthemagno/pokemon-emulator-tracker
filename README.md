@@ -96,10 +96,14 @@ corepack pnpm dev
 Item descriptions in tooltips are stored locally in `lib/pokemon/data/item-descriptions.ts`.
 The file is generated from PokeAPI for the Gen 1-3 items the app can parse.
 
+Move descriptions in tooltips are stored locally in `lib/pokemon/data/move-descriptions.ts`.
+The file is generated from PokeAPI for Gen 1-3 move IDs used by the app.
+
 To regenerate it after item table changes:
 
 ```bash
 node scripts/generate-item-descriptions.mjs
+node scripts/generate-move-descriptions.mjs
 ```
 
 The Gen 2 Pokégear map PNGs in `public/maps/` are generated from a local `pokecrystal` checkout:

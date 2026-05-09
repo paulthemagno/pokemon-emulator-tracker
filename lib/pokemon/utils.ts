@@ -2,6 +2,7 @@
 
 import type { StatusCondition } from "./types";
 import { ITEM_DESCRIPTIONS } from "./data/item-descriptions";
+import { MOVE_DESCRIPTIONS } from "./data/move-descriptions";
 import { getGen1ItemName, getGen2ItemName, getGen3ItemName } from "./data/items";
 import {
   getGen3FRLGLocation,
@@ -772,6 +773,28 @@ export function getItemDescription(itemName: string, generation?: number): strin
   }
 
   return itemDescription.flavorText || itemDescription.shortEffect || localDescription;
+}
+
+const MOVE_DESCRIPTION_VERSION_GROUPS: Record<number, string[]> = {
+  1: ["red-blue", "yellow"],
+  2: ["gold-silver", "crystal"],
+  3: ["ruby-sapphire", "emerald", "firered-leafgreen"],
+};
+
+export function getMoveDescription(moveId: number, moveName?: string, generation?: number): string {
+  if (!moveId || moveId <= 0) return "No move in this slot.";
+
+  const moveDescription = MOVE_DESCRIPTIONS[moveId];
+  if (!moveDescription) {
+    return moveName ? `No description available for ${moveName}.` : "No description available yet.";
+  }
+
+  for (const versionGroup of MOVE_DESCRIPTION_VERSION_GROUPS[generation ?? 0] ?? []) {
+    const flavorText = moveDescription.flavorTexts[versionGroup];
+    if (flavorText) return flavorText;
+  }
+
+  return moveDescription.flavorText || moveDescription.shortEffect || "No description available yet.";
 }
 
 /**

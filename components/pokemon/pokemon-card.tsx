@@ -11,6 +11,7 @@ import { Sparkles, Egg, Heart } from "lucide-react";
 import Image from "next/image";
 import { ItemIcon } from "./item-icon";
 import { ItemInfoTooltip } from "./item-info-tooltip";
+import { MoveInfoTooltip } from "./move-info-tooltip";
 
 interface PokemonCardProps {
   pokemon: Pokemon;
@@ -419,33 +420,39 @@ export function PokemonCard({
                 const moveColor = getTypeColor(moveType ?? "???");
 
                 return (
-                  <div
+                  <MoveInfoTooltip
                     key={`${move?.id ?? 0}-${i}`}
-                    className="rounded-md border border-border/60 bg-background/45 p-2 text-xs"
-                    style={{ boxShadow: `inset 3px 0 0 ${moveColor}` }}
-                    title={hasMove ? `${moveName} ${currentPP}/${maxPP} PP` : `Empty slot ${i + 1}`}
+                    moveId={hasMove ? move?.id : 0}
+                    moveName={hasMove ? moveName : undefined}
+                    generation={generation}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-bold text-foreground">
-                          {hasMove ? moveName : `Empty Slot ${i + 1}`}
+                    <div
+                      className="cursor-help rounded-md border border-border/60 bg-background/45 p-2 text-xs"
+                      style={{ boxShadow: `inset 3px 0 0 ${moveColor}` }}
+                      title={hasMove ? `${moveName} ${currentPP}/${maxPP} PP` : `Empty slot ${i + 1}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-foreground">
+                            {hasMove ? moveName : `Empty Slot ${i + 1}`}
+                          </div>
+                          <span
+                            className="mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-medium capitalize"
+                            style={getTypeStyle(moveType ?? "???")}
+                          >
+                            {moveType ?? "move"}
+                          </span>
                         </div>
-                        <span
-                          className="mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-medium capitalize"
-                          style={getTypeStyle(moveType ?? "???")}
-                        >
-                          {moveType ?? "move"}
+                        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                          {currentPP}/{maxPP}
                         </span>
                       </div>
-                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                        {currentPP}/{maxPP}
-                      </span>
+                      <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                        <span>{movePower !== undefined && movePower !== null ? `${movePower} pow` : "status"}</span>
+                        <span className="text-right">{moveAccuracy ? `${moveAccuracy}% acc` : "--"}</span>
+                      </div>
                     </div>
-                    <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-                      <span>{movePower !== undefined && movePower !== null ? `${movePower} pow` : "status"}</span>
-                      <span className="text-right">{moveAccuracy ? `${moveAccuracy}% acc` : "--"}</span>
-                    </div>
-                  </div>
+                  </MoveInfoTooltip>
                 );
               })}
             </div>
