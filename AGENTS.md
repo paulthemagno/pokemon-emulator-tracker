@@ -57,7 +57,19 @@ The `mapGroup/mapId -> landmark -> coordinates` conversion lives in:
 lib/pokemon/data/gen2-map-landmarks.ts
 ```
 
-Do not use a global offset for every map. Some landmarks may require specific `offsetX` / `offsetY` values. Goldenrod was calibrated manually.
+Johto and Kanto town-map PNGs are generated from `pret/pokecrystal` with:
+
+```bash
+node scripts/generate-gen2-town-maps.mjs /path/to/pokecrystal
+```
+
+The landmark lookup table is generated from `pret/pokecrystal` with:
+
+```bash
+node scripts/generate-gen2-map-landmarks.mjs /path/to/pokecrystal
+```
+
+Do not use a global offset for every map. The current map images are 160x144 Pokégear screen-space renders, so landmarks should use the visible coordinates from `pokecrystal` `data/maps/landmarks.asm` directly.
 
 Kanto and Johto coordinates must stay consistent with `pokecrystal` `data/maps/landmarks.asm`.
 

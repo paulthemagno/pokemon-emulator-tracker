@@ -140,6 +140,20 @@ The current map view is landmark-based, not per-step.
 
 The Lua adapter reads live `mapGroup` and `mapId`. The UI maps those to a landmark in `gen2-map-landmarks.ts`, then draws a marker over local GSC town map assets.
 
+The local Johto and Kanto PNGs are regenerated from `pokecrystal` `gfx/pokegear/town_map.png`, `johto.bin`, `kanto.bin`, and the Pokégear palette data with:
+
+```bash
+node scripts/generate-gen2-town-maps.mjs /path/to/pokecrystal
+```
+
+The marker coordinates use the visible 160x144 screen-space values from `pokecrystal` `data/maps/landmarks.asm`. The game stores those with a hardware sprite offset internally, but the UI should not apply that offset.
+
+The `mapGroup/mapId` lookup is generated from `pokecrystal` `data/maps/maps.asm`, so indoor maps, gates, routes, and dungeons inherit the same `LANDMARK_*` values used by the game:
+
+```bash
+node scripts/generate-gen2-map-landmarks.mjs /path/to/pokecrystal
+```
+
 This is intentionally closer to the in-game Pokégear than to an overworld minimap.
 
 ## Networking model

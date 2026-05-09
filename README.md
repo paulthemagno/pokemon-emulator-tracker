@@ -88,7 +88,7 @@ corepack pnpm dev
 
 - `.sav` mode remains the most universal path for emulators without a live adapter.
 - True live mode depends on the emulator. The maintained adapter right now is `mGBA + Pokemon Crystal`.
-- The live map uses Pokégear-style landmarks, not step-by-step coordinates.
+- The live map uses the original 160x144 Pokemon Crystal Pokégear town-map layout with landmark coordinates from `pokecrystal`.
 - Some Gen 3 areas still have legacy TypeScript errors and should be cleaned up before considering the project stable.
 
 ## Generated data
@@ -100,6 +100,14 @@ To regenerate it after item table changes:
 
 ```bash
 node scripts/generate-item-descriptions.mjs
+```
+
+The Gen 2 Pokégear map PNGs in `public/maps/` are generated from a local `pokecrystal` checkout:
+
+```bash
+git clone --depth 1 https://github.com/pret/pokecrystal.git /tmp/pokecrystal
+node scripts/generate-gen2-town-maps.mjs /tmp/pokecrystal
+node scripts/generate-gen2-map-landmarks.mjs /tmp/pokecrystal
 ```
 
 ## Documents

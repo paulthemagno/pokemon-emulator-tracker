@@ -42,7 +42,9 @@ Coordinate source:
 pokecrystal data/maps/landmarks.asm
 ```
 
-Some landmarks may still need `offsetX` / `offsetY` calibration. Avoid global offsets unless every landmark in that region is verified.
+The local map images are now regenerated from the matching `pokecrystal` Pokégear tilemaps at 160x144, so marker calibration should not use per-landmark `offsetX` / `offsetY` hacks unless a specific upstream mapping bug is proven.
+
+The `mapGroup/mapId` lookup is generated from `pokecrystal` `data/maps/maps.asm`, not maintained by hand.
 
 ## Gen 2 item IDs
 

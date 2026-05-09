@@ -6,7 +6,11 @@ import {
   LocationInfo,
   TrainerInfo,
 } from "@/lib/pokemon/types";
-import { getGen2MapLandmark } from "@/lib/pokemon/data/gen2-map-landmarks";
+import {
+  GEN2_TOWN_MAP_HEIGHT,
+  GEN2_TOWN_MAP_WIDTH,
+  getGen2MapLandmark,
+} from "@/lib/pokemon/data/gen2-map-landmarks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -107,34 +111,23 @@ const POKEGEAR_MAPS = {
   kanto: "/maps/kanto-town-map-gsc.png",
 } as const;
 
-function clampMapPercent(value: number) {
-  return Math.max(3, Math.min(97, value));
-}
-
-function landmarkToMarkerStyle(landmark: ReturnType<typeof getGen2MapLandmark>) {
-  if (!landmark) return {};
-
-  const defaultOffsetX = landmark.region === "kanto" ? -8 : 0;
-  const defaultOffsetY = landmark.region === "kanto" ? -15 : 0;
-  const markerCenterX = ((landmark.x / 100) * 144 + (landmark.offsetX ?? defaultOffsetX)) / 144 * 100;
-  const markerCenterY = ((landmark.y / 100) * 120 + (landmark.offsetY ?? defaultOffsetY)) / 120 * 100;
-
-  return {
-    left: `${clampMapPercent(markerCenterX)}%`,
-    top: `${clampMapPercent(markerCenterY)}%`,
-  };
-}
-
-function PlayerMapMarker() {
+function PlayerMapMarker({ landmark }: { landmark: NonNullable<ReturnType<typeof getGen2MapLandmark>> }) {
   return (
-    <div className="relative h-4 w-4 -translate-x-1/2 -translate-y-1/2 [image-rendering:pixelated]">
-      <div className="absolute left-1/2 top-0 h-1 w-2 -translate-x-1/2 bg-[#f02018]" />
-      <div className="absolute left-1/2 bottom-0 h-1 w-2 -translate-x-1/2 bg-[#f02018]" />
-      <div className="absolute left-0 top-1/2 h-2 w-1 -translate-y-1/2 bg-[#f02018]" />
-      <div className="absolute right-0 top-1/2 h-2 w-1 -translate-y-1/2 bg-[#f02018]" />
-      <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 bg-[#f02018]" />
-      <div className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 bg-[#fff8b8]" />
-    </div>
+    <svg
+      aria-hidden="true"
+      className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
+      shapeRendering="crispEdges"
+      viewBox={`0 0 ${GEN2_TOWN_MAP_WIDTH} ${GEN2_TOWN_MAP_HEIGHT}`}
+    >
+      <g transform={`translate(${landmark.x} ${landmark.y})`}>
+        <rect x="-2" y="-4" width="4" height="2" fill="#f02018" />
+        <rect x="-2" y="2" width="4" height="2" fill="#f02018" />
+        <rect x="-4" y="-2" width="2" height="4" fill="#f02018" />
+        <rect x="2" y="-2" width="2" height="4" fill="#f02018" />
+        <rect x="-2" y="-2" width="4" height="4" fill="#f02018" />
+        <rect x="-1" y="-1" width="2" height="2" fill="#fff8b8" />
+      </g>
+    </svg>
   );
 }
 
@@ -153,29 +146,22 @@ function MiniMap({ location }: { location?: LocationInfo | string }) {
           <p className="text-xs font-semibold uppercase text-[#506033]">Pokégear Map</p>
           <p className="text-sm font-bold text-[#182410]">{label}</p>
         </div>
-        <MapPin className="h-4 w-4 text-[#2f6f28]" />
+        <div className="flex items-center gap-2">
+          <span className="rounded-sm border border-[#7d8f46] bg-[#eef8bf] px-2 py-0.5 text-[10px] font-bold uppercase text-[#506033]">
+            Debug {mapGroup ? `G${mapGroup}` : "G?"} / {mapId ? `M${mapId}` : "M?"}
+          </span>
+          <MapPin className="h-4 w-4 text-[#2f6f28]" />
+        </div>
       </div>
       <div className="relative overflow-hidden rounded-md border-4 border-[#182410] bg-[#6f9f48] p-2 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)]">
-        <div className="relative mx-auto aspect-[144/120] max-h-[520px] w-full max-w-[720px] overflow-hidden rounded-sm border-2 border-[#f8f0b8] bg-[#93c66d]">
+        <div className="relative mx-auto aspect-[160/144] w-full max-w-[720px] overflow-hidden rounded-sm border-2 border-[#f8f0b8] bg-[#93c66d]">
           <img
             src={POKEGEAR_MAPS[mapRegion]}
             alt="Pokégear Kanto and Johto town map"
-            className="h-full w-full object-cover [image-rendering:pixelated]"
+            className="h-full w-full object-contain [image-rendering:pixelated]"
             draggable={false}
           />
-          {landmark && (
-            <div
-              className="absolute transition-[left,top] duration-300"
-              style={landmarkToMarkerStyle(landmark)}
-              title={landmark.name}
-            >
-              <PlayerMapMarker />
-            </div>
-          )}
-        </div>
-        <div className="mt-2 flex items-center justify-between rounded-sm border-2 border-[#182410] bg-[#f8f0b8] px-2 py-1 text-[11px] font-bold uppercase text-[#182410]">
-          <span>{label}</span>
-          <span>{mapGroup ? `G${mapGroup}` : "G?"} / {mapId ? `M${mapId}` : "M?"}</span>
+          {landmark && <PlayerMapMarker landmark={landmark} />}
         </div>
       </div>
     </div>
