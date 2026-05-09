@@ -19,6 +19,13 @@ corepack pnpm install
 corepack pnpm dev
 ```
 
+If `pnpm install` fails with `ERR_PNPM_IGNORED_BUILDS` (for example, `sharp`), approve build scripts and rerun install:
+
+```bash
+corepack pnpm approve-builds --all
+corepack pnpm install
+```
+
 Open:
 
 ```text

@@ -17,7 +17,7 @@ let inFlight: Promise<Record<string, any>> | null = null;
 
 async function fetchJson(url: string) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 2500);
+  const timeout = setTimeout(() => controller.abort(), 800);
   const response = await fetch(url, {
     cache: "no-store",
     signal: controller.signal,
@@ -28,10 +28,14 @@ async function fetchJson(url: string) {
   return response.json();
 }
 
-async function fetchSnapshot(baseUrl: string) {
+async function fetchSnapshot(baseUrl: string, useLegacyFallback: boolean) {
   try {
     return await fetchJson(`${baseUrl}/snapshot`);
   } catch {
+    if (!useLegacyFallback) {
+      throw new Error(`Unable to connect to live source at ${baseUrl}`);
+    }
+
     const [status, player, party, bag] = await Promise.allSettled([
       fetchJson(`${baseUrl}/status`),
       fetchJson(`${baseUrl}/player`),
@@ -58,18 +62,17 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const port = searchParams.get("port") ?? "8080";
   const host = searchParams.get("host") ?? "127.0.0.1";
+  const fallback = searchParams.get("fallback");
+  const useLegacyFallback = fallback === "legacy";
   const baseUrl = `http://${host}:${port}`;
 
   try {
     const now = Date.now();
-    if (now - lastFailureAt < 500) {
-      if (lastSuccess) {
-        return NextResponse.json({ success: true, ...lastSuccess, stale: true });
-      }
-      throw new Error(`Unable to connect to live source at ${baseUrl}`);
+    if (lastSuccess && now - lastFailureAt < 500) {
+      return NextResponse.json({ success: true, ...lastSuccess, stale: true });
     }
 
-    inFlight = inFlight ?? fetchSnapshot(baseUrl).finally(() => {
+    inFlight = inFlight ?? fetchSnapshot(baseUrl, useLegacyFallback).finally(() => {
       inFlight = null;
     });
     const snapshot = await inFlight;
@@ -90,6 +93,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     lastFailureAt = Date.now();
+    if (lastSuccess) {
+      return NextResponse.json({ success: true, ...lastSuccess, stale: true });
+    }
+
     return NextResponse.json(
       {
         success: false,

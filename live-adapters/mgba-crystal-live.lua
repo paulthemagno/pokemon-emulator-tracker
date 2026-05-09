@@ -61,6 +61,9 @@ local wram = nil
 local sram = nil
 local sramReadMode = "domain"
 local lastSramHealth = "unknown"
+local pcCache = nil
+local pcCacheRemaining = 0
+local PC_CACHE_SNAPSHOTS = 5
 
 local function log(message)
   if console and console.log then
@@ -510,14 +513,32 @@ function read_current_pc_count()
   return math.min(read_sram_offset8(CURRENT_BOX_OFFSET), BOX_CAPACITY)
 end
 
-local function snapshot()
-  ensure_sram_ready()
+local function read_cached_pc_data()
+  if pcCache and pcCacheRemaining > 0 then
+    pcCacheRemaining = pcCacheRemaining - 1
+    return pcCache
+  end
+
   local currentPcBox = read_current_pc_box()
   local pcBoxes = read_pc_boxes()
   local pcPokemonCount = 0
   for _, box in ipairs(pcBoxes) do
     pcPokemonCount = pcPokemonCount + #box.pokemon
   end
+
+  pcCache = {
+    currentPcBox = currentPcBox,
+    pcBoxes = pcBoxes,
+    pcPokemonCount = pcPokemonCount,
+    pcBoxCount = read_current_pc_count(),
+  }
+  pcCacheRemaining = PC_CACHE_SNAPSHOTS
+  return pcCache
+end
+
+local function snapshot()
+  ensure_sram_ready()
+  local pcData = read_cached_pc_data()
 
   local status = {
     emulator = "mGBA",
@@ -526,10 +547,10 @@ local function snapshot()
     sram = get_sram() ~= nil,
     sramHealth = lastSramHealth,
     sramReadMode = sramReadMode,
-    pcBoxCount = read_current_pc_count(),
-    currentPcBoxPokemon = #currentPcBox.pokemon,
-    pcBoxes = #pcBoxes,
-    pcBoxPokemon = pcPokemonCount,
+    pcBoxCount = pcData.pcBoxCount,
+    currentPcBoxPokemon = #pcData.currentPcBox.pokemon,
+    pcBoxes = #pcData.pcBoxes,
+    pcBoxPokemon = pcData.pcPokemonCount,
   }
 
   return {
@@ -538,7 +559,7 @@ local function snapshot()
     status = status,
     player = read_player(),
     party = read_party(),
-    pcBoxes = pcBoxes,
+    pcBoxes = pcData.pcBoxes,
     bag = read_bag(),
     location = read_location(),
   }
@@ -559,6 +580,9 @@ local function close_client(client)
 end
 
 local function start_server()
+  if not socket or not socket.tcp then
+    error("Missing socket.tcp; mGBA build may not expose Lua socket APIs")
+  end
   server = socket.tcp()
   call_if_exists(server, "settimeout", 0)
   call_if_exists(server, "setblocking", false)
@@ -584,5 +608,13 @@ local function poll_server()
   end
 end
 
-start_server()
-callbacks:add("frame", poll_server)
+local ok, err = pcall(start_server)
+if not ok then
+  log("Adapter failed to start server: " .. tostring(err))
+else
+  if callbacks and callbacks.add then
+    callbacks:add("frame", poll_server)
+  else
+    log("Adapter started server but callbacks:add is missing; polling will not run")
+  end
+end

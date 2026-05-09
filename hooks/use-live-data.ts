@@ -35,9 +35,10 @@ export function useLiveData(intervalMs = 1000) {
 
   const getNextDelay = useCallback(() => {
     const failures = failuresRef.current;
+    if (!state.data && failures > 0) return 250;
     if (failures <= 0) return intervalMs;
-    return Math.min(8000, intervalMs * 2 ** Math.min(failures, 3));
-  }, [intervalMs]);
+    return Math.min(1500, intervalMs * 2 ** Math.min(failures, 2));
+  }, [intervalMs, state.data]);
 
   const poll = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -45,7 +46,7 @@ export function useLiveData(intervalMs = 1000) {
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2500);
+      const timeout = setTimeout(() => controller.abort(), 1500);
       const response = await fetch("/api/live", {
         cache: "no-store",
         signal: controller.signal,
