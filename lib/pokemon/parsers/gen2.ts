@@ -28,6 +28,7 @@ import { getGen2Location } from "../data/locations";
 const OFFSETS = {
   // Gold/Silver offsets
   GS: {
+    PLAYER_GENDER: -1,
     PLAYER_NAME: 0x200b,
     TRAINER_ID: 0x2009,
     MONEY: 0x23db,
@@ -45,6 +46,7 @@ const OFFSETS = {
   },
   // Crystal offsets (slightly different)
   CRYSTAL: {
+    PLAYER_GENDER: 0x2000,
     PLAYER_NAME: 0x200b,
     TRAINER_ID: 0x2009,
     MONEY: 0x23dc,
@@ -239,6 +241,9 @@ function calculateLevelFromExperience(experience: number): number {
 
 function parseTrainerInfo(data: Uint8Array, offsets: typeof OFFSETS.GS): TrainerInfo {
   const name = decodeGen1String(data, offsets.PLAYER_NAME, 11);
+  const gender = offsets.PLAYER_GENDER < 0
+    ? undefined
+    : (data[offsets.PLAYER_GENDER] & 1) === 1 ? "female" : "male";
   const id = readUint16BE(data, offsets.TRAINER_ID);
   const money = readBCD(data, offsets.MONEY, 3);
   
@@ -261,6 +266,7 @@ function parseTrainerInfo(data: Uint8Array, offsets: typeof OFFSETS.GS): Trainer
 
   return {
     name,
+    gender,
     id,
     money,
     badges,

@@ -1,7 +1,7 @@
 "use client";
 
 import { SaveData } from "@/lib/pokemon/types";
-import { TrainerCard } from "./trainer-card";
+import { TrainerCard, TrainerMapCard } from "./trainer-card";
 import { PartyDisplay } from "./party-display";
 import { PCBoxes } from "./pc-boxes";
 import { InventoryDisplay } from "./inventory-display";
@@ -41,22 +41,21 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
         )}
       </div>
 
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(380px,440px)]">
+        <TrainerCard
+          trainer={saveData.trainer}
+          generation={saveData.generation}
+          game={saveData.game}
+          compact
+        />
+        <TrainerMapCard location={saveData.location} />
+      </div>
+
       <PartyDisplay party={saveData.party} generation={saveData.generation} />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(520px,0.9fr)_minmax(0,1.1fr)]">
-        <div className="space-y-6">
-          <TrainerCard
-            trainer={saveData.trainer}
-            generation={saveData.generation}
-            game={saveData.game}
-            location={saveData.location}
-          />
-        </div>
-
-        <div className="space-y-6">
-          <InventoryDisplay items={saveData.inventory} generation={saveData.generation} />
-          <PCBoxes boxes={saveData.pcBoxes} />
-        </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <InventoryDisplay items={saveData.inventory} generation={saveData.generation} />
+        <PCBoxes boxes={saveData.pcBoxes} />
       </div>
     </div>
   );

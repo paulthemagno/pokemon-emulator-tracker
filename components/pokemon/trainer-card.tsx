@@ -27,6 +27,7 @@ interface TrainerCardProps {
   generation: Generation;
   game?: GameVersion;
   location?: LocationInfo | string;
+  compact?: boolean;
 }
 
 function formatPlayTime(time: { hours: number; minutes: number; seconds?: number }): string {
@@ -134,7 +135,7 @@ function PlayerMapMarker({ landmark }: { landmark: NonNullable<ReturnType<typeof
   );
 }
 
-function MiniMap({ location }: { location?: LocationInfo | string }) {
+function MiniMap({ location, compact = false }: { location?: LocationInfo | string; compact?: boolean }) {
   const locationName = typeof location === "string" ? location : location?.name;
   const mapGroup = typeof location === "string" ? undefined : location?.mapGroup;
   const mapId = typeof location === "string" ? undefined : location?.mapId;
@@ -143,8 +144,8 @@ function MiniMap({ location }: { location?: LocationInfo | string }) {
   const mapRegion = landmark?.region === "kanto" ? "kanto" : "johto";
 
   return (
-    <div className="rounded-lg border border-[#617b38] bg-[#d7e7b6] p-3 text-[#182410]">
-      <div className="mb-2 flex items-center justify-between">
+    <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
+      <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
         <div>
           <p className="text-xs font-semibold uppercase text-[#506033]">Pokégear Map</p>
           <p className="text-sm font-bold text-[#182410]">{label}</p>
@@ -156,8 +157,8 @@ function MiniMap({ location }: { location?: LocationInfo | string }) {
           <MapPin className="h-4 w-4 text-[#2f6f28]" />
         </div>
       </div>
-      <div className="relative overflow-hidden rounded-md border-4 border-[#182410] bg-[#6f9f48] p-2 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)]">
-        <div className="relative mx-auto aspect-[160/144] w-full max-w-[720px] overflow-hidden rounded-sm border-2 border-[#f8f0b8] bg-[#93c66d]">
+      <div className={`relative overflow-hidden rounded-md border-[#182410] bg-[#6f9f48] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)] ${compact ? "border-2 p-1.5" : "border-4 p-2"}`}>
+        <div className={`relative mx-auto aspect-[160/144] w-full overflow-hidden rounded-sm border-2 border-[#f8f0b8] bg-[#93c66d] ${compact ? "max-w-[400px]" : "max-w-[720px]"}`}>
           <img
             src={POKEGEAR_MAPS[mapRegion]}
             alt="Pokégear Kanto and Johto town map"
@@ -171,12 +172,96 @@ function MiniMap({ location }: { location?: LocationInfo | string }) {
   );
 }
 
-export function TrainerCard({ trainer, generation, game, location }: TrainerCardProps) {
+export function TrainerMapCard({ location }: { location?: LocationInfo | string }) {
+  if (!location) return null;
+
+  return <MiniMap location={location} compact />;
+}
+
+export function TrainerCard({ trainer, generation, game, location, compact = false }: TrainerCardProps) {
   const locationName = typeof location === "string" ? location : location?.name;
+  const trainerGender = trainer.gender?.trim();
   const totalBadges = Array.isArray(trainer.badges) ? trainer.badges.length : 8;
   const badgeCount = Array.isArray(trainer.badges)
     ? trainer.badges.filter(Boolean).length
     : trainer.badgeCount;
+
+  if (compact) {
+    return (
+      <Card className="h-fit overflow-hidden border-border/80 bg-card/80">
+        <CardContent className="p-3">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-primary" />
+                Trainer Info
+              </CardTitle>
+              <Badge variant="outline" className={getGenBadgeColor(generation)}>
+                Gen {generation}
+              </Badge>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-[minmax(170px,1fr)_minmax(150px,0.8fr)_minmax(180px,0.9fr)_minmax(135px,0.6fr)]">
+              <div className="flex min-h-[54px] items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2">
+                <div>
+                  <p className="text-xl font-black leading-none text-foreground">{trainer.name}</p>
+                  <p className="mt-1 text-xs font-mono text-muted-foreground">
+                    ID: {trainer.id.toString().padStart(5, "0")}
+                  </p>
+                </div>
+                {trainerGender && (
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Gender</p>
+                    <p className="text-sm font-medium capitalize">{trainerGender}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex min-h-[54px] items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
+                <Gamepad2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="text-sm font-semibold">{getGameDisplayName(generation, game)}</span>
+              </div>
+
+              <div className="grid min-h-[54px] grid-cols-2 gap-2">
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Money</p>
+                  <p className="font-mono text-sm font-bold">${formatMoney(trainer.money)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Play Time</p>
+                  <p className="font-mono text-sm font-bold">{formatPlayTime(trainer.playTime)}</p>
+                </div>
+              </div>
+
+              <div className="flex min-h-[54px] items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2 md:col-span-4">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Award className="h-4 w-4 shrink-0 text-amber-500" />
+                  <span className="text-xs text-muted-foreground">Badges</span>
+                  <div className="flex min-w-0 flex-wrap gap-1">
+                    {Array.from({ length: totalBadges }).map((_, i) => {
+                      const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
+                      const badge = getBadgeState(i);
+                      return (
+                        <img
+                          key={badge.name}
+                          src={badge.sprite}
+                          alt={badge.name}
+                          className={`h-5 w-5 object-contain [image-rendering:pixelated] ${earned ? "" : "opacity-35 grayscale"}`}
+                          draggable={false}
+                          title={badge.name}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+                <span className="shrink-0 text-lg font-black">{badgeCount}/{totalBadges}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden border-border/80 bg-card/80">
@@ -200,10 +285,12 @@ export function TrainerCard({ trainer, generation, game, location }: TrainerCard
               ID: {trainer.id.toString().padStart(5, "0")}
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Gender</p>
-            <p className="text-sm font-medium capitalize">{trainer.gender}</p>
-          </div>
+          {trainerGender && (
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Gender</p>
+              <p className="text-sm font-medium capitalize">{trainerGender}</p>
+            </div>
+          )}
         </div>
 
         {/* Game Info */}

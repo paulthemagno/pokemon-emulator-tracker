@@ -1,4 +1,4 @@
--- Pokemon Save Companion live adapter for mGBA + Pokemon Crystal.
+-- Pokemon Emulator Tracker live adapter for mGBA + Pokemon Crystal.
 -- Load in mGBA: Tools -> Scripting... -> Load Script.
 -- Then press "Start Live" in the web UI. The adapter serves http://127.0.0.1:8080/snapshot.
 
@@ -22,6 +22,7 @@ local BOX_OFFSETS = {
 }
 local SRAM_BANK_SIZE = 0x2000
 local SRAM_WINDOW = 0xA000
+local PLAYER_GENDER = 0xD472
 local TRAINER_ID = 0xD47B
 local TRAINER_NAME = 0xD47D
 local PLAY_TIME = 0xD4C4
@@ -298,6 +299,7 @@ end
 
 local function read_player()
   local name = read_name(TRAINER_NAME)
+  local genderByte = read8(PLAYER_GENDER)
   local id = read16be(TRAINER_ID)
   local playTimeHours = read16be(PLAY_TIME)
   local playTimeMinutes = read8(PLAY_TIME + 2)
@@ -314,6 +316,7 @@ local function read_player()
 
   return {
     name = name ~= "" and name or "Live Trainer",
+    gender = genderByte % 2 == 1 and "female" or "male",
     id = id,
     money = money,
     badges = badges,
@@ -588,7 +591,7 @@ local function start_server()
   call_if_exists(server, "setblocking", false)
   server:bind(HOST, PORT)
   server:listen(5)
-  log("Pokemon Save Companion mGBA adapter listening on http://" .. HOST .. ":" .. PORT)
+  log("Pokemon Emulator Tracker mGBA adapter listening on http://" .. HOST .. ":" .. PORT)
 end
 
 local function poll_server()

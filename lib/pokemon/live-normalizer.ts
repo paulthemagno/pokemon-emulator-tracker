@@ -18,6 +18,12 @@ function normalizeBadges(badges: unknown): boolean[] {
   );
 }
 
+function normalizeTrainerGender(value: unknown): "male" | "female" | undefined {
+  const gender = String(value ?? "").toLowerCase();
+  if (gender === "male" || gender === "female") return gender;
+  return undefined;
+}
+
 function normalizeMoves(pokemon: AnyRecord) {
   const moveList = asArray(pokemon.moves);
   if (moveList.length > 0) {
@@ -171,6 +177,7 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
     game: String(snapshot.game ?? snapshot.status?.game ?? snapshot.status?.version ?? "crystal").toLowerCase() as SaveData["game"],
     trainer: {
       name: String(player.name ?? "Live Trainer"),
+      gender: normalizeTrainerGender(player.gender),
       id: Number(player.id ?? player.trainerId ?? 0),
       money: Number(player.money ?? 0),
       badges,

@@ -54,8 +54,8 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <Gamepad2 className="h-6 w-6 text-primary" />
               <div>
-                <h1 className="font-bold text-lg text-foreground">Pokemon Save Companion</h1>
-                <p className="text-xs text-muted-foreground">Gen 1-3 Save File Viewer</p>
+                <h1 className="font-bold text-lg text-foreground">Pokemon Emulator Tracker</h1>
+                <p className="text-xs text-muted-foreground">Live emulator and save progress dashboard</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -206,7 +206,7 @@ export default function Home() {
       <footer className="border-t border-border mt-12">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <p>Pokemon Save Companion - View your game progress in real-time</p>
+            <p>Pokemon Emulator Tracker - Track game progress from saves and live emulator memory</p>
             <p className="text-xs">
               Pokemon is a trademark of Nintendo/Game Freak. This is a fan-made tool.
             </p>

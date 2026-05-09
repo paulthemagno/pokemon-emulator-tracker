@@ -35,7 +35,7 @@ The app polls once per second by default. HP, levels, party composition, held it
 
 The mGBA adapter currently exposes:
 
-- trainer name, ID, money, play time
+- trainer name, gender, ID, money, play time
 - Johto and Kanto badge flags
 - party species, nickname, HP, stats, EXP, status, held item, happiness, moves
 - PC box species, nicknames, original trainer, EXP, held items, happiness, moves

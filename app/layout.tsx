@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Pokemon Save Companion',
-  description: 'Real-time Pokemon save file viewer for Gen 1-3 games',
+  title: 'Pokemon Emulator Tracker',
+  description: 'Live emulator and save progress dashboard for Pokemon games',
   generator: 'v0.app',
   icons: {
     icon: [
