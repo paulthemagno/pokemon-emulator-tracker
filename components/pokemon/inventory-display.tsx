@@ -84,7 +84,7 @@ export function InventoryDisplay({ items, generation, className }: InventoryDisp
   }
 
   return (
-    <Card className={className}>
+      <Card className={className}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-lg">
           <span className="flex items-center gap-2">
@@ -131,10 +131,10 @@ function ItemList({ items, generation }: { items: InventoryItem[]; generation?: 
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+      <div className="grid max-h-80 grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2 overflow-y-auto pr-1">
         {displayItems.map((item, index) => (
           <ItemInfoTooltip key={index} itemName={item.name} generation={generation}>
-            <div className="flex cursor-help items-center gap-2 rounded-lg bg-muted/50 px-2 py-2">
+            <div className="flex cursor-help items-center gap-2 rounded-lg bg-muted/50 px-2 py-2 transition-colors hover:bg-muted/80">
               <ItemIcon
                 itemName={item.name}
                 generation={generation}

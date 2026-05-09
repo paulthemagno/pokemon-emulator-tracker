@@ -8,6 +8,7 @@ interface FileUploadProps {
   onFileSelect: (file: File) => void;
   isLoading?: boolean;
   currentFile?: string | null;
+  compact?: boolean;
   className?: string;
 }
 
@@ -17,6 +18,7 @@ export function FileUpload({
   onFileSelect,
   isLoading = false,
   currentFile,
+  compact = false,
   className,
 }: FileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -99,7 +101,10 @@ export function FileUpload({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         className={cn(
-          "relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all cursor-pointer",
+          "relative flex cursor-pointer rounded-xl border-2 border-dashed transition-all",
+          compact
+            ? "items-center gap-3 p-3"
+            : "flex-col items-center justify-center gap-3 p-8",
           isDragOver
             ? "border-primary bg-primary/5"
             : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50",
@@ -115,17 +120,18 @@ export function FileUpload({
         />
 
         {isLoading ? (
-          <RefreshCw className="h-10 w-10 text-primary animate-spin" />
+          <RefreshCw className={cn("text-primary animate-spin", compact ? "h-5 w-5" : "h-10 w-10")} />
         ) : (
           <Upload
             className={cn(
-              "h-10 w-10 transition-colors",
+              "transition-colors",
+              compact ? "h-5 w-5" : "h-10 w-10",
               isDragOver ? "text-primary" : "text-muted-foreground"
             )}
           />
         )}
 
-        <div className="text-center">
+        <div className={cn(compact ? "min-w-0 text-left" : "text-center")}>
           <p className="text-sm font-medium text-foreground">
             {isLoading
               ? "Parsing save file..."

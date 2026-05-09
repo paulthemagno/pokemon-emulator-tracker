@@ -40,12 +40,16 @@ export default function Home() {
     },
     [uploadFile]
   );
+  const handleClear = useCallback(() => {
+    live.clear();
+    clearData();
+  }, [clearData, live]);
 
   return (
     <main className="min-h-screen">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
+        <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Gamepad2 className="h-6 w-6 text-primary" />
@@ -67,7 +71,7 @@ export default function Home() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearData}
+                  onClick={handleClear}
                   className="text-muted-foreground hover:text-destructive"
                 >
                   <X className="h-4 w-4 mr-1" />
@@ -82,7 +86,7 @@ export default function Home() {
       {/* Info Banner */}
       {showInfo && (
         <div className="bg-primary/10 border-b border-primary/20">
-          <div className="container mx-auto px-4 py-4">
+          <div className="mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-2">
                 <h3 className="font-medium text-foreground">How to Use</h3>
@@ -114,7 +118,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
         {/* Error Display */}
         {error && (
           <div className="mb-6 rounded-lg bg-destructive/10 border border-destructive/20 p-4">
@@ -172,16 +176,17 @@ export default function Home() {
             />
 
             {/* Small upload area for updates */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex-1">
+            <div className="flex flex-col gap-4 rounded-xl border border-border/70 bg-card/45 p-4 sm:flex-row sm:items-center">
+              <div className="w-full sm:max-w-xl">
                 <FileUpload
                   onFileSelect={handleFileSelect}
                   isLoading={isLoading}
                   currentFile={filename}
-                  className="max-w-md"
+                  compact
+                  className="w-full"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="max-w-md text-sm text-muted-foreground">
                 Re-upload your save file, or start a live adapter for HP and party updates.
               </p>
             </div>
@@ -191,6 +196,7 @@ export default function Home() {
               saveData={activeSaveData}
               filename={activeFilename}
               lastUpdated={activeUpdated}
+              isLive={Boolean(live.data)}
             />
           </div>
         )}
@@ -198,7 +204,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border mt-12">
-        <div className="container mx-auto px-4 py-6">
+        <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <p>Pokemon Save Companion - View your game progress in real-time</p>
             <p className="text-xs">

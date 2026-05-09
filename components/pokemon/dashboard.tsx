@@ -12,6 +12,7 @@ interface DashboardProps {
   saveData: SaveData;
   filename?: string | null;
   lastUpdated?: number | null;
+  isLive?: boolean;
 }
 
 function formatLastUpdated(timestamp: number): string {
@@ -19,41 +20,41 @@ function formatLastUpdated(timestamp: number): string {
   return date.toLocaleTimeString();
 }
 
-export function Dashboard({ saveData, filename, lastUpdated }: DashboardProps) {
+export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: DashboardProps) {
   return (
     <div className="space-y-6">
       {/* Header with file info */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Save Data</h2>
+          <h2 className="text-2xl font-black tracking-normal text-foreground">
+            {isLive ? "Live Data" : "Save Data"}
+          </h2>
           {filename && (
-            <p className="text-sm text-muted-foreground font-mono">{filename}</p>
+            <p className="mt-1 text-sm text-muted-foreground font-mono">{filename}</p>
           )}
         </div>
         {lastUpdated && (
-          <Badge variant="outline" className="flex items-center gap-1">
+          <Badge variant="outline" className="flex items-center gap-1 rounded-full px-3 py-1">
             <Clock className="h-3 w-3" />
             Updated {formatLastUpdated(lastUpdated)}
           </Badge>
         )}
       </div>
 
-      {/* Main Grid Layout */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column - Trainer Info */}
-        <div className="lg:col-span-1 space-y-6">
+      <PartyDisplay party={saveData.party} generation={saveData.generation} />
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(520px,0.9fr)_minmax(0,1.1fr)]">
+        <div className="space-y-6">
           <TrainerCard
             trainer={saveData.trainer}
             generation={saveData.generation}
             game={saveData.game}
             location={saveData.location}
           />
-          <InventoryDisplay items={saveData.inventory} generation={saveData.generation} />
         </div>
 
-        {/* Right Column - Party and PC */}
-        <div className="lg:col-span-2 space-y-6">
-          <PartyDisplay party={saveData.party} generation={saveData.generation} />
+        <div className="space-y-6">
+          <InventoryDisplay items={saveData.inventory} generation={saveData.generation} />
           <PCBoxes boxes={saveData.pcBoxes} />
         </div>
       </div>

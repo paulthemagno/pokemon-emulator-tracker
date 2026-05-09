@@ -190,7 +190,7 @@ export function TrainerCard({ trainer, generation, game, location }: TrainerCard
     : trainer.badgeCount;
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border-border/80 bg-card/80">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -224,7 +224,7 @@ export function TrainerCard({ trainer, generation, game, location }: TrainerCard
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {/* Money */}
           <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
             <Coins className="h-4 w-4 text-yellow-500" />
@@ -257,14 +257,14 @@ export function TrainerCard({ trainer, generation, game, location }: TrainerCard
             </div>
             <span className="text-lg font-bold">{badgeCount}/{totalBadges}</span>
           </div>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(70px,1fr))] gap-2">
             {Array.from({ length: totalBadges }).map((_, i) => {
               const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
               const badge = getBadgeState(i);
               return (
                 <div
                   key={badge.name}
-                  className={`relative flex h-16 items-center justify-center overflow-hidden rounded-lg border bg-background/60 ${
+                  className={`relative flex h-[74px] items-center justify-center overflow-hidden rounded-lg border bg-background/60 ${
                     earned ? "border-amber-300/40" : "border-muted-foreground/10 opacity-45 grayscale"
                   }`}
                   title={badge.name}
@@ -272,10 +272,10 @@ export function TrainerCard({ trainer, generation, game, location }: TrainerCard
                   <img
                     src={badge.sprite}
                     alt={badge.name}
-                    className="h-8 w-8 object-contain [image-rendering:pixelated]"
+                    className="h-9 w-9 object-contain [image-rendering:pixelated]"
                     draggable={false}
                   />
-                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-semibold uppercase text-white/80">
+                  <span className="absolute bottom-1 left-1/2 w-full -translate-x-1/2 px-1 text-center text-[10px] font-semibold uppercase leading-none text-white/80">
                     {badge.shortName}
                   </span>
                 </div>

@@ -128,13 +128,13 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
       <CardContent>
         {viewMode === "grid" ? (
           // Grid view - shows sprites in a 6x5 grid like the game
-          <div className="grid grid-cols-6 gap-1">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(52px,1fr))] gap-2">
             {Array.from({ length: currentBox.capacity }).map((_, index) => {
               const pokemon = currentBox.pokemon[index];
               return (
                 <div
                   key={index}
-                  className="aspect-square rounded bg-muted/50 flex items-center justify-center relative group"
+                  className="aspect-square rounded-lg bg-muted/50 flex items-center justify-center relative group transition-colors hover:bg-muted/80"
                   title={pokemon ? `${pokemon.nickname} Lv.${pokemon.level}` : "Empty"}
                 >
                   {pokemon ? (

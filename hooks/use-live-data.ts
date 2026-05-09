@@ -99,11 +99,26 @@ export function useLiveData(intervalMs = 1000) {
     setState((current) => ({ ...current, isPolling: false }));
   }, [clearPollTimer]);
 
+  const clear = useCallback(() => {
+    isPollingRef.current = false;
+    failuresRef.current = 0;
+    clearPollTimer();
+    setState({
+      data: null,
+      error: null,
+      isConnected: false,
+      isPolling: false,
+      lastUpdated: null,
+      source: null,
+    });
+  }, [clearPollTimer]);
+
   useEffect(() => stop, [stop]);
 
   return {
     ...state,
     start,
     stop,
+    clear,
   };
 }
