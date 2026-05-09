@@ -112,6 +112,9 @@ const POKEGEAR_MAPS = {
 } as const;
 
 function PlayerMapMarker({ landmark }: { landmark: NonNullable<ReturnType<typeof getGen2MapLandmark>> }) {
+  const markerHeight = 14;
+  const markerWidth = 12;
+
   return (
     <svg
       aria-hidden="true"
@@ -119,14 +122,14 @@ function PlayerMapMarker({ landmark }: { landmark: NonNullable<ReturnType<typeof
       shapeRendering="crispEdges"
       viewBox={`0 0 ${GEN2_TOWN_MAP_WIDTH} ${GEN2_TOWN_MAP_HEIGHT}`}
     >
-      <g transform={`translate(${landmark.x} ${landmark.y})`}>
-        <rect x="-2" y="-4" width="4" height="2" fill="#f02018" />
-        <rect x="-2" y="2" width="4" height="2" fill="#f02018" />
-        <rect x="-4" y="-2" width="2" height="4" fill="#f02018" />
-        <rect x="2" y="-2" width="2" height="4" fill="#f02018" />
-        <rect x="-2" y="-2" width="4" height="4" fill="#f02018" />
-        <rect x="-1" y="-1" width="2" height="2" fill="#fff8b8" />
-      </g>
+      <image
+        href="/maps/trainer-marker.png"
+        height={markerHeight}
+        preserveAspectRatio="xMidYMid meet"
+        width={markerWidth}
+        x={landmark.x - markerWidth / 2}
+        y={landmark.y - markerHeight / 2}
+      />
     </svg>
   );
 }

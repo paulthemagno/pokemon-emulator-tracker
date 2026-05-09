@@ -138,7 +138,7 @@ Runtime gameplay should not call PokeAPI for item tooltips.
 
 The current map view is landmark-based, not per-step.
 
-The Lua adapter reads live `mapGroup` and `mapId`. The UI maps those to a landmark in `gen2-map-landmarks.ts`, then draws a marker over local GSC town map assets.
+The Lua adapter reads live `mapGroup` and `mapId`. The UI maps those to a landmark in `gen2-map-landmarks.ts`, then draws the local `public/maps/trainer-marker.png` marker over GSC town map assets.
 
 The local Johto and Kanto PNGs are regenerated from `pokecrystal` `gfx/pokegear/town_map.png`, `johto.bin`, `kanto.bin`, and the Pokégear palette data with:
 
