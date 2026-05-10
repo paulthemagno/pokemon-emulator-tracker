@@ -1,4 +1,6 @@
-# Pokemon Tracker
+# Pokemon Emulator Tracker
+
+![Pokemon Emulator Tracker banner](public/pokemon-emulator-tracker-wallpaper.png)
 
 Web dashboard for reading Pokemon save files and, in live mode, following Pokemon Crystal while it runs in mGBA.
 
@@ -10,6 +12,11 @@ Web dashboard for reading Pokemon save files and, in live mode, following Pokemo
 - Uses in-game Pokedex seen/caught flags when available (save or live), with fallback to party+PC inference.
 - Supports live mode for Pokemon Crystal through a Lua script in mGBA.
 - In live mode, updates party, HP, EXP, moves, badges, trainer info, and Pokégear landmarks.
+
+## Status
+
+Live mode is currently working for **Pokemon Crystal (mGBA)**.
+Other games and emulators will need additional work (new adapters and/or offset support) before live mode is considered supported.
 
 ## Setup
 

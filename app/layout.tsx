@@ -9,6 +9,24 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Pokemon Emulator Tracker',
   description: 'Live emulator and save progress dashboard for Pokemon games',
+  openGraph: {
+    title: 'Pokemon Emulator Tracker',
+    description: 'Live emulator and save progress dashboard for Pokemon games',
+    images: [
+      {
+        url: '/pokemon-emulator-tracker-wallpaper.png',
+        width: 1536,
+        height: 1024,
+        alt: 'Pokemon Emulator Tracker project artwork',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pokemon Emulator Tracker',
+    description: 'Live emulator and save progress dashboard for Pokemon games',
+    images: ['/pokemon-emulator-tracker-wallpaper.png'],
+  },
   icons: {
     icon: [
       {
