@@ -6,6 +6,8 @@ Web dashboard for reading Pokemon save files and, in live mode, following Pokemo
 
 - Imports Gen 1, Gen 2, and partial Gen 3 `.sav` / `.srm` files.
 - Shows trainer data, party, PC boxes, inventory, and location.
+- Includes a modern Pokedex panel with search and owned/missing filters.
+- Uses in-game Pokedex seen/caught flags when available (save or live), with fallback to party+PC inference.
 - Supports live mode for Pokemon Crystal through a Lua script in mGBA.
 - In live mode, updates party, HP, EXP, moves, badges, trainer info, and Pokégear landmarks.
 

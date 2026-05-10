@@ -130,6 +130,13 @@ export interface SaveData {
   generation: Generation;
   game: GameVersion;
   trainer: TrainerInfo;
+  pokedex?: {
+    seenSpecies: number[];
+    caughtSpecies: number[];
+    seenCount: number;
+    caughtCount: number;
+    source?: "save" | "live" | "inferred";
+  };
   party: Pokemon[];
   pcBoxes: PCBox[];
   inventory: InventorySection[];

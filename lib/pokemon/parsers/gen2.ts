@@ -68,6 +68,9 @@ const OFFSETS = {
 
 const NUM_TMS = 50;
 const NUM_HMS = 7;
+const GEN2_NUM_SPECIES = 251;
+const GEN2_POKEDEX_FLAG_BYTES = Math.ceil(GEN2_NUM_SPECIES / 8);
+const POKEDEX_FLAGS_FROM_PARTY_COUNT = 0x1c2;
 
 const PARTY_POKEMON_SIZE = 48;
 const BOX_POKEMON_SIZE = 32;
@@ -411,6 +414,35 @@ function parseLocation(data: Uint8Array, offsets: typeof OFFSETS.GS): LocationIn
   };
 }
 
+function parseSpeciesFlagArray(data: Uint8Array, startOffset: number, numSpecies: number): number[] {
+  const speciesIds: number[] = [];
+  for (let species = 1; species <= numSpecies; species++) {
+    const bitIndex = species - 1;
+    const byteIndex = Math.floor(bitIndex / 8);
+    const mask = 1 << (bitIndex % 8);
+    if ((data[startOffset + byteIndex] & mask) !== 0) {
+      speciesIds.push(species);
+    }
+  }
+  return speciesIds;
+}
+
+function parsePokedexProgress(data: Uint8Array, offsets: typeof OFFSETS.GS) {
+  const caughtOffset = offsets.PARTY_COUNT + POKEDEX_FLAGS_FROM_PARTY_COUNT;
+  const seenOffset = caughtOffset + GEN2_POKEDEX_FLAG_BYTES;
+
+  const caughtSpecies = parseSpeciesFlagArray(data, caughtOffset, GEN2_NUM_SPECIES);
+  const seenSpecies = parseSpeciesFlagArray(data, seenOffset, GEN2_NUM_SPECIES);
+
+  return {
+    seenSpecies,
+    caughtSpecies,
+    seenCount: seenSpecies.length,
+    caughtCount: caughtSpecies.length,
+    source: "save" as const,
+  };
+}
+
 function parsePCBoxRecord(data: Uint8Array, offset: number, name: string): PCBox | null {
   const count = data[offset];
   if (count < 0 || count > BOX_CAPACITY) return null;
@@ -599,6 +631,7 @@ export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
     generation: 2,
     game,
     trainer: parseTrainerInfo(data, offsets),
+    pokedex: parsePokedexProgress(data, offsets),
     party: parseParty(data, offsets),
     pcBoxes: parsePCBoxes(data),
     inventory: parseInventory(data, offsets),

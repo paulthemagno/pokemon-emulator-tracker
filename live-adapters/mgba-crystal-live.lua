@@ -16,6 +16,9 @@ local BOX_NAME_LENGTH = 9
 local NUM_BOXES = 14
 local BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES
 local BOX_RECORD_SIZE = 1 + BOX_CAPACITY + 1 + (BOX_CAPACITY * BOX_MON_SIZE) + (BOX_CAPACITY * NAME_SIZE * 2)
+local POKEDEX_FLAGS_FROM_PARTY_COUNT = 0x1C2
+local GEN2_NUM_SPECIES = 251
+local POKEDEX_FLAG_BYTES = math.floor((GEN2_NUM_SPECIES + 7) / 8)
 local CURRENT_BOX_OFFSET = 0x2D10
 local BOX_SCAN_START = 0x2400
 local BOX_SCAN_END = 0x8000 - BOX_RECORD_SIZE
@@ -362,6 +365,35 @@ local function read_party()
   return party
 end
 
+local function read_species_flags(address, numSpecies)
+  local ids = {}
+  for species = 1, numSpecies do
+    local bitIndex = species - 1
+    local byteIndex = math.floor(bitIndex / 8)
+    local mask = 2 ^ (bitIndex % 8)
+    local value = read8(address + byteIndex)
+    if math.floor(value / mask) % 2 == 1 then
+      table.insert(ids, species)
+    end
+  end
+  return ids
+end
+
+local function read_pokedex()
+  local caughtAddress = PARTY_COUNT + POKEDEX_FLAGS_FROM_PARTY_COUNT
+  local seenAddress = caughtAddress + POKEDEX_FLAG_BYTES
+  local caughtSpecies = read_species_flags(caughtAddress, GEN2_NUM_SPECIES)
+  local seenSpecies = read_species_flags(seenAddress, GEN2_NUM_SPECIES)
+
+  return {
+    caughtSpecies = caughtSpecies,
+    seenSpecies = seenSpecies,
+    caughtCount = #caughtSpecies,
+    seenCount = #seenSpecies,
+    source = "live",
+  }
+end
+
 local function read_badges(byte)
   local badges = {}
   for i = 0, 7 do
@@ -661,6 +693,7 @@ local function snapshot()
     game = "crystal",
     status = status,
     player = read_player(),
+    pokedex = read_pokedex(),
     party = read_party(),
     pcBoxes = pcData.pcBoxes,
     bag = read_bag(),

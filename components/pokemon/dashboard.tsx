@@ -1,10 +1,11 @@
 "use client";
 
 import { SaveData } from "@/lib/pokemon/types";
-import { TrainerCard, TrainerMapCard } from "./trainer-card";
+import { TrainerCard, TrainerMapCard } from "@/components/pokemon/trainer-card";
 import { PartyDisplay } from "./party-display";
 import { PCBoxes } from "./pc-boxes";
 import { InventoryDisplay } from "./inventory-display";
+import { PokedexPanel } from "./pokedex-panel";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
 
@@ -52,6 +53,8 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
       </div>
 
       <PartyDisplay party={saveData.party} generation={saveData.generation} />
+
+      <PokedexPanel saveData={saveData} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <InventoryDisplay items={saveData.inventory} generation={saveData.generation} />

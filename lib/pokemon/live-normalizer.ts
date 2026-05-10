@@ -172,6 +172,7 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
   const locationName =
     landmark?.name ??
     (rawLocationName && rawLocationName !== "Live" ? rawLocationName : "Location syncing");
+  const livePokedex = snapshot.pokedex as AnyRecord | undefined;
 
   return {
     generation: Number(snapshot.generation ?? snapshot.status?.generation ?? 2) as SaveData["generation"],
@@ -189,6 +190,15 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
         seconds: Number(player.playTime?.seconds ?? 0),
       },
     },
+    pokedex: livePokedex
+      ? {
+          seenSpecies: asArray(livePokedex.seenSpecies).map((v) => Number(v)).filter((v) => v > 0),
+          caughtSpecies: asArray(livePokedex.caughtSpecies).map((v) => Number(v)).filter((v) => v > 0),
+          seenCount: Number(livePokedex.seenCount ?? asArray(livePokedex.seenSpecies).length),
+          caughtCount: Number(livePokedex.caughtCount ?? asArray(livePokedex.caughtSpecies).length),
+          source: "live",
+        }
+      : undefined,
     party,
     pcBoxes: pcBoxes.length ? pcBoxes : [{ name: "Live PC", pokemon: [], capacity: 20 }],
     inventory: normalizeInventory(snapshot.bag ?? snapshot.inventory),
