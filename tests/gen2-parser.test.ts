@@ -189,6 +189,80 @@ test("parseGen2Save reads Crystal money as a 24-bit big-endian integer", () => {
   assert.equal(parsed.trainer.money, 5183);
 });
 
+test("parseGen2Save reads Crystal play time from 1-byte HMS layout", () => {
+  const data = new Uint8Array(SAVE_SIZE);
+  writeText(data, 0x200b, "PAUL", 11);
+  data[0x2865] = 0;
+
+  data[0x2053] = 131;
+  data[0x2054] = 38;
+  data[0x2055] = 0;
+  data[0x2056] = 44;
+
+  const parsed = parseGen2Save(data, "pokemon-crystal.sav");
+
+  assert.equal(parsed.trainer.playTime.hours, 131);
+  assert.equal(parsed.trainer.playTime.minutes, 38);
+  assert.equal(parsed.trainer.playTime.seconds, 0);
+});
+
+test("parseGen2Save reads Gold/Silver play time from 1-byte HMS layout", () => {
+  const data = new Uint8Array(SAVE_SIZE);
+  writeText(data, 0x200b, "OSCAR", 11);
+  data[0x288a] = 0;
+
+  data[0x2053] = 131;
+  data[0x2054] = 38;
+  data[0x2055] = 0;
+  data[0x2056] = 44;
+
+  const parsed = parseGen2Save(data, "pokemon-silver.sav");
+
+  assert.equal(parsed.trainer.playTime.hours, 131);
+  assert.equal(parsed.trainer.playTime.minutes, 38);
+  assert.equal(parsed.trainer.playTime.seconds, 0);
+});
+
+test("parseGen2Save reads Crystal player location from save location block", () => {
+  const data = new Uint8Array(SAVE_SIZE);
+  writeText(data, 0x200b, "PAUL", 11);
+  data[0x2865] = 0;
+  data[0x2843] = 24;
+  data[0x2844] = 7;
+  data[0x2845] = 9;
+  data[0x2846] = 12;
+
+  const parsed = parseGen2Save(data, "pokemon-crystal.sav");
+  assert.equal(parsed.location.mapGroup, 24);
+  assert.equal(parsed.location.mapId, 7);
+  assert.equal(parsed.location.x, 9);
+  assert.equal(parsed.location.y, 12);
+});
+
+test("parseGen2Save reads Crystal File Gender from save offset 0x3E3D", () => {
+  const data = new Uint8Array(SAVE_SIZE);
+  writeText(data, 0x200b, "PAUL", 11);
+  data[0x2865] = 0;
+  data[0x3e3d] = 0;
+
+  const parsedMale = parseGen2Save(data, "pokemon-crystal.sav");
+  assert.equal(parsedMale.trainer.gender, "male");
+
+  data[0x3e3d] = 1;
+  const parsedFemale = parseGen2Save(data, "pokemon-crystal.sav");
+  assert.equal(parsedFemale.trainer.gender, "female");
+});
+
+test("parseGen2Save hides Crystal gender when File Gender byte is not 0 or 1", () => {
+  const data = new Uint8Array(SAVE_SIZE);
+  writeText(data, 0x200b, "PAUL", 11);
+  data[0x2865] = 0;
+  data[0x3e3d] = 2;
+
+  const parsed = parseGen2Save(data, "pokemon-crystal.sav");
+  assert.equal(parsed.trainer.gender, undefined);
+});
+
 test("parseGen2Save parses Gen 2 seen and caught Pokedex flags", () => {
   const data = new Uint8Array(SAVE_SIZE);
   writeText(data, 0x200b, "PAUL", 11);

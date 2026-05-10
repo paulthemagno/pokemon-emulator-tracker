@@ -37,8 +37,10 @@ const OFFSETS = {
     PARTY_COUNT: 0x288a,
     PARTY_SPECIES: 0x288b,
     PARTY_DATA: 0x2892,
-    CURRENT_MAP_GROUP: 0x2000,
-    CURRENT_MAP: 0x2001,
+    CURRENT_MAP_GROUP: 0x2868,
+    CURRENT_MAP: 0x2869,
+    CURRENT_MAP_X: 0x286a,
+    CURRENT_MAP_Y: 0x286b,
     BAG_TMS_HMS: 0x23e6,
     BAG_ITEMS: 0x241f,
     BAG_KEY_ITEMS: 0x2449,
@@ -49,18 +51,20 @@ const OFFSETS = {
   },
   // Crystal offsets (slightly different)
   CRYSTAL: {
-    PLAYER_GENDER: 0x2000,
+    PLAYER_GENDER: 0x3e3d,
     PLAYER_NAME: 0x200b,
     TRAINER_ID: 0x2009,
     MONEY: 0x23dc,
     BADGES_JOHTO: 0x23e5,
     BADGES_KANTO: 0x23e6,
-    PLAY_TIME: 0x2054,
+    PLAY_TIME: 0x2053,
     PARTY_COUNT: 0x2865,
     PARTY_SPECIES: 0x2866,
     PARTY_DATA: 0x286d,
-    CURRENT_MAP_GROUP: 0x2000,
-    CURRENT_MAP: 0x2001,
+    CURRENT_MAP_GROUP: 0x2843,
+    CURRENT_MAP: 0x2844,
+    CURRENT_MAP_X: 0x2845,
+    CURRENT_MAP_Y: 0x2846,
     BAG_TMS_HMS: 0x23e7,
     BAG_ITEMS: 0x2420,
     BAG_KEY_ITEMS: 0x244a,
@@ -263,11 +267,14 @@ function readUint24BE(data: Uint8Array, offset: number): number {
   return (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
 }
 
-function parseTrainerInfo(data: Uint8Array, offsets: typeof OFFSETS.GS): TrainerInfo {
+function parseTrainerInfo(
+  data: Uint8Array,
+  offsets: typeof OFFSETS.GS,
+  _game: GameVersion
+): TrainerInfo {
   const name = decodeGen1String(data, offsets.PLAYER_NAME, 11);
-  const gender = offsets.PLAYER_GENDER < 0
-    ? undefined
-    : (data[offsets.PLAYER_GENDER] & 1) === 1 ? "female" : "male";
+  const genderByte = offsets.PLAYER_GENDER < 0 ? -1 : data[offsets.PLAYER_GENDER];
+  const gender = genderByte === 0 ? "male" : genderByte === 1 ? "female" : undefined;
   const id = readUint16BE(data, offsets.TRAINER_ID);
   const money = readUint24BE(data, offsets.MONEY);
   
@@ -284,9 +291,9 @@ function parseTrainerInfo(data: Uint8Array, offsets: typeof OFFSETS.GS): Trainer
     badges.push((kantoBadges & (1 << i)) !== 0);
   }
 
-  const hours = data[offsets.PLAY_TIME] | (data[offsets.PLAY_TIME + 1] << 8);
-  const minutes = data[offsets.PLAY_TIME + 2];
-  const seconds = data[offsets.PLAY_TIME + 3];
+  const hours = data[offsets.PLAY_TIME];
+  const minutes = data[offsets.PLAY_TIME + 1];
+  const seconds = data[offsets.PLAY_TIME + 2];
 
   return {
     name,
@@ -414,9 +421,14 @@ function parseInventory(data: Uint8Array, offsets: typeof OFFSETS.GS): Inventory
 function parseLocation(data: Uint8Array, offsets: typeof OFFSETS.GS): LocationInfo {
   const mapGroup = data[offsets.CURRENT_MAP_GROUP];
   const mapId = data[offsets.CURRENT_MAP];
-  // Combine for lookup (simplified)
+  const x = data[offsets.CURRENT_MAP_X];
+  const y = data[offsets.CURRENT_MAP_Y];
+
   return {
-    mapId: mapId,
+    mapGroup,
+    mapId,
+    x,
+    y,
     name: getGen2Location(mapId),
     areaType: mapId <= 12 ? "town" : mapId <= 33 ? "route" : "building",
   };
@@ -663,7 +675,7 @@ export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
   return {
     generation: 2,
     game,
-    trainer: parseTrainerInfo(data, offsets),
+    trainer: parseTrainerInfo(data, offsets, game),
     pokedex: parsePokedexProgress(data, offsets),
     party: parseParty(data, offsets),
     pcBoxes: parsePCBoxes(data, offsets),
