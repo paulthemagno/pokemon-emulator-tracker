@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "tsc -p tsconfig.test.json && node --test .tmp/test-build/tests/*.test.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

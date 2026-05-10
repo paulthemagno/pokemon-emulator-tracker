@@ -34,6 +34,12 @@ Open:
 http://localhost:3000
 ```
 
+Run the automated regression suite:
+
+```bash
+corepack pnpm test
+```
+
 To expose the UI to other devices on the same network:
 
 ```bash
