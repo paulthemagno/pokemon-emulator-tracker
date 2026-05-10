@@ -14,7 +14,6 @@ import type {
 } from "../types";
 import {
   decodeGen1String,
-  readBCD,
   readUint16BE,
   readUint16LE,
   getStatusCondition,
@@ -44,6 +43,9 @@ const OFFSETS = {
     BAG_ITEMS: 0x241f,
     BAG_KEY_ITEMS: 0x2449,
     BAG_BALLS: 0x2464,
+    CURRENT_BOX_NUMBER: 0x2724,
+    BOX_NAMES: 0x2727,
+    CURRENT_BOX_DATA: 0x2d6c,
   },
   // Crystal offsets (slightly different)
   CRYSTAL: {
@@ -63,6 +65,9 @@ const OFFSETS = {
     BAG_ITEMS: 0x2420,
     BAG_KEY_ITEMS: 0x244a,
     BAG_BALLS: 0x2465,
+    CURRENT_BOX_NUMBER: 0x2700,
+    BOX_NAMES: 0x2703,
+    CURRENT_BOX_DATA: 0x2d10,
   },
 };
 
@@ -78,7 +83,6 @@ const BOX_CAPACITY = 20;
 const NUM_BOXES = 14;
 const BOX_NAME_LENGTH = 9;
 const BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES;
-const CURRENT_BOX_OFFSET = 0x2d10;
 const BOX_OFFSETS = [
   0x4000, 0x4450, 0x48a0, 0x4cf0, 0x5140, 0x5590, 0x59e0,
   0x6000, 0x6450, 0x68a0, 0x6cf0, 0x7140, 0x7590, 0x79e0,
@@ -255,13 +259,17 @@ function calculateLevelFromExperience(experience: number): number {
   return Math.min(100, Math.max(1, Math.floor(Math.cbrt(experience))));
 }
 
+function readUint24BE(data: Uint8Array, offset: number): number {
+  return (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
+}
+
 function parseTrainerInfo(data: Uint8Array, offsets: typeof OFFSETS.GS): TrainerInfo {
   const name = decodeGen1String(data, offsets.PLAYER_NAME, 11);
   const gender = offsets.PLAYER_GENDER < 0
     ? undefined
     : (data[offsets.PLAYER_GENDER] & 1) === 1 ? "female" : "male";
   const id = readUint16BE(data, offsets.TRAINER_ID);
-  const money = readBCD(data, offsets.MONEY, 3);
+  const money = readUint24BE(data, offsets.MONEY);
   
   const johtoBadges = data[offsets.BADGES_JOHTO];
   const kantoBadges = data[offsets.BADGES_KANTO];
@@ -476,8 +484,33 @@ function isReasonableBoxName(name: string): boolean {
   return /^[\w \-._'!?&]+$/i.test(name);
 }
 
-function getGen2BoxNameInfo(data: Uint8Array): { names: string[]; currentBoxIndex?: number } {
+function getGen2BoxNameInfo(
+  data: Uint8Array,
+  offsets: typeof OFFSETS.GS
+): { names: string[]; currentBoxIndex?: number } {
   const fallbackNames = Array.from({ length: NUM_BOXES }, (_, i) => `Box ${i + 1}`);
+  const directNames = fallbackNames.slice();
+  let directReasonable = 0;
+
+  for (let i = 0; i < NUM_BOXES; i++) {
+    const parsed = decodeGen1String(
+      data,
+      offsets.BOX_NAMES + i * BOX_NAME_LENGTH,
+      BOX_NAME_LENGTH
+    ).trim();
+    if (isReasonableBoxName(parsed)) {
+      directNames[i] = parsed;
+      directReasonable++;
+    }
+  }
+
+  if (directReasonable >= 8) {
+    return {
+      names: directNames,
+      currentBoxIndex: data[offsets.CURRENT_BOX_NUMBER] % NUM_BOXES,
+    };
+  }
+
   let bestBase = -1;
   let bestScore = -1;
 
@@ -542,12 +575,12 @@ function findPCBoxRecords(
     .map((candidate) => candidate.box);
 }
 
-function parsePCBoxes(data: Uint8Array): PCBox[] {
-  const { names, currentBoxIndex } = getGen2BoxNameInfo(data);
+function parsePCBoxes(data: Uint8Array, offsets: typeof OFFSETS.GS): PCBox[] {
+  const { names, currentBoxIndex } = getGen2BoxNameInfo(data, offsets);
 
   const currentBox = parsePCBoxRecord(
     data,
-    CURRENT_BOX_OFFSET,
+    offsets.CURRENT_BOX_DATA,
     names[currentBoxIndex ?? 0] ?? "Current Box"
   );
 
@@ -633,7 +666,7 @@ export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
     trainer: parseTrainerInfo(data, offsets),
     pokedex: parsePokedexProgress(data, offsets),
     party: parseParty(data, offsets),
-    pcBoxes: parsePCBoxes(data),
+    pcBoxes: parsePCBoxes(data, offsets),
     inventory: parseInventory(data, offsets),
     location: parseLocation(data, offsets),
     valid: true,

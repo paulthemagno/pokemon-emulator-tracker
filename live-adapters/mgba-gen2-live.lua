@@ -1,13 +1,10 @@
--- Pokemon Emulator Tracker live adapter for mGBA + Pokemon Crystal.
+-- Pokemon Emulator Tracker live adapter for mGBA + Pokemon Gen 2 (Gold/Silver/Crystal).
 -- Load in mGBA: Tools -> Scripting... -> Load Script.
 -- Then press "Start Live" in the web UI. The adapter serves http://127.0.0.1:8080/snapshot.
 
 local PORT = 8080
 local HOST = "127.0.0.1"
 
-local PARTY_COUNT = 0xDCD7
-local PARTY_MON_1 = 0xDCDF
-local PARTY_NICKNAMES = 0xDE41
 local PARTY_MON_SIZE = 0x30
 local NAME_SIZE = 11
 local BOX_MON_SIZE = 0x20
@@ -28,26 +25,62 @@ local BOX_OFFSETS = {
 }
 local SRAM_BANK_SIZE = 0x2000
 local SRAM_WINDOW = 0xA000
-local PLAYER_GENDER = 0xD472
-local TRAINER_ID = 0xD47B
-local TRAINER_NAME = 0xD47D
-local PLAY_TIME = 0xD4C4
-local MONEY = 0xD84F
-local JOHTO_BADGES = 0xD857
-local KANTO_BADGES = 0xD858
-local TMS_HMS = 0xD859
 local NUM_TMS = 50
 local NUM_HMS = 7
-local NUM_ITEMS = 0xD892
-local ITEMS = 0xD893
-local NUM_KEY_ITEMS = 0xD8BC
-local KEY_ITEMS = 0xD8BD
-local NUM_BALLS = 0xD8D7
-local BALLS = 0xD8D8
-local MAP_GROUP = 0xDCB5
-local MAP_NUMBER = 0xDCB6
-local PLAYER_Y = 0xDCB7
-local PLAYER_X = 0xDCB8
+
+local OFFSET_PROFILES = {
+  crystal = {
+    key = "crystal",
+    game = "crystal",
+    playerGender = 0xD472,
+    trainerId = 0xD47B,
+    trainerName = 0xD47D,
+    playTime = 0xD4C4,
+    money = 0xD84E,
+    moneyFormat = "bcd",
+    johtoBadges = 0xD857,
+    kantoBadges = 0xD858,
+    tmsHms = 0xD859,
+    numItems = 0xD892,
+    items = 0xD893,
+    numKeyItems = 0xD8BC,
+    keyItems = 0xD8BD,
+    numBalls = 0xD8D7,
+    balls = 0xD8D8,
+    mapGroup = 0xDCB5,
+    mapNumber = 0xDCB6,
+    playerY = 0xDCB7,
+    playerX = 0xDCB8,
+    partyCount = 0xDCD7,
+    partyMon1 = 0xDCDF,
+    partyNicknames = 0xDE41,
+  },
+  gold_silver = {
+    key = "gold_silver",
+    game = "gold",
+    trainerId = 0xD1A1,
+    trainerName = 0xD1A3,
+    playTime = 0xD1EB,
+    money = 0xD573,
+    moneyFormat = "be24",
+    johtoBadges = 0xD57C,
+    kantoBadges = 0xD57D,
+    tmsHms = 0xD57E,
+    numItems = 0xD5B7,
+    items = 0xD5B8,
+    numKeyItems = 0xD5E1,
+    keyItems = 0xD5E2,
+    numBalls = 0xD5FC,
+    balls = 0xD5FD,
+    mapGroup = 0xDA00,
+    mapNumber = 0xDA01,
+    playerX = 0xDA02,
+    playerY = 0xDA03,
+    partyCount = 0xDA22,
+    partyMon1 = 0xDA2A,
+    partyNicknames = 0xDB8C,
+  },
+}
 
 local GB_CHARS = {
   [0x7f] = " ", [0x80] = "A", [0x81] = "B", [0x82] = "C", [0x83] = "D",
@@ -75,6 +108,9 @@ local pcCache = nil
 local pcCacheRemaining = 0
 local PC_CACHE_SNAPSHOTS = 5
 local boxNamesAddressCache = nil
+local activeOffsetProfile = nil
+local detectedGame = nil
+local detectedRomTitle = nil
 
 local function log(message)
   if console and console.log then
@@ -257,6 +293,95 @@ local function read_sram_offset_name(offset)
   return result
 end
 
+local function read_rom_title()
+  if detectedRomTitle ~= nil then return detectedRomTitle end
+  local chars = {}
+
+  if emu and emu.read8 then
+    for address = 0x0134, 0x0143 do
+      local ok, value = pcall(function() return emu:read8(address) end)
+      if not ok or not value or value == 0 then break end
+      if value >= 32 and value <= 126 then
+        table.insert(chars, string.char(value))
+      end
+    end
+  end
+
+  detectedRomTitle = table.concat(chars):gsub("%s+$", "")
+  return detectedRomTitle
+end
+
+local function game_from_rom_title(title)
+  local upper = string.upper(title or "")
+  if upper:find("CRYSTAL", 1, true) or upper:find("CRYSTL", 1, true) then return "crystal" end
+  if upper:find("SILVER", 1, true) or upper:find("SLV", 1, true) then return "silver" end
+  if upper:find("GOLD", 1, true) or upper:find("GLD", 1, true) then return "gold" end
+  return nil
+end
+
+local function is_reasonable_trainer_name(name)
+  return name ~= nil and #name > 0 and #name <= NAME_SIZE and name:match("^[%w %-%._'!?&]+$") ~= nil
+end
+
+local function bcd_byte_score(value)
+  local high = math.floor(value / 16)
+  local low = value % 16
+  return (high <= 9 and low <= 9) and 1 or -1
+end
+
+local function score_offset_profile(profile)
+  local score = 0
+  local partyCount = read8(profile.partyCount)
+  if partyCount >= 0 and partyCount <= 6 then score = score + 3 else score = score - 6 end
+
+  if partyCount > 0 then
+    local species = read8(profile.partyMon1)
+    if species > 0 and species <= GEN2_NUM_SPECIES then score = score + 3 else score = score - 3 end
+  end
+
+  if is_reasonable_trainer_name(read_name(profile.trainerName)) then score = score + 2 end
+
+  score = score + bcd_byte_score(read8(profile.money))
+  score = score + bcd_byte_score(read8(profile.money + 1))
+  score = score + bcd_byte_score(read8(profile.money + 2))
+
+  local mapGroup = read8(profile.mapGroup)
+  local mapNumber = read8(profile.mapNumber)
+  if mapGroup > 0 and mapGroup < 32 then score = score + 1 else score = score - 1 end
+  if mapNumber > 0 and mapNumber < 128 then score = score + 1 else score = score - 1 end
+
+  return score
+end
+
+local function get_offset_profile()
+  if activeOffsetProfile then return activeOffsetProfile end
+
+  local title = read_rom_title()
+  local game = game_from_rom_title(title)
+  detectedGame = game
+
+  if game == "crystal" then
+    activeOffsetProfile = OFFSET_PROFILES.crystal
+  elseif game == "gold" or game == "silver" then
+    activeOffsetProfile = OFFSET_PROFILES.gold_silver
+    activeOffsetProfile.game = game
+  else
+    local crystalScore = score_offset_profile(OFFSET_PROFILES.crystal)
+    local goldSilverScore = score_offset_profile(OFFSET_PROFILES.gold_silver)
+    activeOffsetProfile = goldSilverScore > crystalScore and OFFSET_PROFILES.gold_silver or OFFSET_PROFILES.crystal
+    detectedGame = activeOffsetProfile.game
+  end
+
+  log("Detected Gen 2 profile: " .. activeOffsetProfile.key .. " (" .. (detectedGame or "unknown") .. ")"
+    .. (title ~= "" and (" from ROM title " .. title) or ""))
+  return activeOffsetProfile
+end
+
+local function get_game()
+  local profile = get_offset_profile()
+  return detectedGame or profile.game
+end
+
 local function read_name_at(address, maxLength)
   local result = ""
   for i = 0, maxLength - 1 do
@@ -328,14 +453,15 @@ local function read_box_names()
 end
 
 local function read_party()
-  local count = math.min(read8(PARTY_COUNT), 6)
+  local offsets = get_offset_profile()
+  local count = math.min(read8(offsets.partyCount), 6)
   local party = {}
 
   for slot = 0, count - 1 do
-    local address = PARTY_MON_1 + (slot * PARTY_MON_SIZE)
+    local address = offsets.partyMon1 + (slot * PARTY_MON_SIZE)
     local species = read8(address)
     if species > 0 and species < 252 then
-      local nickname = read_name(PARTY_NICKNAMES + (slot * NAME_SIZE))
+      local nickname = read_name(offsets.partyNicknames + (slot * NAME_SIZE))
       table.insert(party, {
         speciesID = species,
         nickname = nickname ~= "" and nickname or ("Pokemon " .. tostring(species)),
@@ -380,7 +506,8 @@ local function read_species_flags(address, numSpecies)
 end
 
 local function read_pokedex()
-  local caughtAddress = PARTY_COUNT + POKEDEX_FLAGS_FROM_PARTY_COUNT
+  local offsets = get_offset_profile()
+  local caughtAddress = offsets.partyCount + POKEDEX_FLAGS_FROM_PARTY_COUNT
   local seenAddress = caughtAddress + POKEDEX_FLAG_BYTES
   local caughtSpecies = read_species_flags(caughtAddress, GEN2_NUM_SPECIES)
   local seenSpecies = read_species_flags(seenAddress, GEN2_NUM_SPECIES)
@@ -402,20 +529,41 @@ local function read_badges(byte)
   return badges
 end
 
-local function read_u24_le(address)
-  return read8(address) + (read8(address + 1) * 0x100) + (read8(address + 2) * 0x10000)
+local function read_u24_be(address)
+  return (read8(address) * 0x10000) + (read8(address + 1) * 0x100) + read8(address + 2)
+end
+
+local function read_bcd_money(address)
+  local value = 0
+
+  for i = 0, 2 do
+    local byte = read8(address + i)
+    local high = math.floor(byte / 16)
+    local low = byte % 16
+    if high > 9 or low > 9 then
+      return 0
+    end
+    value = (value * 100) + (high * 10) + low
+  end
+
+  return value
+end
+
+local function read_money(address, format)
+  if format == "be24" then return read_u24_be(address) end
+  return read_bcd_money(address)
 end
 
 local function read_player()
-  local name = read_name(TRAINER_NAME)
-  local genderByte = read8(PLAYER_GENDER)
-  local id = read16be(TRAINER_ID)
-  local playTimeHours = read16be(PLAY_TIME)
-  local playTimeMinutes = read8(PLAY_TIME + 2)
-  local playTimeSeconds = read8(PLAY_TIME + 3)
-  local money = read_u24_le(MONEY)
-  local johto = read8(JOHTO_BADGES)
-  local kanto = read8(KANTO_BADGES)
+  local offsets = get_offset_profile()
+  local name = read_name(offsets.trainerName)
+  local id = read16be(offsets.trainerId)
+  local playTimeHours = read16be(offsets.playTime)
+  local playTimeMinutes = read8(offsets.playTime + 2)
+  local playTimeSeconds = read8(offsets.playTime + 3)
+  local money = read_money(offsets.money, offsets.moneyFormat)
+  local johto = read8(offsets.johtoBadges)
+  local kanto = read8(offsets.kantoBadges)
   local badges = read_badges(johto)
   local kantoBadges = read_badges(kanto)
 
@@ -423,9 +571,17 @@ local function read_player()
     badges[8 + i] = kantoBadges[i]
   end
 
+  local gender = nil
+  if offsets.playerGender then
+    local genderByte = read8(offsets.playerGender)
+    if genderByte == 0 or genderByte == 1 then
+      gender = genderByte == 1 and "female" or "male"
+    end
+  end
+
   return {
     name = name ~= "" and name or "Live Trainer",
-    gender = genderByte % 2 == 1 and "female" or "male",
+    gender = gender,
     id = id,
     money = money,
     badges = badges,
@@ -438,10 +594,11 @@ local function read_player()
 end
 
 local function read_location()
-  local mapGroup = read8(MAP_GROUP)
-  local mapNumber = read8(MAP_NUMBER)
-  local y = read8(PLAYER_Y)
-  local x = read8(PLAYER_X)
+  local offsets = get_offset_profile()
+  local mapGroup = read8(offsets.mapGroup)
+  local mapNumber = read8(offsets.mapNumber)
+  local y = read8(offsets.playerY)
+  local x = read8(offsets.playerX)
 
   return {
     mapGroup = mapGroup,
@@ -468,11 +625,12 @@ local function read_item_stack(address, countAddress, maxCount)
 end
 
 local function read_key_items()
-  local count = math.min(read8(NUM_KEY_ITEMS), 26)
+  local offsets = get_offset_profile()
+  local count = math.min(read8(offsets.numKeyItems), 26)
   local items = {}
 
   for index = 0, count - 1 do
-    local itemId = read8(KEY_ITEMS + index)
+    local itemId = read8(offsets.keyItems + index)
     if itemId > 0 and itemId < 0xff then
       table.insert(items, { id = itemId, quantity = 1 })
     end
@@ -482,17 +640,18 @@ local function read_key_items()
 end
 
 local function read_tms_hms()
+  local offsets = get_offset_profile()
   local items = {}
 
   for index = 0, NUM_TMS - 1 do
-    local quantity = read8(TMS_HMS + index)
+    local quantity = read8(offsets.tmsHms + index)
     if quantity > 0 then
       table.insert(items, { id = 0xbf + index, quantity = quantity })
     end
   end
 
   for index = 0, NUM_HMS - 1 do
-    local quantity = read8(TMS_HMS + NUM_TMS + index)
+    local quantity = read8(offsets.tmsHms + NUM_TMS + index)
     if quantity > 0 then
       table.insert(items, { id = 0xf3 + index, quantity = quantity })
     end
@@ -502,10 +661,11 @@ local function read_tms_hms()
 end
 
 local function read_bag()
+  local offsets = get_offset_profile()
   return {
-    items = read_item_stack(ITEMS, NUM_ITEMS, 20),
+    items = read_item_stack(offsets.items, offsets.numItems, 20),
     keyItems = read_key_items(),
-    pokeballs = read_item_stack(BALLS, NUM_BALLS, 12),
+    pokeballs = read_item_stack(offsets.balls, offsets.numBalls, 12),
     tmhms = read_tms_hms(),
   }
 end
@@ -663,11 +823,15 @@ end
 
 local function snapshot()
   ensure_sram_ready()
+  local offsets = get_offset_profile()
   local pcData = read_cached_pc_data()
 
   local status = {
     emulator = "mGBA",
-    adapter = "mgba-crystal-live",
+    adapter = "mgba-gen2-live",
+    profile = offsets.key,
+    game = get_game(),
+    romTitle = detectedRomTitle,
     ok = get_wram() ~= nil,
     sram = get_sram() ~= nil,
     sramHealth = lastSramHealth,
@@ -680,7 +844,7 @@ local function snapshot()
 
   return {
     generation = 2,
-    game = "crystal",
+    game = get_game(),
     status = status,
     player = read_player(),
     pokedex = read_pokedex(),
@@ -721,8 +885,9 @@ local function poll_server()
   if not server then start_server() end
   local client = server:accept()
   if client then
-    call_if_exists(client, "settimeout", 0)
-    call_if_exists(client, "setblocking", false)
+    -- Keep accept non-blocking, but reply on a blocking client socket.
+    -- Non-blocking send() can frequently fail/partial-write and looks like a reset to curl/UI.
+    call_if_exists(client, "settimeout", 0.5)
     local ok, body = pcall(function() return json(snapshot()) end)
     if ok then
       send(client, "200 OK", body)

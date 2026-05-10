@@ -21,12 +21,15 @@ export function MoveInfoTooltip({
   generation,
   children,
 }: MoveInfoTooltipProps) {
+  const hasMove = Boolean((moveId ?? 0) > 0 || (moveName && moveName.trim().length > 0));
+  if (!hasMove) return <>{children}</>;
+
   const description = useMemo(
     () => getMoveDescription(moveId ?? 0, moveName ?? undefined, generation),
     [generation, moveId, moveName]
   );
 
-  const label = moveName ?? (moveId && moveId > 0 ? `Move ${moveId}` : "Empty slot");
+  const label = moveName ?? (moveId && moveId > 0 ? `Move ${moveId}` : "Move");
 
   return (
     <Tooltip>

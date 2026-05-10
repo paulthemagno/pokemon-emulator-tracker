@@ -2,7 +2,7 @@
 
 ![Pokemon Emulator Tracker banner](public/pokemon-emulator-tracker-wallpaper.png)
 
-Web dashboard for reading Pokemon save files and, in live mode, following Pokemon Crystal while it runs in mGBA.
+Web dashboard for reading Pokemon save files and, in live mode, following Gen 2 games while they run in mGBA.
 
 ## What it does
 
@@ -10,13 +10,13 @@ Web dashboard for reading Pokemon save files and, in live mode, following Pokemo
 - Shows trainer data, party, PC boxes, inventory, and location.
 - Includes a modern Pokedex panel with search and owned/missing filters.
 - Uses in-game Pokedex seen/caught flags when available (save or live), with fallback to party+PC inference.
-- Supports live mode for Pokemon Crystal through a Lua script in mGBA.
+- Supports live mode for Pokemon Gold/Silver/Crystal through a Lua script in mGBA.
 - In live mode, updates party, HP, EXP, moves, badges, trainer info, and Pokégear landmarks.
 
 ## Status
 
-Live mode is currently working for **Pokemon Crystal (mGBA)**.
-Other games and emulators will need additional work (new adapters and/or offset support) before live mode is considered supported.
+Live mode is currently focused on **Pokemon Gold/Silver/Crystal (mGBA)**.
+Other generations and emulators will need additional work (new adapters and/or offset support) before live mode is considered supported.
 
 ## Setup
 
@@ -61,9 +61,9 @@ http://192.168.1.83:3000
 
 ## Live with mGBA
 
-1. Open Pokemon Crystal in mGBA.
+1. Open Pokemon Gold/Silver/Crystal in mGBA.
 2. Open `Tools -> Scripting...`.
-3. Load `live-adapters/mgba-crystal-live.lua`.
+3. Load `live-adapters/mgba-gen2-live.lua`.
 4. In the web app, press **Start Live**.
 
 The mGBA script exposes a small local server at:
@@ -102,7 +102,7 @@ corepack pnpm dev
 ## Known status
 
 - `.sav` mode remains the most universal path for emulators without a live adapter.
-- True live mode depends on the emulator. The maintained adapter right now is `mGBA + Pokemon Crystal`.
+- True live mode depends on the emulator. The maintained adapter right now is `mGBA + Pokemon Gold/Silver/Crystal`.
 - The live map uses the original 160x144 Pokemon Crystal Pokégear town-map layout with landmark coordinates from `pokecrystal`.
 - Some Gen 3 areas still have legacy TypeScript errors and should be cleaned up before considering the project stable.
 

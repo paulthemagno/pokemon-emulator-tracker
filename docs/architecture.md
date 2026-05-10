@@ -9,8 +9,8 @@ Save upload
   -> SaveData
   -> UI
 
-mGBA + Pokemon Crystal
-  -> live-adapters/mgba-crystal-live.lua
+mGBA + Pokemon Gold/Silver/Crystal
+  -> live-adapters/mgba-gen2-live.lua
   -> http://127.0.0.1:8080/snapshot
   -> app/api/live
   -> lib/pokemon/live-normalizer.ts
@@ -30,7 +30,7 @@ The UI should consume normalized `SaveData` and avoid caring whether the source 
 - `components/pokemon/trainer-card.tsx`: trainer, badges, Pokégear map.
 - `components/pokemon/pokemon-card.tsx`: party Pokemon card.
 - `lib/pokemon/live-normalizer.ts`: converts live JSON to app data model.
-- `live-adapters/mgba-crystal-live.lua`: mGBA Crystal RAM reader.
+- `live-adapters/mgba-gen2-live.lua`: mGBA Gen 2 RAM reader.
 
 ## Live adapter contract
 
@@ -62,7 +62,7 @@ The app expects `/snapshot` to return JSON with some or all of:
 
 `live-normalizer.ts` fills gaps using local datasets.
 
-For Crystal live inventory, the mGBA adapter reads these WRAM pockets:
+For live inventory, the mGBA adapter selects the Gen 2 WRAM profile first, then reads that version's bag pockets. Crystal uses:
 
 ```text
 wTMsHMs      D859
@@ -76,7 +76,7 @@ wBalls       D8D8
 
 The adapter sends raw item IDs and quantities. `live-normalizer.ts` maps those IDs through the Gen 2 item table before the UI renders names and icons.
 
-For Crystal live PC data, the mGBA adapter reads the official Gen 2 box offsets from SRAM and then falls back to scanning for valid Gen 2 box records. The offsets match `pret/pokecrystal`'s SRAM layout and Bulbapedia's Gen 2 save structure:
+For live PC data, the mGBA adapter reads the official Gen 2 box offsets from SRAM and then falls back to scanning for valid Gen 2 box records. The offsets match `pret/pokecrystal`'s SRAM layout and Bulbapedia's Gen 2 save structure:
 
 ```text
 Current box: 0x2D10
@@ -90,6 +90,8 @@ The raw `/snapshot` status includes PC diagnostics:
 
 ```text
 sram         whether mGBA exposes SRAM
+profile      selected WRAM layout profile (`crystal` or `gold_silver`)
+game         detected game version (`gold`, `silver`, or `crystal`)
 pcBoxes      number of non-empty box records found
 pcBoxPokemon total boxed Pokemon found
 ```
@@ -98,13 +100,19 @@ pcBoxPokemon total boxed Pokemon found
 
 EXP itself is read from RAM/save data. The UI must not mock or hardcode per-Pokemon EXP corrections.
 
-Some species entries may not include a `growthRate`. To keep the EXP bar dynamic for any Pokemon, `components/pokemon/pokemon-card.tsx` infers the active growth curve from the live pair:
+Pokemon growth rates are stored centrally in:
 
 ```text
-level + total experience
+lib/pokemon/data/species.ts
 ```
 
-It tests all official growth curves and selects the one whose `[level, next level)` EXP window contains the current EXP. This avoids one-off fixes like "Chansey uses fast" while still using real RAM values.
+The EXP math lives in:
+
+```text
+lib/pokemon/experience.ts
+```
+
+The UI computes "EXP to next level" from total EXP plus the species' official growth curve. This is the same stable data the game uses for the menu value; do not read transient menu text or rely on growth-curve guessing except as a fallback for unknown species.
 
 ## Held items
 

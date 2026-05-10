@@ -3,6 +3,7 @@
 import { Pokemon, TYPE_COLORS } from "@/lib/pokemon/types";
 import { getSpeciesById } from "@/lib/pokemon/data/species";
 import { getMoveById } from "@/lib/pokemon/data/moves";
+import { getExpWindow } from "@/lib/pokemon/experience";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -109,68 +110,6 @@ function getCardBackground(primaryType: string, secondaryType?: string): React.C
       `radial-gradient(circle at 86% 0%, ${secondary}22 0, transparent 30%), ` +
       "linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%)",
   };
-}
-
-const GROWTH_RATES = [
-  "fast",
-  "medium-fast",
-  "medium-slow",
-  "slow",
-  "erratic",
-  "fluctuating",
-] as const;
-
-type GrowthRate = (typeof GROWTH_RATES)[number];
-
-function getExpForLevel(level: number, growthRate: string = "medium-slow"): number {
-  const l = Math.max(1, Math.min(100, level));
-  switch (growthRate) {
-    case "fast":
-      return Math.floor((4 * Math.pow(l, 3)) / 5);
-    case "slow":
-      return Math.floor((5 * Math.pow(l, 3)) / 4);
-    case "medium-slow":
-      return Math.floor((6 / 5) * Math.pow(l, 3) - 15 * Math.pow(l, 2) + 100 * l - 140);
-    case "medium-fast":
-      return Math.pow(l, 3);
-    case "erratic":
-      if (l <= 50) return Math.floor((Math.pow(l, 3) * (100 - l)) / 50);
-      if (l <= 68) return Math.floor((Math.pow(l, 3) * (150 - l)) / 100);
-      if (l <= 98) return Math.floor((Math.pow(l, 3) * Math.floor((1911 - 10 * l) / 3)) / 500);
-      return Math.floor((Math.pow(l, 3) * (160 - l)) / 100);
-    case "fluctuating":
-      if (l <= 15) return Math.floor((Math.pow(l, 3) * (Math.floor((l + 1) / 3) + 24)) / 50);
-      if (l <= 36) return Math.floor((Math.pow(l, 3) * (l + 14)) / 50);
-      return Math.floor((Math.pow(l, 3) * (Math.floor(l / 2) + 32)) / 50);
-    default:
-      return Math.pow(l, 3);
-  }
-}
-
-function getExpWindow(level: number, experience: number, preferredGrowthRate?: string) {
-  const candidates = GROWTH_RATES.map((growthRate) => {
-    const current = getExpForLevel(level, growthRate);
-    const next = level >= 100 ? current : getExpForLevel(level + 1, growthRate);
-    const fits = experience >= current && (level >= 100 || experience < next);
-    const distance = fits
-      ? 0
-      : Math.min(Math.abs(experience - current), Math.abs(experience - next));
-
-    return {
-      growthRate,
-      current,
-      next,
-      fits,
-      distance,
-      preferred: growthRate === preferredGrowthRate,
-    };
-  });
-
-  const exact = candidates
-    .filter((candidate) => candidate.fits)
-    .sort((a, b) => Number(b.preferred) - Number(a.preferred))[0];
-
-  return exact ?? candidates.sort((a, b) => a.distance - b.distance)[0];
 }
 
 export function PokemonCard({
@@ -402,61 +341,62 @@ export function PokemonCard({
           </div>
 
           {/* Moves */}
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Moves</p>
-            <div className="grid grid-cols-2 gap-2">
-              {Array.from({ length: 4 }).map((_, i) => {
-                const move = pokemon.moves[i];
-                const moveData = getMoveById(move?.id ?? 0);
-                const hasMove = Boolean(move && move.id > 0);
-                const moveName =
-                  (hasMove && move.name && !move.name.startsWith("Move ") ? move.name : moveData.name) ||
-                  `Slot ${i + 1}`;
-                const moveType = hasMove ? move?.type ?? moveData.type : moveData.type;
-                const movePower = hasMove ? move?.power ?? moveData.power : moveData.power;
-                const moveAccuracy = hasMove ? move?.accuracy ?? moveData.accuracy : moveData.accuracy;
-                const maxPP = hasMove ? move?.maxPP || moveData.pp : moveData.pp;
-                const currentPP = hasMove ? move?.pp ?? 0 : 0;
-                const moveColor = getTypeColor(moveType ?? "???");
+          {pokemon.moves?.some((move) => (move?.id ?? 0) > 0) && (
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Moves</p>
+              <div className="grid grid-cols-2 gap-2">
+                {pokemon.moves
+                  .map((move, i) => ({ move, i }))
+                  .filter(({ move }) => (move?.id ?? 0) > 0)
+                  .slice(0, 4)
+                  .map(({ move, i }) => {
+                    const moveData = getMoveById(move?.id ?? 0);
+                    const moveName =
+                      (move?.name && !move.name.startsWith("Move ") ? move.name : moveData.name) || `Move ${i + 1}`;
+                    const moveType = move?.type ?? moveData.type;
+                    const movePower = move?.power ?? moveData.power;
+                    const moveAccuracy = move?.accuracy ?? moveData.accuracy;
+                    const maxPP = move?.maxPP || moveData.pp;
+                    const currentPP = move?.pp ?? 0;
+                    const moveColor = getTypeColor(moveType ?? "???");
 
-                return (
-                  <MoveInfoTooltip
-                    key={`${move?.id ?? 0}-${i}`}
-                    moveId={hasMove ? move?.id : 0}
-                    moveName={hasMove ? moveName : undefined}
-                    generation={generation}
-                  >
-                    <div
-                      className="cursor-help rounded-md border border-border/60 bg-background/45 p-2 text-xs"
-                      style={{ boxShadow: `inset 3px 0 0 ${moveColor}` }}
-                      title={hasMove ? `${moveName} ${currentPP}/${maxPP} PP` : `Empty slot ${i + 1}`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-bold text-foreground">
-                            {hasMove ? moveName : `Empty Slot ${i + 1}`}
+                    return (
+                      <MoveInfoTooltip
+                        key={`${move?.id ?? 0}-${i}`}
+                        moveId={move?.id}
+                        moveName={moveName}
+                        generation={generation}
+                      >
+                        <div
+                          className="cursor-help rounded-md border border-border/60 bg-background/45 p-2 text-xs"
+                          style={{ boxShadow: `inset 3px 0 0 ${moveColor}` }}
+                          title={`${moveName} ${currentPP}/${maxPP} PP`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-bold text-foreground">{moveName}</div>
+                              <span
+                                className="mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-medium capitalize"
+                                style={getTypeStyle(moveType ?? "???")}
+                              >
+                                {moveType ?? "move"}
+                              </span>
+                            </div>
+                            <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                              {currentPP}/{maxPP}
+                            </span>
                           </div>
-                          <span
-                            className="mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-medium capitalize"
-                            style={getTypeStyle(moveType ?? "???")}
-                          >
-                            {moveType ?? "move"}
-                          </span>
+                          <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                            <span>{movePower !== undefined && movePower !== null ? `${movePower} pow` : "status"}</span>
+                            <span className="text-right">{moveAccuracy ? `${moveAccuracy}% acc` : "--"}</span>
+                          </div>
                         </div>
-                        <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                          {currentPP}/{maxPP}
-                        </span>
-                      </div>
-                      <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-                        <span>{movePower !== undefined && movePower !== null ? `${movePower} pow` : "status"}</span>
-                        <span className="text-right">{moveAccuracy ? `${moveAccuracy}% acc` : "--"}</span>
-                      </div>
-                    </div>
-                  </MoveInfoTooltip>
-                );
-              })}
+                      </MoveInfoTooltip>
+                    );
+                  })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Held Item */}
           <div className="rounded-md border border-border/60 bg-background/45 px-3 py-2 text-xs">
