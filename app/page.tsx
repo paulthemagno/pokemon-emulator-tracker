@@ -132,10 +132,10 @@ export default function Home() {
             <div className="text-center mb-8">
               <Gamepad2 className="h-16 w-16 mx-auto text-primary mb-4" />
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                View Your Pokemon Save Data
+                Track Your Pokemon Run
               </h2>
               <p className="text-muted-foreground">
-                Upload your save file (.sav, .srm) to see trainer info, party, PC boxes, and inventory.
+                Upload a save file or connect mGBA live memory to inspect party, Pokédex, PC boxes, inventory, and map progress.
               </p>
             </div>
             <FileUpload

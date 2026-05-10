@@ -9,7 +9,6 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Pokemon Emulator Tracker',
   description: 'Live emulator and save progress dashboard for Pokemon games',
-  generator: 'v0.app',
   icons: {
     icon: [
       {
