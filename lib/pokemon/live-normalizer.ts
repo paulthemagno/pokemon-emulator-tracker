@@ -148,12 +148,13 @@ function normalizePCBoxes(pcBoxes: unknown): PCBox[] {
       const pokemon = asArray(record.pokemon)
         .map(normalizePokemon)
         .filter(Boolean) as Pokemon[];
+      const name = String(record.name ?? `Box ${index + 1}`);
 
       return {
-        name: String(record.name ?? `Box ${index + 1}`),
+        name,
         pokemon,
         capacity: Number(record.capacity ?? 20),
-        isCurrent: Boolean(record.isCurrent),
+        isCurrent: Boolean(record.isCurrent) || name.toLowerCase().startsWith("current box"),
       };
     })
     .filter((box) => box.pokemon.length > 0);

@@ -605,17 +605,7 @@ local function read_pc_boxes()
 
   if #boxes > 0 then return boxes end
 
-  if #currentBox.pokemon > 0 then
-    if currentBoxIndex ~= nil and boxNames[currentBoxIndex + 1] then
-      currentBox.name = boxNames[currentBoxIndex + 1]
-    else
-      currentBox.name = "Current Box (Live)"
-    end
-    currentBox.isCurrent = true
-    return { currentBox }
-  end
-
-  return {}
+  return { currentBox }
 end
 
 function read_current_pc_box()
