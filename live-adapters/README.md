@@ -64,6 +64,10 @@ The Next `/api/live` route uses `/snapshot` by default. Legacy split endpoints a
 The live PC reader uses the official Gen 2 box offsets first, then scans SRAM for valid Gen 2 box records. The layout follows `pret/pokecrystal` (`ram/sram.asm`, `layout.link`) and the documented Gen 2 save structure.
 PC box data is cached briefly in the Lua adapter so HP, party, trainer, bag, and map updates stay responsive during live polling.
 
+Gen 2 stores key live fields in banked WRAM (`0xD000-0xDFFF`). During battle/menu transitions, one frame can expose
+temporary bank-mapped values. The adapter now prefers WRAM memory-domain reads before bus reads to reduce one-tick
+trainer/money/play-time/location glitches.
+
 If a future emulator exposes SRAM differently, check the raw `/snapshot` status fields:
 
 - `sram`: whether the adapter can access SRAM

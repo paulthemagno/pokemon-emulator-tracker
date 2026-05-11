@@ -114,6 +114,7 @@ local debugSnapshotDumped = false
 --   ?dump=always enable per-request writes for this response
 --   ?dump=off    disable write for this response
 local DEBUG_SNAPSHOT_MODE = "off"
+local SNAPSHOT_REFRESH_SECONDS = 0.25
 local pcCache = nil
 local pcCacheRemaining = 0
 local PC_CACHE_SNAPSHOTS = 5
@@ -121,6 +122,9 @@ local boxNamesAddressCache = nil
 local activeOffsetProfile = nil
 local detectedGame = nil
 local detectedRomTitle = nil
+local cachedSnapshotBody = nil
+local cachedSnapshotAt = 0
+local cachedSnapshotData = nil
 
 local function log(message)
   if console and console.log then
@@ -216,21 +220,24 @@ end
 local function read8(address)
   local ok, value
 
-  -- Bus reads are reliable for current WRAM mapping in mGBA.
+  local memory = get_wram()
+  if memory then
+    local offset = address >= 0xC000 and address - 0xC000 or address
+
+    -- Prefer WRAM domain reads so values are less sensitive to transient WRAM bank switching.
+    ok, value = pcall(function() return memory:read8(offset) end)
+    if ok and value ~= nil then return value end
+
+    ok, value = pcall(function() return memory:read8(address) end)
+    if ok and value ~= nil then return value end
+  end
+
   if emu and emu.read8 then
     ok, value = pcall(function() return emu:read8(address) end)
     if ok and value ~= nil then return value end
   end
 
-  local memory = get_wram()
-  if not memory then return 0 end
-  local offset = address >= 0xC000 and address - 0xC000 or address
-
-  ok, value = pcall(function() return memory:read8(offset) end)
-  if ok and value ~= nil then return value end
-
-  ok, value = pcall(function() return memory:read8(address) end)
-  return ok and value or 0
+  return 0
 end
 
 local function read_sram_domain_offset8(offset)
@@ -297,6 +304,13 @@ local function should_dump_snapshot(override)
   return false
 end
 
+local function now_seconds()
+  if os and os.clock then
+    return os.clock()
+  end
+  return 0
+end
+
 local function read_request_target(client)
   local ok, line = pcall(function() return client:receive("*l") end)
   if not ok or not line then return "/snapshot" end
@@ -332,6 +346,50 @@ local function parse_dump_override(target)
   return nil
 end
 
+local ensure_sram_ready
+local get_offset_profile
+local read_cached_pc_data
+local get_game
+local read_player
+local read_pokedex
+local read_party
+local read_bag
+local read_location
+
+local function build_snapshot()
+  ensure_sram_ready()
+  local offsets = get_offset_profile()
+  local pcData = read_cached_pc_data()
+
+  local status = {
+    emulator = "mGBA",
+    adapter = "mgba-gen2-live",
+    profile = offsets.key,
+    game = get_game(),
+    romTitle = detectedRomTitle,
+    ok = get_wram() ~= nil,
+    sram = get_sram() ~= nil,
+    sramHealth = lastSramHealth,
+    sramReadMode = sramReadMode,
+    pcBoxCount = pcData.pcBoxCount,
+    currentPcBoxPokemon = #pcData.currentPcBox.pokemon,
+    pcBoxes = #pcData.pcBoxes,
+    pcBoxPokemon = pcData.pcPokemonCount,
+  }
+
+  return {
+    generation = 2,
+    game = get_game(),
+    status = status,
+    player = read_player(),
+    pokedex = read_pokedex(),
+    party = read_party(),
+    pcBoxes = pcData.pcBoxes,
+    bag = read_bag(),
+    location = read_location(),
+  }
+end
+
 local function classify_sram_health(reader)
   local offsets = { CURRENT_BOX_OFFSET, 0x4000, 0x4450, 0x48A0, 0x4CF0, 0x6000 }
   local zeros = 0
@@ -351,7 +409,7 @@ local function classify_sram_health(reader)
   return "unknown"
 end
 
-local function ensure_sram_ready()
+ensure_sram_ready = function()
   sramReadMode = "domain"
   lastSramHealth = classify_sram_health(read_sram_domain_offset8)
   if lastSramHealth == "ready" then return end
@@ -476,7 +534,7 @@ local function score_offset_profile(profile)
   return score
 end
 
-local function get_offset_profile()
+get_offset_profile = function()
   if activeOffsetProfile then return activeOffsetProfile end
 
   local title = read_rom_title()
@@ -500,7 +558,7 @@ local function get_offset_profile()
   return activeOffsetProfile
 end
 
-local function get_game()
+get_game = function()
   local profile = get_offset_profile()
   return detectedGame or profile.game
 end
@@ -575,7 +633,7 @@ local function read_box_names()
   return names, currentBox
 end
 
-local function read_party()
+read_party = function()
   local offsets = get_offset_profile()
   local count = math.min(read8(offsets.partyCount), 6)
   local party = {}
@@ -628,7 +686,7 @@ local function read_species_flags(address, numSpecies)
   return ids
 end
 
-local function read_pokedex()
+read_pokedex = function()
   local offsets = get_offset_profile()
   local caughtAddress = offsets.partyCount + POKEDEX_FLAGS_FROM_PARTY_COUNT
   local seenAddress = caughtAddress + POKEDEX_FLAG_BYTES
@@ -687,7 +745,7 @@ local function read_money(address, format)
   return read_bcd_money(address)
 end
 
-local function read_player()
+read_player = function()
   local offsets = get_offset_profile()
   local name = read_name(offsets.trainerName)
   local id = read16be(offsets.trainerId)
@@ -743,7 +801,7 @@ local function read_player()
   }
 end
 
-local function read_location()
+read_location = function()
   local offsets = get_offset_profile()
   local mapGroup = read8(offsets.mapGroup)
   local mapNumber = read8(offsets.mapNumber)
@@ -810,7 +868,7 @@ local function read_tms_hms()
   return items
 end
 
-local function read_bag()
+read_bag = function()
   local offsets = get_offset_profile()
   return {
     items = read_item_stack(offsets.items, offsets.numItems, 20),
@@ -948,7 +1006,7 @@ function read_current_pc_count()
   return math.min(read_sram_offset8(CURRENT_BOX_OFFSET), BOX_CAPACITY)
 end
 
-local function read_cached_pc_data()
+read_cached_pc_data = function()
   if pcCache and pcCacheRemaining > 0 then
     pcCacheRemaining = pcCacheRemaining - 1
     return pcCache
@@ -971,42 +1029,23 @@ local function read_cached_pc_data()
   return pcCache
 end
 
-local function snapshot()
-  ensure_sram_ready()
-  local offsets = get_offset_profile()
-  local pcData = read_cached_pc_data()
+local function refresh_snapshot_cache(force)
+  local currentTime = now_seconds()
+  if not force and cachedSnapshotBody and (currentTime - cachedSnapshotAt) < SNAPSHOT_REFRESH_SECONDS then
+    return cachedSnapshotData, cachedSnapshotBody
+  end
 
-  local status = {
-    emulator = "mGBA",
-    adapter = "mgba-gen2-live",
-    profile = offsets.key,
-    game = get_game(),
-    romTitle = detectedRomTitle,
-    ok = get_wram() ~= nil,
-    sram = get_sram() ~= nil,
-    sramHealth = lastSramHealth,
-    sramReadMode = sramReadMode,
-    pcBoxCount = pcData.pcBoxCount,
-    currentPcBoxPokemon = #pcData.currentPcBox.pokemon,
-    pcBoxes = #pcData.pcBoxes,
-    pcBoxPokemon = pcData.pcPokemonCount,
-  }
+  local data = build_snapshot()
+  local body = json(data)
+  cachedSnapshotData = data
+  cachedSnapshotBody = body
+  cachedSnapshotAt = currentTime
 
-  return {
-    generation = 2,
-    game = get_game(),
-    status = status,
-    player = read_player(),
-    pokedex = read_pokedex(),
-    party = read_party(),
-    pcBoxes = pcData.pcBoxes,
-    bag = read_bag(),
-    location = read_location(),
-  }
+  return data, body
 end
 
 local function snapshot_json(dumpOverride)
-  local body = json(snapshot())
+  local _, body = refresh_snapshot_cache(dumpOverride == "force" or dumpOverride == "always")
   if should_dump_snapshot(dumpOverride) then
     local ok, err = write_text_file(DEBUG_SNAPSHOT_PATH, body)
     if ok then
@@ -1070,7 +1109,10 @@ if not ok then
   log("Adapter failed to start server: " .. tostring(err))
 else
   if callbacks and callbacks.add then
-    callbacks:add("frame", poll_server)
+    callbacks:add("frame", function()
+      refresh_snapshot_cache(false)
+      poll_server()
+    end)
   else
     log("Adapter started server but callbacks:add is missing; polling will not run")
   end
