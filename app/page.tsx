@@ -4,11 +4,12 @@ import { useState, useCallback, useMemo } from "react";
 import { FileUpload } from "@/components/pokemon/file-upload";
 import { Dashboard } from "@/components/pokemon/dashboard";
 import { LiveSourceCard } from "@/components/pokemon/live-source-card";
+import { ChatbotPanel } from "@/components/pokemon/chatbot-panel";
 import { useSaveData } from "@/hooks/use-save-data";
 import { useLiveData } from "@/hooks/use-live-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Gamepad2, Info } from "lucide-react";
+import { X, Gamepad2, Info, MessageSquare } from "lucide-react";
 import type { SaveData } from "@/lib/pokemon/types";
 
 function hasStoredPokemon(data: SaveData | null) {
@@ -22,6 +23,7 @@ export default function Home() {
     useSaveData();
   const live = useLiveData(250);
   const [showInfo, setShowInfo] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
   const activeSaveData = useMemo(() => {
     if (!live.data) return saveData;
     if (hasStoredPokemon(live.data) || !hasStoredPokemon(saveData)) return live.data;
@@ -59,6 +61,16 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowChatbot(true)}
+                className="gap-2"
+                title="Open Pokémon Assistant"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Chat AI
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -201,6 +213,14 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Chatbot Panel */}
+      <ChatbotPanel
+        isOpen={showChatbot}
+        onOpen={() => setShowChatbot(true)}
+        onClose={() => setShowChatbot(false)}
+        gameData={activeSaveData}
+      />
 
       {/* Footer */}
       <footer className="border-t border-border mt-12">
