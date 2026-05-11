@@ -37,7 +37,7 @@ local OFFSET_PROFILES = {
     trainerName = 0xD47D,
     playTime = 0xD4C4,
     money = 0xD84E,
-    moneyFormat = "bcd",
+    moneyFormat = "be24",
     johtoBadges = 0xD857,
     kantoBadges = 0xD858,
     tmsHms = 0xD859,
@@ -104,6 +104,16 @@ local wram = nil
 local sram = nil
 local sramReadMode = "domain"
 local lastSramHealth = "unknown"
+local debugSnapshotDumped = false
+-- Snapshot dump mode:
+--   "once"   -> write one file per script load
+--   "always" -> overwrite on every request
+--   "off"    -> never auto-write (default)
+-- Query override on /snapshot:
+--   ?dump=1      force one write now
+--   ?dump=always enable per-request writes for this response
+--   ?dump=off    disable write for this response
+local DEBUG_SNAPSHOT_MODE = "off"
 local pcCache = nil
 local pcCacheRemaining = 0
 local PC_CACHE_SNAPSHOTS = 5
@@ -128,6 +138,29 @@ local function call_if_exists(target, method, value)
   end
   return nil
 end
+
+local function script_directory()
+  local info = debug and debug.getinfo and debug.getinfo(1, "S")
+  if info and type(info.source) == "string" and info.source:sub(1, 1) == "@" then
+    local path = info.source:sub(2)
+    local directory = path:match("^(.*[/\\])")
+    if directory then return directory end
+  end
+  return ""
+end
+
+local function temp_directory()
+  local tmp = os and os.getenv and os.getenv("TMPDIR")
+  if tmp and #tmp > 0 then
+    if tmp:sub(-1) ~= "/" and tmp:sub(-1) ~= "\\" then
+      tmp = tmp .. "/"
+    end
+    return tmp
+  end
+  return "/tmp/"
+end
+
+local DEBUG_SNAPSHOT_PATH = temp_directory() .. "pokemon-emulator-tracker-gen2-live-snapshot.json"
 
 local function escape_json(value)
   return tostring(value):gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n")
@@ -181,11 +214,21 @@ local function get_sram()
 end
 
 local function read8(address)
+  local ok, value
+
+  -- Bus reads are reliable for current WRAM mapping in mGBA.
+  if emu and emu.read8 then
+    ok, value = pcall(function() return emu:read8(address) end)
+    if ok and value ~= nil then return value end
+  end
+
   local memory = get_wram()
   if not memory then return 0 end
   local offset = address >= 0xC000 and address - 0xC000 or address
-  local ok, value = pcall(function() return memory:read8(offset) end)
-  if ok and value then return value end
+
+  ok, value = pcall(function() return memory:read8(offset) end)
+  if ok and value ~= nil then return value end
+
   ok, value = pcall(function() return memory:read8(address) end)
   return ok and value or 0
 end
@@ -215,6 +258,78 @@ end
 local function read_sram_offset8(offset)
   if sramReadMode == "bus" then return read_sram_bus_offset8(offset) end
   return read_sram_domain_offset8(offset)
+end
+
+local function write_text_file(path, contents)
+  local file, openErr = io.open(path, "w")
+  if not file then
+    return false, openErr
+  end
+
+  local ok, writeErr = pcall(function()
+    file:write(contents)
+    file:flush()
+    file:close()
+  end)
+
+  if not ok then
+    pcall(function() file:close() end)
+    return false, writeErr
+  end
+
+  return true
+end
+
+local function read_bytes(address, count)
+  local bytes = {}
+  for i = 0, count - 1 do
+    bytes[#bytes + 1] = read8(address + i)
+  end
+  return bytes
+end
+
+local function should_dump_snapshot(override)
+  local mode = override or DEBUG_SNAPSHOT_MODE
+  if mode == "force" then return true end
+  if mode == "always" then return true end
+  if mode == "off" then return false end
+  if mode == "once" then return not debugSnapshotDumped end
+  return false
+end
+
+local function read_request_target(client)
+  local ok, line = pcall(function() return client:receive("*l") end)
+  if not ok or not line then return "/snapshot" end
+
+  local target = line:match("^%u+%s+([^%s]+)%s+HTTP/%d%.%d$")
+  if not target then
+    target = line:match("^%u+%s+([^%s]+)")
+  end
+
+  -- Drain headers (up to a safe cap) so the socket is clean before reply/close.
+  for _ = 1, 32 do
+    local hOk, header = pcall(function() return client:receive("*l") end)
+    if not hOk or not header or header == "" then break end
+  end
+
+  return target or "/snapshot"
+end
+
+local function parse_dump_override(target)
+  if not target then return nil end
+  local query = target:match("%?(.*)$")
+  if not query then return nil end
+
+  for pair in string.gmatch(query, "[^&]+") do
+    local key, value = pair:match("^([^=]+)=?(.*)$")
+    if key == "dump" then
+      if value == "1" or value == "true" then return "force" end
+      if value == "always" then return "always" end
+      if value == "off" or value == "0" or value == "false" then return "off" end
+    end
+  end
+
+  return nil
 end
 
 local function classify_sram_health(reader)
@@ -314,8 +429,11 @@ end
 local function game_from_rom_title(title)
   local upper = string.upper(title or "")
   if upper:find("CRYSTAL", 1, true) or upper:find("CRYSTL", 1, true) then return "crystal" end
+  if upper:find("POKEMON C", 1, true) then return "crystal" end
   if upper:find("SILVER", 1, true) or upper:find("SLV", 1, true) then return "silver" end
+  if upper:find("POKEMON S", 1, true) then return "silver" end
   if upper:find("GOLD", 1, true) or upper:find("GLD", 1, true) then return "gold" end
+  if upper:find("POKEMON G", 1, true) then return "gold" end
   return nil
 end
 
@@ -341,9 +459,14 @@ local function score_offset_profile(profile)
 
   if is_reasonable_trainer_name(read_name(profile.trainerName)) then score = score + 2 end
 
-  score = score + bcd_byte_score(read8(profile.money))
-  score = score + bcd_byte_score(read8(profile.money + 1))
-  score = score + bcd_byte_score(read8(profile.money + 2))
+  if profile.moneyFormat == "bcd" then
+    score = score + bcd_byte_score(read8(profile.money))
+    score = score + bcd_byte_score(read8(profile.money + 1))
+    score = score + bcd_byte_score(read8(profile.money + 2))
+  else
+    local moneyVal = read8(profile.money) * 0x10000 + read8(profile.money + 1) * 0x100 + read8(profile.money + 2)
+    if moneyVal <= 999999 then score = score + 2 else score = score - 2 end
+  end
 
   local mapGroup = read8(profile.mapGroup)
   local mapNumber = read8(profile.mapNumber)
@@ -549,6 +672,16 @@ local function read_bcd_money(address)
   return value
 end
 
+local function is_valid_bcd_money(address)
+  for i = 0, 2 do
+    local byte = read8(address + i)
+    local high = math.floor(byte / 16)
+    local low = byte % 16
+    if high > 9 or low > 9 then return false end
+  end
+  return true
+end
+
 local function read_money(address, format)
   if format == "be24" then return read_u24_be(address) end
   return read_bcd_money(address)
@@ -561,7 +694,21 @@ local function read_player()
   local playTimeHours = read16be(offsets.playTime)
   local playTimeMinutes = read8(offsets.playTime + 2)
   local playTimeSeconds = read8(offsets.playTime + 3)
+  local moneyBytes = read_bytes(offsets.money, 3)
   local money = read_money(offsets.money, offsets.moneyFormat)
+  local moneyDebug = {
+    address = offsets.money,
+    format = offsets.moneyFormat,
+    bytes = moneyBytes,
+  }
+  if offsets.key == "crystal" and offsets.moneyFormat == "bcd" and not is_valid_bcd_money(offsets.money) then
+    -- Some mGBA/core combinations expose Crystal money at this mirrored WRAM address.
+    if is_valid_bcd_money(0xD812) then
+      moneyDebug.fallbackAddress = 0xD812
+      moneyDebug.fallbackBytes = read_bytes(0xD812, 3)
+      money = read_bcd_money(0xD812)
+    end
+  end
   local johto = read8(offsets.johtoBadges)
   local kanto = read8(offsets.kantoBadges)
   local badges = read_badges(johto)
@@ -584,6 +731,9 @@ local function read_player()
     gender = gender,
     id = id,
     money = money,
+    debug = {
+      money = moneyDebug,
+    },
     badges = badges,
     playTime = {
       hours = playTimeHours,
@@ -855,6 +1005,20 @@ local function snapshot()
   }
 end
 
+local function snapshot_json(dumpOverride)
+  local body = json(snapshot())
+  if should_dump_snapshot(dumpOverride) then
+    local ok, err = write_text_file(DEBUG_SNAPSHOT_PATH, body)
+    if ok then
+      debugSnapshotDumped = true
+      log("Wrote Gen 2 live debug snapshot to " .. DEBUG_SNAPSHOT_PATH)
+    else
+      log("Failed to write Gen 2 live debug snapshot: " .. tostring(err))
+    end
+  end
+  return body
+end
+
 local function send(client, status, body)
   local response = "HTTP/1.1 " .. status .. "\r\n"
     .. "Content-Type: application/json\r\n"
@@ -888,7 +1052,9 @@ local function poll_server()
     -- Keep accept non-blocking, but reply on a blocking client socket.
     -- Non-blocking send() can frequently fail/partial-write and looks like a reset to curl/UI.
     call_if_exists(client, "settimeout", 0.5)
-    local ok, body = pcall(function() return json(snapshot()) end)
+    local target = read_request_target(client)
+    local dumpOverride = parse_dump_override(target)
+    local ok, body = pcall(function() return snapshot_json(dumpOverride) end)
     if ok then
       send(client, "200 OK", body)
     else

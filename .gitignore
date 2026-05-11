@@ -30,3 +30,6 @@ tsconfig.tsbuildinfo
 *.ss1
 *.ss2
 *.sav.bak
+
+# Live adapter debug dumps
+live-adapters/gen2-live-snapshot.json
