@@ -47,6 +47,14 @@ export async function POST(request: NextRequest) {
 
     const { message, history = [], gameContext, systemPrompt, stream = false } = body;
 
+    // DEBUG: Log incoming request
+    console.log('[API CHAT DEBUG] Incoming request');
+    console.log('[API CHAT DEBUG] Message:', message);
+    console.log('[API CHAT DEBUG] History length:', history.length);
+    console.log('[API CHAT DEBUG] Has gameContext:', !!gameContext);
+    console.log('[API CHAT DEBUG] Streaming:', stream);
+    console.log('[API CHAT DEBUG] ==================\n');
+
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
         { error: 'Message is required and must be a string' },

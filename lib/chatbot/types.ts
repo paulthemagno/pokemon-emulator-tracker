@@ -35,6 +35,27 @@ export interface GameContextSnapshot {
     hp: number;
     maxHp: number;
   }>;
+  partyPokemonDetailed?: Array<{
+    name: string;
+    species: string;
+    level: number;
+    hp: number;
+    maxHp: number;
+    types: string[];
+    status: string;
+    ability?: string;
+    nature?: string;
+    heldItem?: string;
+    moves: Array<{
+      name: string;
+      type: string;
+      category?: string;
+      power?: number;
+      accuracy?: number;
+      pp: number;
+      maxPp: number;
+    }>;
+  }>;
   pokedexSeen: number;
   pokedexOwned: number;
   inventory: Array<{
@@ -43,6 +64,8 @@ export interface GameContextSnapshot {
   }>;
   screenshot?: string; // base64 encoded PNG
   timestamp: number;
+  gameTitle?: string;
+  battleActive?: boolean;
 }
 
 /**

@@ -126,9 +126,23 @@ If the server is not running:
 
 In the sandbox, escalation may be required to bind `0.0.0.0:3000`.
 
-## Chatbot (Phase 1 - MVP)
+## Chatbot (Phase 1 - MVP) — COMPLETED WITH ENRICHMENT
 
 In-app LLM chatbot integrated with game context. See `docs/chatbot-phase1.md` for full details.
+
+### Phase 1.5 Enhancement (COMPLETED)
+
+**Context Enrichment:**
+- `GameContextSnapshot` now includes `partyPokemonDetailed` with full Pokemon details: moves (name, type, power, PP), ability, held item, status, nature, species
+- `context-packer.ts` extracts all fields from SaveData
+- `formatGameContext()` in ollama.ts displays tactical summary (types, HP%, status, moves with PP)
+
+**System Prompt Improvement:**
+- Changed from generic "helpful expert" to concrete co-pilot focused on battle/team advice
+- Rules: Use only provided state, no generic encouragement, recommend one concrete action with reasoning, consider type effectiveness/HP/status/PP/levels/items
+- Disables hallucination by explicit "ask for missing data instead of guessing"
+
+**Result:** LLM responses now tactical and grounded in actual game state instead of generic.
 
 ### Components
 

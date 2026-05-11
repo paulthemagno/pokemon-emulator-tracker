@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Chatbot UI Component - Floating Bubble + Full Chat Modal
+ * Chatbot UI Component - Floating Bubble + Draggable Chat Window
  */
 
 import { useState, useRef, useEffect } from 'react';
@@ -23,13 +23,231 @@ interface ChatbotPanelProps {
   gameData?: SaveData | null;
 }
 
+type FloatingPosition = {
+  x: number;
+  y: number;
+};
+
+type FloatingSize = {
+  width: number;
+  height: number;
+};
+
+type DragTarget = 'bubble' | 'panel' | 'resize' | null;
+
+const BUBBLE_SIZE = 56;
+const SCREEN_MARGIN = 16;
+const PANEL_DEFAULT_WIDTH = 600;
+const PANEL_DEFAULT_HEIGHT = 700;
+const PANEL_MIN_WIDTH = 360;
+const PANEL_MIN_HEIGHT = 420;
+const PANEL_MAX_WIDTH = 960;
+
+function clampPanelSize(size: FloatingSize): FloatingSize {
+  if (typeof window === 'undefined') {
+    return size;
+  }
+
+  return {
+    width: Math.min(
+      Math.max(size.width, PANEL_MIN_WIDTH),
+      Math.min(PANEL_MAX_WIDTH, window.innerWidth - SCREEN_MARGIN * 2)
+    ),
+    height: Math.min(
+      Math.max(size.height, PANEL_MIN_HEIGHT),
+      window.innerHeight - SCREEN_MARGIN * 2
+    ),
+  };
+}
+
+function getDefaultPanelSize(): FloatingSize {
+  return clampPanelSize({
+    width: PANEL_DEFAULT_WIDTH,
+    height: Math.floor(typeof window === 'undefined' ? PANEL_DEFAULT_HEIGHT : window.innerHeight * 0.8),
+  });
+}
+
+function clampBubblePosition(position: FloatingPosition): FloatingPosition {
+  if (typeof window === 'undefined') {
+    return position;
+  }
+
+  return {
+    x: Math.min(
+      Math.max(position.x, SCREEN_MARGIN),
+      window.innerWidth - BUBBLE_SIZE - SCREEN_MARGIN
+    ),
+    y: Math.min(
+      Math.max(position.y, SCREEN_MARGIN),
+      window.innerHeight - BUBBLE_SIZE - SCREEN_MARGIN
+    ),
+  };
+}
+
+function clampPanelPosition(position: FloatingPosition, size: FloatingSize): FloatingPosition {
+  if (typeof window === 'undefined') {
+    return position;
+  }
+
+  return {
+    x: Math.min(
+      Math.max(position.x, SCREEN_MARGIN),
+      window.innerWidth - size.width - SCREEN_MARGIN
+    ),
+    y: Math.min(
+      Math.max(position.y, SCREEN_MARGIN),
+      window.innerHeight - size.height - SCREEN_MARGIN
+    ),
+  };
+}
+
+function getDefaultBubblePosition(): FloatingPosition {
+  if (typeof window === 'undefined') {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: window.innerWidth - BUBBLE_SIZE - SCREEN_MARGIN,
+    y: window.innerHeight - BUBBLE_SIZE - SCREEN_MARGIN,
+  };
+}
+
+function getDefaultPanelPosition(): FloatingPosition {
+  if (typeof window === 'undefined') {
+    return { x: 0, y: 0 };
+  }
+
+  const panelSize = getDefaultPanelSize();
+
+  return {
+    x: window.innerWidth - panelSize.width - SCREEN_MARGIN,
+    y: Math.max(SCREEN_MARGIN, window.innerHeight - panelSize.height - 80),
+  };
+}
+
 export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanelProps) {
   const conversation = useConversation({ autoSave: true });
   const [inputValue, setInputValue] = useState('');
   const [streamingMessage, setStreamingMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [providerReady, setProviderReady] = useState(false);
+  const [bubblePosition, setBubblePosition] = useState<FloatingPosition>({ x: 0, y: 0 });
+  const [panelPosition, setPanelPosition] = useState<FloatingPosition>({ x: 0, y: 0 });
+  const [panelSize, setPanelSize] = useState<FloatingSize>({
+    width: PANEL_DEFAULT_WIDTH,
+    height: PANEL_DEFAULT_HEIGHT,
+  });
+  const dragStateRef = useRef<{
+    target: DragTarget;
+    pointerId: number | null;
+    offsetX: number;
+    offsetY: number;
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+  }>({
+    target: null,
+    pointerId: null,
+    offsetX: 0,
+    offsetY: 0,
+    startX: 0,
+    startY: 0,
+    startWidth: PANEL_DEFAULT_WIDTH,
+    startHeight: PANEL_DEFAULT_HEIGHT,
+  });
+  const dragMovedRef = useRef(false);
+  const suppressBubbleClickRef = useRef(false);
   const isStreaming = conversation.isLoading || streamingMessage.length > 0;
+
+  useEffect(() => {
+    const defaultPanelSize = getDefaultPanelSize();
+    const bubbleDefault = getDefaultBubblePosition();
+    const panelDefault = getDefaultPanelPosition();
+
+    setBubblePosition(clampBubblePosition(bubbleDefault));
+    setPanelSize(defaultPanelSize);
+    setPanelPosition(clampPanelPosition(panelDefault, defaultPanelSize));
+
+    const handleResize = () => {
+      setBubblePosition((current) => clampBubblePosition(current));
+      setPanelSize((current) => {
+        const nextSize = clampPanelSize(current);
+        setPanelPosition((currentPosition) => clampPanelPosition(currentPosition, nextSize));
+        return nextSize;
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const dragState = dragStateRef.current;
+      if (!dragState.target || dragState.pointerId !== event.pointerId) {
+        return;
+      }
+
+      if (dragState.target === 'resize') {
+        const nextSize = clampPanelSize({
+          width: dragState.startWidth + (event.clientX - dragState.startX),
+          height: dragState.startHeight + (event.clientY - dragState.startY),
+        });
+
+        dragMovedRef.current = true;
+        setPanelSize(nextSize);
+        setPanelPosition((current) => clampPanelPosition(current, nextSize));
+        return;
+      }
+
+      const nextPosition = {
+        x: event.clientX - dragState.offsetX,
+        y: event.clientY - dragState.offsetY,
+      };
+
+      dragMovedRef.current = true;
+
+      if (dragState.target === 'bubble') {
+        setBubblePosition(clampBubblePosition(nextPosition));
+        return;
+      }
+
+      setPanelPosition(clampPanelPosition(nextPosition, panelSize));
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (dragStateRef.current.pointerId !== event.pointerId) {
+        return;
+      }
+
+      if (dragStateRef.current.target === 'bubble' && dragMovedRef.current) {
+        suppressBubbleClickRef.current = true;
+      }
+
+      dragStateRef.current = {
+        target: null,
+        pointerId: null,
+        offsetX: 0,
+        offsetY: 0,
+        startX: 0,
+        startY: 0,
+        startWidth: panelSize.width,
+        startHeight: panelSize.height,
+      };
+      dragMovedRef.current = false;
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [panelSize]);
 
   // Check provider status on mount
   useEffect(() => {
@@ -125,8 +343,16 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           message: userMessage,
           history: conversation.messages,
           gameContext: conversation.gameContext,
-          systemPrompt:
-            'You are a helpful Pokémon expert assistant. Provide friendly, accurate advice about Pokémon games, strategy, and mechanics.',
+          systemPrompt: `You are a live Pokémon co-pilot. Your role is to provide tactical, concrete advice based on the player's current game state.
+
+Rules:
+- Use ONLY the provided game state and move data. Do not invent Pokémon, moves, or abilities.
+- For battle advice: recommend one move or switch with a brief tactical reason (type advantage, PP, HP, status).
+- Consider type effectiveness, PP remaining, HP percentage, status conditions, held items, and levels.
+- Prioritize concrete next actions over generic encouragement.
+- If critical data is missing, ask for it specifically instead of guessing.
+- Keep responses concise and actionable.
+- Do not say "you're strong" or "good luck" — be useful instead.`,
           stream: true,
         }),
       });
@@ -199,12 +425,45 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
     }
   };
 
+  const startDrag = (target: DragTarget, event: React.PointerEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    dragMovedRef.current = false;
+
+    dragStateRef.current = {
+      target,
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: panelSize.width,
+      startHeight: panelSize.height,
+    };
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const stopHeaderActionPointer = (event: React.PointerEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
+
+  const handleBubbleClick = () => {
+    if (suppressBubbleClickRef.current) {
+      suppressBubbleClickRef.current = false;
+      return;
+    }
+
+    onOpen();
+  };
+
   // Floating bubble when closed
   if (!isOpen) {
     return (
       <button
-        onClick={onOpen}
-        className={`fixed bottom-4 right-4 z-40 h-14 w-14 rounded-full bg-blue-500 text-white shadow-lg transition-all flex items-center justify-center hover:bg-blue-600 hover:shadow-xl ${
+        onClick={handleBubbleClick}
+        onPointerDown={(event) => startDrag('bubble', event)}
+        style={{ left: bubblePosition.x, top: bubblePosition.y }}
+        className={`fixed z-40 h-14 w-14 rounded-full bg-blue-500 text-white shadow-lg transition-all flex items-center justify-center hover:bg-blue-600 hover:shadow-xl touch-none ${
           isStreaming ? 'animate-pulse' : ''
         }`}
         title="Open Pokémon Assistant"
@@ -222,10 +481,21 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <Card className="h-[80vh] max-h-[700px] w-full max-w-[600px] overflow-hidden flex flex-col bg-white dark:bg-slate-950 shadow-2xl">
+    <div className="pointer-events-none fixed inset-0 z-50">
+      <Card
+        style={{
+          left: panelPosition.x,
+          top: panelPosition.y,
+          width: panelSize.width,
+          height: panelSize.height,
+        }}
+        className="pointer-events-auto fixed overflow-hidden flex flex-col bg-white dark:bg-slate-950 shadow-2xl"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
+        <div
+          onPointerDown={(event) => startDrag('panel', event)}
+          className="flex cursor-move items-center justify-between border-b px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg touch-none"
+        >
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
             <h2 className="text-lg font-semibold">Pokémon Assistant</h2>
@@ -241,6 +511,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             <Button
               variant="ghost"
               size="sm"
+              onPointerDown={stopHeaderActionPointer}
               onClick={async () => {
                 await conversation.clearConversation();
                 setStreamingMessage('');
@@ -253,6 +524,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             <Button
               variant="ghost"
               size="sm"
+              onPointerDown={stopHeaderActionPointer}
               onClick={onClose}
               className="text-white hover:bg-blue-700"
             >
@@ -274,16 +546,16 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             <div className="space-y-4 pr-4">
             {conversation.messages.length === 0 && streamingMessage === '' && (
               <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
-                <p className="mb-2 text-lg">👋 Ciao! Sono il tuo assistente Pokémon.</p>
-                <p>Fammi domande sul tuo gioco!</p>
+                <p className="mb-2 text-lg">👋 Hi! I'm your Pokemon assistant.</p>
+                <p>Ask me anything about your game.</p>
                 {conversation.gameContext && (
                   <p className="mt-4 text-xs text-gray-400">
-                    📍 {conversation.gameContext.location} • 💰{' '}
-                    ₽{conversation.gameContext.money.toLocaleString()}
+                    👤 {conversation.gameContext.trainerName} • 📍{' '}
+                    {conversation.gameContext.location}
                   </p>
                 )}
                 <p className="mt-6 text-xs text-gray-400">
-                  💡 Comandi: /reset, /clear, /help
+                  💡 Commands: /reset, /clear, /help
                 </p>
               </div>
             )}
@@ -369,7 +641,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                   handleSendMessage();
                 }
               }}
-              placeholder="Scrivi un messaggio... (/help per i comandi)"
+              placeholder="Type a message... (/help for commands)"
               disabled={conversation.isLoading || !providerReady}
               className="flex-1"
             />
@@ -384,6 +656,14 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             </Button>
           </div>
         </div>
+        <button
+          type="button"
+          aria-label="Resize chat window"
+          onPointerDown={(event) => startDrag('resize', event)}
+          className="absolute bottom-0 right-0 h-5 w-5 cursor-se-resize touch-none bg-gradient-to-tl from-blue-500/35 to-transparent"
+        >
+          <span className="absolute bottom-1 right-1 block h-2 w-2 rounded-sm border-r-2 border-b-2 border-blue-600/80" />
+        </button>
       </Card>
     </div>
   );

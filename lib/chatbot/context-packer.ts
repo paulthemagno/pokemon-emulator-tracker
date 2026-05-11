@@ -18,24 +18,53 @@ export function packGameContext(saveData: SaveData | null): GameContextSnapshot 
     .flatMap((section) => section.items)
     .slice(0, 20); // Limit to first 20 items for context brevity
 
+  // Build detailed party info
+  const partyPokemonDetailed = (saveData.party || []).map((p) => ({
+    name: p.nickname || p.speciesName || 'Unknown',
+    species: p.speciesName || 'Unknown',
+    level: p.level || 0,
+    hp: p.currentHP || 0,
+    maxHp: p.maxHP || 0,
+    types: p.types || [],
+    status: p.status || 'none',
+    ability: p.abilityName,
+    nature: p.natureName,
+    heldItem: p.heldItemName,
+    moves: (p.moves || []).map((m) => ({
+      name: m.name || 'Unknown',
+      type: m.type || 'Unknown',
+      category: 'Physical', // Could be determined from move data
+      power: m.power || undefined,
+      accuracy: m.accuracy || undefined,
+      pp: m.pp || 0,
+      maxPp: m.maxPP || 0,
+    })),
+  }));
+
   return {
     trainerName: saveData.trainer?.name || 'Unknown',
     location: saveData.location?.name || 'Unknown Location',
     money: saveData.trainer?.money || 0,
-    playtime: saveData.trainer?.playTime || { hours: 0, minutes: 0, seconds: 0 },
+    playtime: {
+      hours: saveData.trainer?.playTime?.hours || 0,
+      minutes: saveData.trainer?.playTime?.minutes || 0,
+      seconds: saveData.trainer?.playTime?.seconds || 0,
+    },
     badges: saveData.trainer?.badges?.filter((b) => b).length || 0,
-    partyPokemon: (saveData.party || []).map((p) => ({
-      name: p.speciesName || p.nickname || 'Unknown',
-      level: p.level || 0,
-      hp: p.currentHP || 0,
-      maxHp: p.maxHP || 0,
+    partyPokemon: partyPokemonDetailed.map((p) => ({
+      name: p.name,
+      level: p.level,
+      hp: p.hp,
+      maxHp: p.maxHp,
     })),
+    partyPokemonDetailed,
     pokedexSeen: saveData.pokedex?.seenCount || 0,
     pokedexOwned: saveData.pokedex?.caughtCount || 0,
     inventory: inventoryItems.map((item) => ({
       name: item.name || 'Unknown Item',
       quantity: item.quantity || 0,
     })),
+    gameTitle: `Pokémon ${saveData.game?.toUpperCase() || 'Unknown'}`,
     timestamp: Date.now(),
   };
 }

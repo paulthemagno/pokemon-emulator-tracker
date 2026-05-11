@@ -9,7 +9,7 @@ import type {
   OllamaConfig,
   ChatMessage,
   GameContextSnapshot,
-} from './types';
+} from '../types';
 
 export class OllamaProvider implements ChatProvider {
   name = 'Ollama (Local)';
@@ -106,6 +106,13 @@ export class OllamaProvider implements ChatProvider {
       { role: 'user' as const, content: message },
     ];
 
+    // DEBUG: Log the full prompt and request
+    console.log('\n[OLLAMA DEBUG] ==========\n');
+    console.log('[OLLAMA DEBUG] SYSTEM PROMPT:\n', fullSystemPrompt);
+    console.log('\n[OLLAMA DEBUG] USER MESSAGE:\n', message);
+    console.log('[OLLAMA DEBUG] CONVERSATION HISTORY LENGTH:', conversationHistory.length);
+    console.log('[OLLAMA DEBUG] ==========\n');
+
     try {
       const response = await fetch(`${this.endpoint}/api/chat`, {
         method: 'POST',
@@ -132,6 +139,11 @@ export class OllamaProvider implements ChatProvider {
         // Non-streaming response
         const data = (await response.json()) as { message?: { content?: string } };
         const reply = data.message?.content || '';
+        
+        // DEBUG: Log response
+        console.log('[OLLAMA DEBUG] RESPONSE (non-streaming):\n', reply);
+        console.log('[OLLAMA DEBUG] ==========\n');
+        
         return reply;
       }
 
@@ -160,6 +172,10 @@ export class OllamaProvider implements ChatProvider {
           }
         }
       }
+      
+      // DEBUG: Log full streaming response
+      console.log('[OLLAMA DEBUG] RESPONSE (streaming, accumulated):\n', fullReply);
+      console.log('[OLLAMA DEBUG] ==========\n');
 
       return fullReply;
     } catch (error) {
@@ -170,14 +186,31 @@ export class OllamaProvider implements ChatProvider {
 
   private formatGameContext(context: GameContextSnapshot): string {
     const playtime = `${context.playtime.hours}h ${context.playtime.minutes}m ${context.playtime.seconds}s`;
-    const partyInfo = context.partyPokemon
-      .map(
-        (p) =>
-          `${p.name} (Lv. ${p.level}) - ${p.hp}/${p.maxHp} HP`
-      )
-      .join('\n  ');
 
-    return `
+    const partyDetails = (context.partyPokemonDetailed ?? [])
+      .map((p, i) => {
+        const movesStr = p.moves
+          .map(
+            (m) =>
+              `- ${m.name} | ${m.type}${m.power ? ` | Power ${m.power}` : ''} | PP ${m.pp}/${m.maxPp}`
+          )
+          .join('\n      ');
+
+        return `${i + 1}. ${p.name} (${p.species}) Lv.${p.level}
+     HP: ${p.hp}/${p.maxHp}
+     Types: ${p.types.join('/')}
+     Status: ${p.status}
+     ${p.ability ? `Ability: ${p.ability}` : ''}
+     ${p.nature ? `Nature: ${p.nature}` : ''}
+     ${p.heldItem ? `Held Item: ${p.heldItem}` : 'No item'}
+     Moves:
+      ${movesStr || '(none)'}`;
+      })
+      .join('\n\n');
+
+    return `## Game State
+
+Game: ${context.gameTitle || 'Pokémon'}
 Trainer: ${context.trainerName}
 Location: ${context.location}
 Money: ₽${context.money.toLocaleString()}
@@ -185,8 +218,7 @@ Playtime: ${playtime}
 Badges: ${context.badges}
 Pokédex: ${context.pokedexOwned}/${context.pokedexSeen}
 
-Party:
-  ${partyInfo || '(empty)'}
-`;
+## Party
+${partyDetails || '(empty)'}`;
   }
 }
