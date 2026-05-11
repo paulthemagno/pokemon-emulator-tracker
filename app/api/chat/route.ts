@@ -52,6 +52,16 @@ export async function POST(request: NextRequest) {
     console.log('[API CHAT DEBUG] Message:', message);
     console.log('[API CHAT DEBUG] History length:', history.length);
     console.log('[API CHAT DEBUG] Has gameContext:', !!gameContext);
+    if (gameContext) {
+      console.log('[API CHAT DEBUG] Context trainer:', gameContext.trainerName);
+      console.log('[API CHAT DEBUG] Context location:', gameContext.location);
+      console.log(
+        '[API CHAT DEBUG] Context party count:',
+        gameContext.partyPokemonDetailed?.length ?? gameContext.partyPokemon.length
+      );
+    } else {
+      console.log('[API CHAT DEBUG] Context missing: load a save file or live data to enable tool calls');
+    }
     console.log('[API CHAT DEBUG] Streaming:', stream);
     console.log('[API CHAT DEBUG] ==================\n');
 

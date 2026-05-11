@@ -13,10 +13,8 @@ export function packGameContext(saveData: SaveData | null): GameContextSnapshot 
     return undefined;
   }
 
-  // Flatten inventory sections into items
-  const inventoryItems = saveData.inventory
-    .flatMap((section) => section.items)
-    .slice(0, 20); // Limit to first 20 items for context brevity
+  // Flatten inventory sections into items (full list for tool-calling accuracy)
+  const inventoryItems = saveData.inventory.flatMap((section) => section.items);
 
   // Build detailed party info
   const partyPokemonDetailed = (saveData.party || []).map((p) => ({
@@ -60,6 +58,8 @@ export function packGameContext(saveData: SaveData | null): GameContextSnapshot 
     partyPokemonDetailed,
     pokedexSeen: saveData.pokedex?.seenCount || 0,
     pokedexOwned: saveData.pokedex?.caughtCount || 0,
+    pokedexSeenList: saveData.pokedex?.seenSpecies || [],
+    pokedexCaughtList: saveData.pokedex?.caughtSpecies || [],
     inventory: inventoryItems.map((item) => ({
       name: item.name || 'Unknown Item',
       quantity: item.quantity || 0,

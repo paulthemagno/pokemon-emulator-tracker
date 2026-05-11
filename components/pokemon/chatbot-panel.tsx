@@ -343,16 +343,6 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           message: userMessage,
           history: conversation.messages,
           gameContext: conversation.gameContext,
-          systemPrompt: `You are a live Pokémon co-pilot. Your role is to provide tactical, concrete advice based on the player's current game state.
-
-Rules:
-- Use ONLY the provided game state and move data. Do not invent Pokémon, moves, or abilities.
-- For battle advice: recommend one move or switch with a brief tactical reason (type advantage, PP, HP, status).
-- Consider type effectiveness, PP remaining, HP percentage, status conditions, held items, and levels.
-- Prioritize concrete next actions over generic encouragement.
-- If critical data is missing, ask for it specifically instead of guessing.
-- Keep responses concise and actionable.
-- Do not say "you're strong" or "good luck" — be useful instead.`,
           stream: true,
         }),
       });

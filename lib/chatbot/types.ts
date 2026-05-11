@@ -58,6 +58,8 @@ export interface GameContextSnapshot {
   }>;
   pokedexSeen: number;
   pokedexOwned: number;
+  pokedexSeenList: number[];
+  pokedexCaughtList: number[];
   inventory: Array<{
     name: string;
     quantity: number;

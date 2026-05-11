@@ -144,6 +144,14 @@ In-app LLM chatbot integrated with game context. See `docs/chatbot-phase1.md` fo
 
 **Result:** LLM responses now tactical and grounded in actual game state instead of generic.
 
+### Phase 1.6 Enhancement (COMPLETED)
+
+**Optional Tool/Function Calling (Ollama):**
+- `lib/chatbot/providers/ollama.ts` now attempts tool-calling first when game context is available
+- Built-in tools exposed to the model: `get_trainer_status`, `get_party_overview`, `get_pokemon_details`, `get_inventory_overview`
+- Automatic fallback: if model/tool support is missing, provider falls back to standard prompt+context flow without breaking chat
+- Config flag: set `OLLAMA_ENABLE_TOOLS=false` to disable tool-calling completely
+
 ### Components
 
 ```text
