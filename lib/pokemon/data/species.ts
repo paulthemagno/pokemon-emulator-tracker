@@ -1,10 +1,12 @@
 // Pokemon Species Data for Gen 1-3 (National Dex #1-386)
 
+import type { GrowthRate } from "../experience";
+
 export interface SpeciesData {
   id: number;
   name: string;
   types: string[];
-  growthRate?: "fast" | "medium-fast" | "medium-slow" | "slow" | "erratic" | "fluctuating";
+  growthRate?: GrowthRate;
   baseStats: {
     hp: number;
     attack: number;
@@ -15,19 +17,22 @@ export interface SpeciesData {
   };
 }
 
+// Base species rows intentionally do not carry growthRate inline. Keeping that
+// data in one complete table below avoids partial per-species fixes.
+
 // Complete list of Gen 1-3 Pokemon
 export const SPECIES: SpeciesData[] = [
   { id: 0, name: "???", types: ["???"], baseStats: { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 } },
   // Gen 1 - Kanto (1-151)
-  { id: 1, name: "Bulbasaur", types: ["grass", "poison"], growthRate: "medium-slow", baseStats: { hp: 45, attack: 49, defense: 49, specialAttack: 65, specialDefense: 65, speed: 45 } },
-  { id: 2, name: "Ivysaur", types: ["grass", "poison"], growthRate: "medium-slow", baseStats: { hp: 60, attack: 62, defense: 63, specialAttack: 80, specialDefense: 80, speed: 60 } },
-  { id: 3, name: "Venusaur", types: ["grass", "poison"], growthRate: "medium-slow", baseStats: { hp: 80, attack: 82, defense: 83, specialAttack: 100, specialDefense: 100, speed: 80 } },
-  { id: 4, name: "Charmander", types: ["fire"], growthRate: "medium-slow", baseStats: { hp: 39, attack: 52, defense: 43, specialAttack: 60, specialDefense: 50, speed: 65 } },
-  { id: 5, name: "Charmeleon", types: ["fire"], growthRate: "medium-slow", baseStats: { hp: 58, attack: 64, defense: 58, specialAttack: 80, specialDefense: 65, speed: 80 } },
-  { id: 6, name: "Charizard", types: ["fire", "flying"], growthRate: "medium-slow", baseStats: { hp: 78, attack: 84, defense: 78, specialAttack: 109, specialDefense: 85, speed: 100 } },
-  { id: 7, name: "Squirtle", types: ["water"], growthRate: "medium-slow", baseStats: { hp: 44, attack: 48, defense: 65, specialAttack: 50, specialDefense: 64, speed: 43 } },
-  { id: 8, name: "Wartortle", types: ["water"], growthRate: "medium-slow", baseStats: { hp: 59, attack: 63, defense: 80, specialAttack: 65, specialDefense: 80, speed: 58 } },
-  { id: 9, name: "Blastoise", types: ["water"], growthRate: "medium-slow", baseStats: { hp: 79, attack: 83, defense: 100, specialAttack: 85, specialDefense: 105, speed: 78 } },
+  { id: 1, name: "Bulbasaur", types: ["grass", "poison"], baseStats: { hp: 45, attack: 49, defense: 49, specialAttack: 65, specialDefense: 65, speed: 45 } },
+  { id: 2, name: "Ivysaur", types: ["grass", "poison"], baseStats: { hp: 60, attack: 62, defense: 63, specialAttack: 80, specialDefense: 80, speed: 60 } },
+  { id: 3, name: "Venusaur", types: ["grass", "poison"], baseStats: { hp: 80, attack: 82, defense: 83, specialAttack: 100, specialDefense: 100, speed: 80 } },
+  { id: 4, name: "Charmander", types: ["fire"], baseStats: { hp: 39, attack: 52, defense: 43, specialAttack: 60, specialDefense: 50, speed: 65 } },
+  { id: 5, name: "Charmeleon", types: ["fire"], baseStats: { hp: 58, attack: 64, defense: 58, specialAttack: 80, specialDefense: 65, speed: 80 } },
+  { id: 6, name: "Charizard", types: ["fire", "flying"], baseStats: { hp: 78, attack: 84, defense: 78, specialAttack: 109, specialDefense: 85, speed: 100 } },
+  { id: 7, name: "Squirtle", types: ["water"], baseStats: { hp: 44, attack: 48, defense: 65, specialAttack: 50, specialDefense: 64, speed: 43 } },
+  { id: 8, name: "Wartortle", types: ["water"], baseStats: { hp: 59, attack: 63, defense: 80, specialAttack: 65, specialDefense: 80, speed: 58 } },
+  { id: 9, name: "Blastoise", types: ["water"], baseStats: { hp: 79, attack: 83, defense: 100, specialAttack: 85, specialDefense: 105, speed: 78 } },
   { id: 10, name: "Caterpie", types: ["bug"], baseStats: { hp: 45, attack: 30, defense: 35, specialAttack: 20, specialDefense: 20, speed: 45 } },
   { id: 11, name: "Metapod", types: ["bug"], baseStats: { hp: 50, attack: 20, defense: 55, specialAttack: 25, specialDefense: 25, speed: 30 } },
   { id: 12, name: "Butterfree", types: ["bug", "flying"], baseStats: { hp: 60, attack: 45, defense: 50, specialAttack: 90, specialDefense: 80, speed: 70 } },
@@ -77,13 +82,13 @@ export const SPECIES: SpeciesData[] = [
   { id: 56, name: "Mankey", types: ["fighting"], baseStats: { hp: 40, attack: 80, defense: 35, specialAttack: 35, specialDefense: 45, speed: 70 } },
   { id: 57, name: "Primeape", types: ["fighting"], baseStats: { hp: 65, attack: 105, defense: 60, specialAttack: 60, specialDefense: 70, speed: 95 } },
   { id: 58, name: "Growlithe", types: ["fire"], baseStats: { hp: 55, attack: 70, defense: 45, specialAttack: 70, specialDefense: 50, speed: 60 } },
-  { id: 59, name: "Arcanine", types: ["fire"], growthRate: "slow", baseStats: { hp: 90, attack: 110, defense: 80, specialAttack: 100, specialDefense: 80, speed: 95 } },
+  { id: 59, name: "Arcanine", types: ["fire"], baseStats: { hp: 90, attack: 110, defense: 80, specialAttack: 100, specialDefense: 80, speed: 95 } },
   { id: 60, name: "Poliwag", types: ["water"], baseStats: { hp: 40, attack: 50, defense: 40, specialAttack: 40, specialDefense: 40, speed: 90 } },
   { id: 61, name: "Poliwhirl", types: ["water"], baseStats: { hp: 65, attack: 65, defense: 65, specialAttack: 50, specialDefense: 50, speed: 90 } },
   { id: 62, name: "Poliwrath", types: ["water", "fighting"], baseStats: { hp: 90, attack: 95, defense: 95, specialAttack: 70, specialDefense: 90, speed: 70 } },
   { id: 63, name: "Abra", types: ["psychic"], baseStats: { hp: 25, attack: 20, defense: 15, specialAttack: 105, specialDefense: 55, speed: 90 } },
   { id: 64, name: "Kadabra", types: ["psychic"], baseStats: { hp: 40, attack: 35, defense: 30, specialAttack: 120, specialDefense: 70, speed: 105 } },
-  { id: 65, name: "Alakazam", types: ["psychic"], growthRate: "medium-slow", baseStats: { hp: 55, attack: 50, defense: 45, specialAttack: 135, specialDefense: 95, speed: 120 } },
+  { id: 65, name: "Alakazam", types: ["psychic"], baseStats: { hp: 55, attack: 50, defense: 45, specialAttack: 135, specialDefense: 95, speed: 120 } },
   { id: 66, name: "Machop", types: ["fighting"], baseStats: { hp: 70, attack: 80, defense: 50, specialAttack: 35, specialDefense: 35, speed: 35 } },
   { id: 67, name: "Machoke", types: ["fighting"], baseStats: { hp: 80, attack: 100, defense: 70, specialAttack: 50, specialDefense: 60, speed: 45 } },
   { id: 68, name: "Machamp", types: ["fighting"], baseStats: { hp: 90, attack: 130, defense: 80, specialAttack: 65, specialDefense: 85, speed: 55 } },
@@ -177,9 +182,9 @@ export const SPECIES: SpeciesData[] = [
   { id: 155, name: "Cyndaquil", types: ["fire"], baseStats: { hp: 39, attack: 52, defense: 43, specialAttack: 60, specialDefense: 50, speed: 65 } },
   { id: 156, name: "Quilava", types: ["fire"], baseStats: { hp: 58, attack: 64, defense: 58, specialAttack: 80, specialDefense: 65, speed: 80 } },
   { id: 157, name: "Typhlosion", types: ["fire"], baseStats: { hp: 78, attack: 84, defense: 78, specialAttack: 109, specialDefense: 85, speed: 100 } },
-  { id: 158, name: "Totodile", types: ["water"], growthRate: "medium-slow", baseStats: { hp: 50, attack: 65, defense: 64, specialAttack: 44, specialDefense: 48, speed: 43 } },
-  { id: 159, name: "Croconaw", types: ["water"], growthRate: "medium-slow", baseStats: { hp: 65, attack: 80, defense: 80, specialAttack: 59, specialDefense: 63, speed: 58 } },
-  { id: 160, name: "Feraligatr", types: ["water"], growthRate: "medium-slow", baseStats: { hp: 85, attack: 105, defense: 100, specialAttack: 79, specialDefense: 83, speed: 78 } },
+  { id: 158, name: "Totodile", types: ["water"], baseStats: { hp: 50, attack: 65, defense: 64, specialAttack: 44, specialDefense: 48, speed: 43 } },
+  { id: 159, name: "Croconaw", types: ["water"], baseStats: { hp: 65, attack: 80, defense: 80, specialAttack: 59, specialDefense: 63, speed: 58 } },
+  { id: 160, name: "Feraligatr", types: ["water"], baseStats: { hp: 85, attack: 105, defense: 100, specialAttack: 79, specialDefense: 83, speed: 78 } },
   { id: 161, name: "Sentret", types: ["normal"], baseStats: { hp: 35, attack: 46, defense: 34, specialAttack: 35, specialDefense: 45, speed: 20 } },
   { id: 162, name: "Furret", types: ["normal"], baseStats: { hp: 85, attack: 76, defense: 64, specialAttack: 45, specialDefense: 55, speed: 90 } },
   { id: 163, name: "Hoothoot", types: ["normal", "flying"], baseStats: { hp: 60, attack: 30, defense: 30, specialAttack: 36, specialDefense: 56, speed: 50 } },
@@ -200,7 +205,7 @@ export const SPECIES: SpeciesData[] = [
   { id: 178, name: "Xatu", types: ["psychic", "flying"], baseStats: { hp: 65, attack: 75, defense: 70, specialAttack: 95, specialDefense: 70, speed: 95 } },
   { id: 179, name: "Mareep", types: ["electric"], baseStats: { hp: 55, attack: 40, defense: 40, specialAttack: 65, specialDefense: 45, speed: 35 } },
   { id: 180, name: "Flaaffy", types: ["electric"], baseStats: { hp: 70, attack: 55, defense: 55, specialAttack: 80, specialDefense: 60, speed: 45 } },
-  { id: 181, name: "Ampharos", types: ["electric"], growthRate: "medium-slow", baseStats: { hp: 90, attack: 75, defense: 85, specialAttack: 115, specialDefense: 90, speed: 55 } },
+  { id: 181, name: "Ampharos", types: ["electric"], baseStats: { hp: 90, attack: 75, defense: 85, specialAttack: 115, specialDefense: 90, speed: 55 } },
   { id: 182, name: "Bellossom", types: ["grass"], baseStats: { hp: 75, attack: 80, defense: 95, specialAttack: 90, specialDefense: 100, speed: 50 } },
   { id: 183, name: "Marill", types: ["water"], baseStats: { hp: 70, attack: 20, defense: 50, specialAttack: 20, specialDefense: 50, speed: 40 } },
   { id: 184, name: "Azumarill", types: ["water"], baseStats: { hp: 100, attack: 50, defense: 80, specialAttack: 60, specialDefense: 80, speed: 50 } },
@@ -409,8 +414,31 @@ export const SPECIES: SpeciesData[] = [
   { id: 386, name: "Deoxys", types: ["psychic"], baseStats: { hp: 50, attack: 150, defense: 50, specialAttack: 150, specialDefense: 50, speed: 150 } },
 ];
 
+// Source: PokeAPI pokemon-species growth_rate for National Dex 1-386.
+// PokeAPI names "medium" as the in-game medium-fast curve.
+const OFFICIAL_GROWTH_RATE_IDS: Record<GrowthRate, number[]> = {
+  "medium-slow": [1, 2, 3, 4, 5, 6, 7, 8, 9, 16, 17, 18, 29, 30, 31, 32, 33, 34, 43, 44, 45, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 74, 75, 76, 92, 93, 94, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 179, 180, 181, 182, 186, 187, 188, 189, 191, 192, 198, 207, 213, 215, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 270, 271, 272, 273, 274, 275, 276, 277, 293, 294, 295, 302, 315, 328, 329, 330, 331, 332, 352, 359, 363, 364, 365],
+  "medium-fast": [10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 37, 38, 41, 42, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 95, 96, 97, 98, 99, 100, 101, 104, 105, 106, 107, 108, 109, 110, 114, 115, 116, 117, 118, 119, 122, 123, 124, 125, 126, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 161, 162, 163, 164, 169, 172, 177, 178, 185, 193, 194, 195, 196, 197, 199, 201, 202, 203, 204, 205, 206, 208, 211, 212, 216, 217, 218, 219, 223, 224, 230, 231, 232, 233, 236, 237, 238, 239, 240, 261, 262, 263, 264, 265, 266, 267, 268, 269, 278, 279, 283, 284, 299, 307, 308, 311, 312, 322, 323, 324, 339, 340, 343, 344, 351, 360, 361, 362],
+  fast: [35, 36, 39, 40, 113, 165, 166, 167, 168, 173, 174, 175, 176, 183, 184, 190, 200, 209, 210, 222, 225, 235, 242, 298, 300, 301, 303, 325, 326, 327, 337, 338, 353, 354, 355, 356, 358, 370],
+  slow: [58, 59, 72, 73, 90, 91, 102, 103, 111, 112, 120, 121, 127, 128, 129, 130, 131, 142, 143, 144, 145, 146, 147, 148, 149, 150, 170, 171, 214, 220, 221, 226, 227, 228, 229, 234, 241, 243, 244, 245, 246, 247, 248, 249, 250, 280, 281, 282, 287, 288, 289, 304, 305, 306, 309, 310, 318, 319, 357, 369, 371, 372, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386],
+  erratic: [285, 286, 296, 297, 314, 316, 317, 320, 321, 336, 341, 342],
+  fluctuating: [290, 291, 292, 313, 333, 334, 335, 345, 346, 347, 348, 349, 350, 366, 367, 368],
+};
+
+export const OFFICIAL_GROWTH_RATES: Record<number, GrowthRate> = {};
+
+for (const [growthRate, ids] of Object.entries(OFFICIAL_GROWTH_RATE_IDS) as [GrowthRate, number[]][]) {
+  for (const id of ids) {
+    OFFICIAL_GROWTH_RATES[id] = growthRate;
+  }
+}
+
 export function getSpeciesById(id: number): SpeciesData {
-  return SPECIES[id] || SPECIES[0];
+  const species = SPECIES[id] || SPECIES[0];
+  return {
+    ...species,
+    growthRate: OFFICIAL_GROWTH_RATES[species.id] ?? species.growthRate,
+  };
 }
 
 export function getSpeciesName(id: number): string {

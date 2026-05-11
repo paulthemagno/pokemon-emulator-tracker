@@ -19,17 +19,17 @@ This project is a Next/React app for Pokemon save tracking. It has two data sour
 - `.sav` / `.srm` uploads
 - Live emulator memory through `/api/live`
 
-The current live mode is focused on Pokemon Crystal in mGBA.
+The current live mode is focused on Pokemon Gold/Silver/Crystal in mGBA.
 
 ## Live mGBA
 
 File principale:
 
 ```text
-live-adapters/mgba-crystal-live.lua
+live-adapters/mgba-gen2-live.lua
 ```
 
-The script reads Crystal WRAM and serves JSON on `127.0.0.1:8080`.
+The script reads Gen 2 WRAM through per-version profiles and serves JSON on `127.0.0.1:8080`.
 
 Endpoint used by the UI:
 

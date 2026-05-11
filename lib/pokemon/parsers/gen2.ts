@@ -14,7 +14,6 @@ import type {
 } from "../types";
 import {
   decodeGen1String,
-  readBCD,
   readUint16BE,
   readUint16LE,
   getStatusCondition,
@@ -38,31 +37,41 @@ const OFFSETS = {
     PARTY_COUNT: 0x288a,
     PARTY_SPECIES: 0x288b,
     PARTY_DATA: 0x2892,
-    CURRENT_MAP_GROUP: 0x2000,
-    CURRENT_MAP: 0x2001,
+    CURRENT_MAP_GROUP: 0x2868,
+    CURRENT_MAP: 0x2869,
+    CURRENT_MAP_X: 0x286a,
+    CURRENT_MAP_Y: 0x286b,
     BAG_TMS_HMS: 0x23e6,
     BAG_ITEMS: 0x241f,
     BAG_KEY_ITEMS: 0x2449,
     BAG_BALLS: 0x2464,
+    CURRENT_BOX_NUMBER: 0x2724,
+    BOX_NAMES: 0x2727,
+    CURRENT_BOX_DATA: 0x2d6c,
   },
   // Crystal offsets (slightly different)
   CRYSTAL: {
-    PLAYER_GENDER: 0x2000,
+    PLAYER_GENDER: 0x3e3d,
     PLAYER_NAME: 0x200b,
     TRAINER_ID: 0x2009,
     MONEY: 0x23dc,
     BADGES_JOHTO: 0x23e5,
     BADGES_KANTO: 0x23e6,
-    PLAY_TIME: 0x2054,
+    PLAY_TIME: 0x2053,
     PARTY_COUNT: 0x2865,
     PARTY_SPECIES: 0x2866,
     PARTY_DATA: 0x286d,
-    CURRENT_MAP_GROUP: 0x2000,
-    CURRENT_MAP: 0x2001,
+    CURRENT_MAP_GROUP: 0x2843,
+    CURRENT_MAP: 0x2844,
+    CURRENT_MAP_X: 0x2845,
+    CURRENT_MAP_Y: 0x2846,
     BAG_TMS_HMS: 0x23e7,
     BAG_ITEMS: 0x2420,
     BAG_KEY_ITEMS: 0x244a,
     BAG_BALLS: 0x2465,
+    CURRENT_BOX_NUMBER: 0x2700,
+    BOX_NAMES: 0x2703,
+    CURRENT_BOX_DATA: 0x2d10,
   },
 };
 
@@ -78,7 +87,6 @@ const BOX_CAPACITY = 20;
 const NUM_BOXES = 14;
 const BOX_NAME_LENGTH = 9;
 const BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES;
-const CURRENT_BOX_OFFSET = 0x2d10;
 const BOX_OFFSETS = [
   0x4000, 0x4450, 0x48a0, 0x4cf0, 0x5140, 0x5590, 0x59e0,
   0x6000, 0x6450, 0x68a0, 0x6cf0, 0x7140, 0x7590, 0x79e0,
@@ -255,13 +263,20 @@ function calculateLevelFromExperience(experience: number): number {
   return Math.min(100, Math.max(1, Math.floor(Math.cbrt(experience))));
 }
 
-function parseTrainerInfo(data: Uint8Array, offsets: typeof OFFSETS.GS): TrainerInfo {
+function readUint24BE(data: Uint8Array, offset: number): number {
+  return (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
+}
+
+function parseTrainerInfo(
+  data: Uint8Array,
+  offsets: typeof OFFSETS.GS,
+  _game: GameVersion
+): TrainerInfo {
   const name = decodeGen1String(data, offsets.PLAYER_NAME, 11);
-  const gender = offsets.PLAYER_GENDER < 0
-    ? undefined
-    : (data[offsets.PLAYER_GENDER] & 1) === 1 ? "female" : "male";
+  const genderByte = offsets.PLAYER_GENDER < 0 ? -1 : data[offsets.PLAYER_GENDER];
+  const gender = genderByte === 0 ? "male" : genderByte === 1 ? "female" : undefined;
   const id = readUint16BE(data, offsets.TRAINER_ID);
-  const money = readBCD(data, offsets.MONEY, 3);
+  const money = readUint24BE(data, offsets.MONEY);
   
   const johtoBadges = data[offsets.BADGES_JOHTO];
   const kantoBadges = data[offsets.BADGES_KANTO];
@@ -276,9 +291,9 @@ function parseTrainerInfo(data: Uint8Array, offsets: typeof OFFSETS.GS): Trainer
     badges.push((kantoBadges & (1 << i)) !== 0);
   }
 
-  const hours = data[offsets.PLAY_TIME] | (data[offsets.PLAY_TIME + 1] << 8);
-  const minutes = data[offsets.PLAY_TIME + 2];
-  const seconds = data[offsets.PLAY_TIME + 3];
+  const hours = data[offsets.PLAY_TIME];
+  const minutes = data[offsets.PLAY_TIME + 1];
+  const seconds = data[offsets.PLAY_TIME + 2];
 
   return {
     name,
@@ -406,9 +421,14 @@ function parseInventory(data: Uint8Array, offsets: typeof OFFSETS.GS): Inventory
 function parseLocation(data: Uint8Array, offsets: typeof OFFSETS.GS): LocationInfo {
   const mapGroup = data[offsets.CURRENT_MAP_GROUP];
   const mapId = data[offsets.CURRENT_MAP];
-  // Combine for lookup (simplified)
+  const x = data[offsets.CURRENT_MAP_X];
+  const y = data[offsets.CURRENT_MAP_Y];
+
   return {
-    mapId: mapId,
+    mapGroup,
+    mapId,
+    x,
+    y,
     name: getGen2Location(mapId),
     areaType: mapId <= 12 ? "town" : mapId <= 33 ? "route" : "building",
   };
@@ -476,8 +496,33 @@ function isReasonableBoxName(name: string): boolean {
   return /^[\w \-._'!?&]+$/i.test(name);
 }
 
-function getGen2BoxNameInfo(data: Uint8Array): { names: string[]; currentBoxIndex?: number } {
+function getGen2BoxNameInfo(
+  data: Uint8Array,
+  offsets: typeof OFFSETS.GS
+): { names: string[]; currentBoxIndex?: number } {
   const fallbackNames = Array.from({ length: NUM_BOXES }, (_, i) => `Box ${i + 1}`);
+  const directNames = fallbackNames.slice();
+  let directReasonable = 0;
+
+  for (let i = 0; i < NUM_BOXES; i++) {
+    const parsed = decodeGen1String(
+      data,
+      offsets.BOX_NAMES + i * BOX_NAME_LENGTH,
+      BOX_NAME_LENGTH
+    ).trim();
+    if (isReasonableBoxName(parsed)) {
+      directNames[i] = parsed;
+      directReasonable++;
+    }
+  }
+
+  if (directReasonable >= 8) {
+    return {
+      names: directNames,
+      currentBoxIndex: data[offsets.CURRENT_BOX_NUMBER] % NUM_BOXES,
+    };
+  }
+
   let bestBase = -1;
   let bestScore = -1;
 
@@ -542,12 +587,12 @@ function findPCBoxRecords(
     .map((candidate) => candidate.box);
 }
 
-function parsePCBoxes(data: Uint8Array): PCBox[] {
-  const { names, currentBoxIndex } = getGen2BoxNameInfo(data);
+function parsePCBoxes(data: Uint8Array, offsets: typeof OFFSETS.GS): PCBox[] {
+  const { names, currentBoxIndex } = getGen2BoxNameInfo(data, offsets);
 
   const currentBox = parsePCBoxRecord(
     data,
-    CURRENT_BOX_OFFSET,
+    offsets.CURRENT_BOX_DATA,
     names[currentBoxIndex ?? 0] ?? "Current Box"
   );
 
@@ -630,10 +675,10 @@ export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
   return {
     generation: 2,
     game,
-    trainer: parseTrainerInfo(data, offsets),
+    trainer: parseTrainerInfo(data, offsets, game),
     pokedex: parsePokedexProgress(data, offsets),
     party: parseParty(data, offsets),
-    pcBoxes: parsePCBoxes(data),
+    pcBoxes: parsePCBoxes(data, offsets),
     inventory: parseInventory(data, offsets),
     location: parseLocation(data, offsets),
     valid: true,

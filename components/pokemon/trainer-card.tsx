@@ -41,6 +41,8 @@ function formatMoney(amount: number): string {
   return new Intl.NumberFormat().format(amount);
 }
 
+const POKE_DOLLAR_SYMBOL = "₽";
+
 function getGameDisplayName(generation: Generation, game?: GameVersion): string {
   const gameNames: Record<string, string> = {
     red: "Pokemon Red",
@@ -225,7 +227,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
               <div className="grid min-h-[54px] grid-cols-2 gap-2">
                 <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-xs text-muted-foreground">Money</p>
-                  <p className="font-mono text-sm font-bold">${formatMoney(trainer.money)}</p>
+                  <p className="font-mono text-sm font-bold">{POKE_DOLLAR_SYMBOL}{formatMoney(trainer.money)}</p>
                 </div>
                 <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-xs text-muted-foreground">Play Time</p>
@@ -314,7 +316,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
             <div>
               <p className="text-xs text-muted-foreground">Money</p>
               <p className="text-sm font-bold font-mono">
-                ${formatMoney(trainer.money)}
+                {POKE_DOLLAR_SYMBOL}{formatMoney(trainer.money)}
               </p>
             </div>
           </div>
