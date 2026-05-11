@@ -20,7 +20,7 @@ function hasStoredPokemon(data: SaveData | null) {
 export default function Home() {
   const { saveData, isLoading, error, filename, uploadFile, clearData, lastUpdated } =
     useSaveData();
-  const live = useLiveData(500);
+  const live = useLiveData(250);
   const [showInfo, setShowInfo] = useState(false);
   const activeSaveData = useMemo(() => {
     if (!live.data) return saveData;

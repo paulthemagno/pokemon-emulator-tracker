@@ -12,6 +12,88 @@ interface LiveState {
   source: string | null;
 }
 
+function hasItems<T>(items: T[] | null | undefined) {
+  return Array.isArray(items) && items.length > 0;
+}
+
+function hasPokemonInBoxes(data: SaveData | null) {
+  if (!data) return false;
+  return data.pcBoxes.some((box) => box.pokemon.some((pokemon) => pokemon !== null));
+}
+
+function isLikelyFallbackTrainerName(name: string | undefined) {
+  const normalized = (name ?? "").trim().toLowerCase();
+  return normalized.length === 0 || normalized === "live trainer";
+}
+
+function isTrainerSnapshotPlausible(previous: SaveData | null, next: SaveData) {
+  const nextTrainer = next.trainer;
+  if (nextTrainer.money < 0 || nextTrainer.money > 999999) return false;
+  if (nextTrainer.playTime.minutes < 0 || nextTrainer.playTime.minutes > 59) return false;
+  if ((nextTrainer.playTime.seconds ?? 0) < 0 || (nextTrainer.playTime.seconds ?? 0) > 59) return false;
+
+  if (!previous) return true;
+
+  const prevTrainer = previous.trainer;
+  if (isLikelyFallbackTrainerName(nextTrainer.name) && !isLikelyFallbackTrainerName(prevTrainer.name)) {
+    return false;
+  }
+
+  const moneyDelta = Math.abs(nextTrainer.money - prevTrainer.money);
+  if (moneyDelta > 500000) return false;
+
+  const prevSeconds =
+    (prevTrainer.playTime.hours * 3600) +
+    (prevTrainer.playTime.minutes * 60) +
+    (prevTrainer.playTime.seconds ?? 0);
+  const nextSeconds =
+    (nextTrainer.playTime.hours * 3600) +
+    (nextTrainer.playTime.minutes * 60) +
+    (nextTrainer.playTime.seconds ?? 0);
+
+  if (nextSeconds + 5 < prevSeconds) return false;
+  if (nextSeconds - prevSeconds > 60) return false;
+
+  return true;
+}
+
+function hasNonPlaceholderLocation(next: SaveData) {
+  const locationName = next.location?.name?.trim() ?? "";
+  const mapId = Number(next.location?.mapId ?? 0);
+  const mapGroup = Number(next.location?.mapGroup ?? 0);
+  if (mapId <= 0 && mapGroup <= 0) return false;
+  if (locationName.length === 0 || locationName === "Location syncing") return false;
+  if (locationName === "Map 0-0") return false;
+  return true;
+}
+
+function mergeLiveData(previous: SaveData | null, next: SaveData): SaveData {
+  if (!previous) return next;
+
+  const useNextTrainer = isTrainerSnapshotPlausible(previous, next);
+  const useNextBoxes = hasItems(next.pcBoxes) && (hasPokemonInBoxes(next) || !hasPokemonInBoxes(previous));
+
+  return {
+    ...next,
+    trainer: useNextTrainer
+      ? {
+          ...previous.trainer,
+          ...next.trainer,
+          badges: hasItems(next.trainer.badges) ? next.trainer.badges : previous.trainer.badges,
+          playTime: {
+            ...previous.trainer.playTime,
+            ...next.trainer.playTime,
+          },
+        }
+      : previous.trainer,
+    pokedex: next.pokedex ?? previous.pokedex,
+    party: hasItems(next.party) ? next.party : previous.party,
+    pcBoxes: useNextBoxes ? next.pcBoxes : previous.pcBoxes,
+    inventory: hasItems(next.inventory) ? next.inventory : previous.inventory,
+    location: hasNonPlaceholderLocation(next) ? next.location : previous.location,
+  };
+}
+
 export function useLiveData(intervalMs = 1000) {
   const [state, setState] = useState<LiveState>({
     data: null,
@@ -55,14 +137,14 @@ export function useLiveData(intervalMs = 1000) {
       if (!result.success) throw new Error(result.error || "Live source unavailable");
 
       failuresRef.current = 0;
-      setState({
-        data: result.data,
+      setState((current) => ({
+        data: mergeLiveData(current.data, result.data),
         error: null,
         isConnected: true,
         isPolling: true,
         lastUpdated: result.updatedAt ?? Date.now(),
         source: result.source ?? "http://127.0.0.1:8080",
-      });
+      }));
     } catch (error) {
       failuresRef.current += 1;
       setState((current) => ({

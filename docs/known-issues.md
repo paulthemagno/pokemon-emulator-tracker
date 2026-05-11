@@ -20,6 +20,12 @@ mGBA Lua socket behavior is not identical to standard LuaSocket. Earlier failure
 
 The current adapter avoids a complex HTTP parser and sends a snapshot as soon as a client connects.
 
+## Live snapshot gaps
+
+During menu transitions or battle frames, the emulator memory snapshot can briefly come back partially empty.
+The client now keeps the last good live sections in place instead of flashing empty panels, but the underlying
+live read is still best-effort and may lag by one refresh.
+
 ## Next dev origins
 
 When running the app from `127.0.0.1` or a LAN IP, Next dev can block HMR/dev resources unless those hosts are in `allowedDevOrigins`.
