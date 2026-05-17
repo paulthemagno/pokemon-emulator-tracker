@@ -5,10 +5,18 @@ import {
   Pokemon,
   SaveData,
   TrainerInfo,
-  GameGeneration,
-  InventoryItem,
+  GameVersion,
+  InventorySection,
   PCBox,
 } from "../types";
+import {
+  getExpForLevel,
+  type GrowthRate,
+} from "../experience";
+import {
+  getSpeciesById,
+} from "../data/species";
+import { GEN3_INVENTORY_LAYOUTS, type InventoryLayout } from "../knowledge/inventory-layouts";
 import {
   getGen3CharacterMap,
   decodeString,
@@ -16,6 +24,7 @@ import {
   getMoveName,
   getItemName,
   getGen3LocationName,
+  getStatusCondition,
 } from "../utils";
 
 // Gen 3 save structure constants
@@ -52,6 +61,61 @@ interface Section {
   id: number;
   checksum: number;
   saveIndex: number;
+}
+
+type Gen3GameVersion = Extract<GameVersion, "ruby" | "sapphire" | "emerald" | "firered" | "leafgreen">;
+
+interface Gen3Generation {
+  gen: 3;
+  game: Gen3GameVersion;
+}
+
+interface Gen3PocketProfile {
+  name: string;
+  offset: number;
+  count: number;
+  maskQuantity: boolean;
+}
+
+interface Gen3SaveProfile {
+  partyCountOffset: number;
+  partyCountSize: 1 | 4;
+  partyOffset: number;
+  moneyOffset: number;
+  securityKeyOffset?: number;
+  inventoryLayout: InventoryLayout;
+}
+
+const GEN3_SAVE_PROFILES: Record<"rse" | "emerald" | "frlg", Gen3SaveProfile> = {
+  rse: {
+    partyCountOffset: 0x0234,
+    partyCountSize: 4,
+    partyOffset: 0x0238,
+    moneyOffset: 0x0490,
+    inventoryLayout: GEN3_INVENTORY_LAYOUTS.rubySapphire,
+  },
+  emerald: {
+    partyCountOffset: 0x0234,
+    partyCountSize: 4,
+    partyOffset: 0x0238,
+    moneyOffset: 0x0490,
+    securityKeyOffset: 0x00ac,
+    inventoryLayout: GEN3_INVENTORY_LAYOUTS.emerald,
+  },
+  frlg: {
+    partyCountOffset: 0x0034,
+    partyCountSize: 1,
+    partyOffset: 0x0038,
+    moneyOffset: 0x0290,
+    securityKeyOffset: 0x0af8,
+    inventoryLayout: GEN3_INVENTORY_LAYOUTS.fireRedLeafGreen,
+  },
+};
+
+function getGen3SaveProfile(game: string): Gen3SaveProfile {
+  if (game === "firered" || game === "leafgreen") return GEN3_SAVE_PROFILES.frlg;
+  if (game === "emerald") return GEN3_SAVE_PROFILES.emerald;
+  return GEN3_SAVE_PROFILES.rse;
 }
 
 function getActiveSaveSlot(data: Uint8Array): number {
@@ -93,7 +157,7 @@ function readSections(data: Uint8Array, slot: number): Map<number, Section> {
 
 function detectGame(
   sections: Map<number, Section>
-): "ruby" | "sapphire" | "emerald" | "firered" | "leafgreen" {
+): Gen3GameVersion {
   const trainerSection = sections.get(SECTION_TRAINER_INFO);
   if (!trainerSection) return "emerald";
 
@@ -139,7 +203,8 @@ function parseTrainerInfo(
       secretId: 0,
       money: 0,
       playTime: { hours: 0, minutes: 0, seconds: 0 },
-      badges: 0,
+      badges: Array.from({ length: 8 }, () => false),
+      badgeCount: 0,
       gender: "male",
     };
   }
@@ -169,7 +234,8 @@ function parseTrainerInfo(
   // Money and badges are in Section 1
   const teamSection = sections.get(SECTION_TEAM_ITEMS);
   let money = 0;
-  let badges = 0;
+  let badges = Array.from({ length: 8 }, () => false);
+  const profile = getGen3SaveProfile(game);
 
   if (teamSection) {
     const teamView = new DataView(
@@ -177,14 +243,13 @@ function parseTrainerInfo(
       teamSection.data.byteOffset
     );
 
-    // Money offset varies by game
-    const moneyOffset = game === "emerald" ? 0x0490 : 0x0490;
-    money = teamView.getUint32(moneyOffset, true) ^ getSecurityKey(sections);
+    const rawMoney = teamView.getUint32(profile.moneyOffset, true);
+    money = profile.securityKeyOffset ? rawMoney ^ getSecurityKey(sections, game) : rawMoney;
 
     // Badges are stored as a bitmask
     const badgeOffset = game === "emerald" ? 0x0ee8 : 0x0ee8;
     if (badgeOffset < teamSection.data.length) {
-      badges = countBadges(teamView.getUint16(badgeOffset, true));
+      badges = parseBadges(teamView.getUint16(badgeOffset, true));
     }
   }
 
@@ -195,24 +260,27 @@ function parseTrainerInfo(
     money,
     playTime: { hours, minutes, seconds },
     badges,
+    badgeCount: badges.filter(Boolean).length,
     gender,
   };
 }
 
-function getSecurityKey(sections: Map<number, Section>): number {
+function getSecurityKey(sections: Map<number, Section>, game: string): number {
   const section = sections.get(SECTION_TRAINER_INFO);
   if (!section) return 0;
+  const offset = getGen3SaveProfile(game).securityKeyOffset;
+  if (offset === undefined || offset + 4 > section.data.length) return 0;
 
   const view = new DataView(section.data.buffer, section.data.byteOffset);
-  return view.getUint32(0x00ac, true);
+  return view.getUint32(offset, true);
 }
 
-function countBadges(badgeMask: number): number {
-  let count = 0;
+function parseBadges(badgeMask: number): boolean[] {
+  const badges: boolean[] = [];
   for (let i = 0; i < 8; i++) {
-    if (badgeMask & (1 << i)) count++;
+    badges.push((badgeMask & (1 << i)) !== 0);
   }
-  return count;
+  return badges;
 }
 
 // Gen 3 Pokemon data structure (encrypted)
@@ -276,7 +344,7 @@ function getSubstructureOffset(pid: number, substruct: number): number {
 function parsePokemon(
   data: Uint8Array,
   isParty: boolean,
-  generation: GameGeneration
+  generation: Gen3Generation
 ): Pokemon | null {
   if (data.length < 80) return null;
 
@@ -323,8 +391,8 @@ function parsePokemon(
     attack: view.getUint8(evCondOffset + 1),
     defense: view.getUint8(evCondOffset + 2),
     speed: view.getUint8(evCondOffset + 3),
-    spAttack: view.getUint8(evCondOffset + 4),
-    spDefense: view.getUint8(evCondOffset + 5),
+    specialAttack: view.getUint8(evCondOffset + 4),
+    specialDefense: view.getUint8(evCondOffset + 5),
   };
 
   // Misc substructure
@@ -334,25 +402,24 @@ function parsePokemon(
     attack: (ivData >> 5) & 0x1f,
     defense: (ivData >> 10) & 0x1f,
     speed: (ivData >> 15) & 0x1f,
-    spAttack: (ivData >> 20) & 0x1f,
-    spDefense: (ivData >> 25) & 0x1f,
+    specialAttack: (ivData >> 20) & 0x1f,
+    specialDefense: (ivData >> 25) & 0x1f,
   };
 
-  const isEgg = (ivData >> 30) & 1;
   const abilityBit = (ivData >> 31) & 1;
 
   // Calculate level from experience
-  const level = calculateLevel(species, experience);
+  let level = calculateLevel(species, experience);
 
   // Party-specific data (only if isParty and data is long enough)
   let currentHp = 0;
   let maxHp = 0;
   let status = 0;
-  let stats = { hp: 0, attack: 0, defense: 0, speed: 0, spAttack: 0, spDefense: 0 };
+  let stats = { hp: 0, attack: 0, defense: 0, speed: 0, specialAttack: 0, specialDefense: 0 };
 
   if (isParty && data.length >= 100) {
     status = view.getUint32(0x50, true);
-    level; // Already calculated
+    level = view.getUint8(0x54) || level;
     currentHp = view.getUint16(0x56, true);
     maxHp = view.getUint16(0x58, true);
     stats = {
@@ -360,8 +427,8 @@ function parsePokemon(
       attack: view.getUint16(0x5a, true),
       defense: view.getUint16(0x5c, true),
       speed: view.getUint16(0x5e, true),
-      spAttack: view.getUint16(0x60, true),
-      spDefense: view.getUint16(0x62, true),
+      specialAttack: view.getUint16(0x60, true),
+      specialDefense: view.getUint16(0x62, true),
     };
   }
 
@@ -371,40 +438,44 @@ function parsePokemon(
 
   return {
     species,
-    speciesName: getSpeciesName(species, generation),
-    nickname: nickname || getSpeciesName(species, generation),
+    speciesName: getSpeciesName(species, generation.gen),
+    nickname: nickname || getSpeciesName(species, generation.gen),
     level,
-    currentHp,
-    maxHp,
+    currentHP: currentHp,
+    maxHP: maxHp,
     experience,
     moves: moves.map((m, i) => ({
       id: m,
-      name: getMoveName(m, generation),
+      name: getMoveName(m, generation.gen),
       pp: pp[i],
-      maxPp: 0, // Would need move data to calculate
+      maxPP: 0, // Would need move data to calculate
     })),
     ability: abilityBit,
     nature: pid % 25,
     ivs,
     evs,
     stats,
-    heldItem: heldItem > 0 ? { id: heldItem, name: getItemName(heldItem, generation) } : undefined,
-    otName,
-    otId: otid & 0xffff,
-    friendship,
-    status,
+    heldItem: heldItem > 0 ? heldItem : undefined,
+    heldItemName: heldItem > 0 ? getItemName(heldItem, generation.gen) : undefined,
+    originalTrainer: otName,
+    originalTrainerID: otid & 0xffff,
+    happiness: friendship,
+    status: getStatusCondition(status),
     isShiny,
-    isEgg: isEgg === 1,
     gender: determineGender(species, pid),
   };
 }
 
 function calculateLevel(species: number, experience: number): number {
-  // Simplified level calculation - would need full exp tables
-  // Using medium-fast growth rate as approximation
-  if (experience < 8) return 1;
-  const level = Math.floor(Math.cbrt(experience));
-  return Math.min(100, Math.max(1, level));
+  const growthRate: GrowthRate = getSpeciesById(species).growthRate ?? "medium-fast";
+
+  for (let level = 100; level >= 1; level--) {
+    if (experience >= getExpForLevel(level, growthRate)) {
+      return level;
+    }
+  }
+
+  return 1;
 }
 
 function determineGender(species: number, pid: number): "male" | "female" | "unknown" {
@@ -415,20 +486,22 @@ function determineGender(species: number, pid: number): "male" | "female" | "unk
   return "unknown";
 }
 
-function parseParty(sections: Map<number, Section>, generation: GameGeneration): Pokemon[] {
+function parseParty(sections: Map<number, Section>, generation: Gen3Generation): Pokemon[] {
   const section = sections.get(SECTION_TEAM_ITEMS);
   if (!section) return [];
 
   const view = new DataView(section.data.buffer, section.data.byteOffset);
-  const partyCount = view.getUint32(0x0234, true);
+  const profile = getGen3SaveProfile(generation.game);
+  const partyCount = profile.partyCountSize === 1
+    ? view.getUint8(profile.partyCountOffset)
+    : view.getUint32(profile.partyCountOffset, true);
 
   const party: Pokemon[] = [];
-  const partyOffset = 0x0238;
 
   for (let i = 0; i < Math.min(partyCount, 6); i++) {
     const pokemonData = section.data.slice(
-      partyOffset + i * POKEMON_DATA_SIZE,
-      partyOffset + (i + 1) * POKEMON_DATA_SIZE
+      profile.partyOffset + i * POKEMON_DATA_SIZE,
+      profile.partyOffset + (i + 1) * POKEMON_DATA_SIZE
     );
     const pokemon = parsePokemon(pokemonData, true, generation);
     if (pokemon) {
@@ -439,46 +512,41 @@ function parseParty(sections: Map<number, Section>, generation: GameGeneration):
   return party;
 }
 
-function parseInventory(sections: Map<number, Section>, generation: GameGeneration): InventoryItem[] {
+function parseInventory(sections: Map<number, Section>, generation: Gen3Generation): InventorySection[] {
   const section = sections.get(SECTION_TEAM_ITEMS);
   if (!section) return [];
 
   const view = new DataView(section.data.buffer, section.data.byteOffset);
-  const items: InventoryItem[] = [];
+  const inventory: InventorySection[] = [];
+  const profile = getGen3SaveProfile(generation.game);
+  const quantityMask = getSecurityKey(sections, generation.game) & 0xffff;
 
-  // Items pocket starts at different offsets by game
-  // Using Emerald offsets as base
-  const pockets = [
-    { name: "Items", offset: 0x0560, count: 30 },
-    { name: "Key Items", offset: 0x05d8, count: 30 },
-    { name: "Poke Balls", offset: 0x0650, count: 16 },
-    { name: "TMs/HMs", offset: 0x0690, count: 64 },
-    { name: "Berries", offset: 0x0790, count: 46 },
-  ];
-
-  for (const pocket of pockets) {
+  for (const pocket of profile.inventoryLayout.pockets) {
+    const items = [];
     for (let i = 0; i < pocket.count; i++) {
       const itemOffset = pocket.offset + i * 4;
       if (itemOffset + 4 > section.data.length) break;
 
       const itemId = view.getUint16(itemOffset, true);
-      const quantity = view.getUint16(itemOffset + 2, true);
+      const rawQuantity = view.getUint16(itemOffset + 2, true);
+      const quantity = pocket.quantityMask === "security-key-low16" ? rawQuantity ^ quantityMask : rawQuantity;
 
       if (itemId > 0 && quantity > 0) {
         items.push({
           id: itemId,
-          name: getItemName(itemId, generation),
+          name: getItemName(itemId, generation.gen),
           quantity,
           pocket: pocket.name,
         });
       }
     }
+    inventory.push({ name: pocket.name, items });
   }
 
-  return items;
+  return inventory;
 }
 
-function parsePCBoxes(sections: Map<number, Section>, generation: GameGeneration): PCBox[] {
+function parsePCBoxes(sections: Map<number, Section>, generation: Gen3Generation): PCBox[] {
   const boxes: PCBox[] = [];
   const boxSections = [
     SECTION_PC_BUFFER_A,
@@ -533,9 +601,15 @@ function parsePCBoxes(sections: Map<number, Section>, generation: GameGeneration
   return boxes;
 }
 
-function parseLocation(sections: Map<number, Section>, game: string): string {
+function parseLocation(sections: Map<number, Section>, game: string): SaveData["location"] {
   const section = sections.get(SECTION_GAME_STATE);
-  if (!section) return "Unknown";
+  if (!section) {
+    return {
+      mapId: 0,
+      name: "Unknown",
+      areaType: "unknown",
+    };
+  }
 
   const view = new DataView(section.data.buffer, section.data.byteOffset);
 
@@ -544,7 +618,11 @@ function parseLocation(sections: Map<number, Section>, game: string): string {
   const locationId = view.getUint8(locationOffset);
 
   const isFRLG = game === "firered" || game === "leafgreen";
-  return getGen3LocationName(locationId, isFRLG);
+  return {
+    mapId: locationId,
+    name: getGen3LocationName(locationId, isFRLG),
+    areaType: "unknown",
+  };
 }
 
 export function parseGen3Save(buffer: ArrayBuffer): SaveData {
@@ -564,7 +642,7 @@ export function parseGen3Save(buffer: ArrayBuffer): SaveData {
   // Detect game version
   const game = detectGame(sections);
 
-  const generation: GameGeneration = {
+  const generation: Gen3Generation = {
     gen: 3,
     game,
   };
@@ -577,12 +655,14 @@ export function parseGen3Save(buffer: ArrayBuffer): SaveData {
   const location = parseLocation(sections, game);
 
   return {
-    generation,
+    generation: 3,
+    game,
     trainer,
     party,
     pcBoxes,
     inventory,
     location,
-    lastUpdated: Date.now(),
+    valid: true,
+    rawSize: data.length,
   };
 }

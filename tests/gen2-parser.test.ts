@@ -140,6 +140,9 @@ test("parseGen2Save parses Crystal bag pockets from the correct offsets", () => 
   data[0x2466] = 0x04;
   data[0x2467] = 12;
   data[0x23e7] = 2;
+  data[0x23e7 + 4] = 1;
+  data[0x23e7 + 28] = 1;
+  data[0x23e7 + 49] = 1;
   data[0x23e7 + 50] = 1;
 
   const parsed = parseGen2Save(data, "pokemon-crystal.sav");
@@ -151,11 +154,34 @@ test("parseGen2Save parses Crystal bag pockets from the correct offsets", () => 
   assert.deepEqual(items.map((item) => [item.id, item.quantity, item.pocket]), [[1, 3, "Items"]]);
   assert.deepEqual(keyItems.map((item) => [item.id, item.quantity, item.pocket]), [[7, 1, "Key Items"]]);
   assert.deepEqual(balls.map((item) => [item.id, item.quantity, item.pocket]), [[4, 12, "Balls"]]);
-  assert.equal(tmhms.length, 2);
+  assert.equal(tmhms.length, 5);
   assert.equal(tmhms[0].id, 0xbf);
   assert.equal(tmhms[0].quantity, 2);
-  assert.equal(tmhms[1].id, 0xf3);
-  assert.equal(tmhms[1].quantity, 1);
+  assert.equal(tmhms[1].id, 0xc4);
+  assert.equal(tmhms[2].id, 0xdd);
+  assert.equal(tmhms[3].id, 0xf2);
+  assert.equal(tmhms[4].id, 0xf3);
+  assert.equal(tmhms[4].quantity, 1);
+});
+
+test("parseGen2Save parses Crystal PC item storage separately from bag pockets", () => {
+  const data = new Uint8Array(SAVE_SIZE);
+  writeText(data, 0x200b, "PAUL", 11);
+
+  data[0x247f] = 2;
+  data[0x2480] = 0x49;
+  data[0x2481] = 1;
+  data[0x2482] = 0x5b;
+  data[0x2483] = 3;
+  data[0x2484] = 0xff;
+
+  const parsed = parseGen2Save(data, "pokemon-crystal.sav");
+  const pcStorage = parsed.inventory.find((section) => section.name === "PC Storage")?.items ?? [];
+
+  assert.deepEqual(pcStorage.map((item) => [item.id, item.name, item.quantity, item.pocket]), [
+    [0x49, "Quick Claw", 1, "PC Storage"],
+    [0x5b, "Amulet Coin", 3, "PC Storage"],
+  ]);
 });
 
 test("parseGen2Save reads Gold/Silver money as a 24-bit big-endian integer", () => {

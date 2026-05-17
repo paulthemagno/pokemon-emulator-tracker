@@ -22,61 +22,55 @@ import { getSpeciesName } from "../data/species";
 import { getMoveName } from "../data/moves";
 import { getGen2ItemName } from "../data/items";
 import { getGen2Location } from "../data/locations";
+import { GEN2_INVENTORY_LAYOUTS, type InventoryPocketLayout } from "../knowledge/inventory-layouts";
+import { GEN2_SAVE_LAYOUTS } from "../knowledge/save-layouts";
 
 // Gen 2 Memory Offsets (English versions)
 const OFFSETS = {
   // Gold/Silver offsets
   GS: {
-    PLAYER_GENDER: -1,
-    PLAYER_NAME: 0x200b,
-    TRAINER_ID: 0x2009,
-    MONEY: 0x23db,
-    BADGES_JOHTO: 0x23e4,
-    BADGES_KANTO: 0x23e5,
-    PLAY_TIME: 0x2053,
-    PARTY_COUNT: 0x288a,
-    PARTY_SPECIES: 0x288b,
-    PARTY_DATA: 0x2892,
-    CURRENT_MAP_GROUP: 0x2868,
-    CURRENT_MAP: 0x2869,
-    CURRENT_MAP_X: 0x286a,
-    CURRENT_MAP_Y: 0x286b,
-    BAG_TMS_HMS: 0x23e6,
-    BAG_ITEMS: 0x241f,
-    BAG_KEY_ITEMS: 0x2449,
-    BAG_BALLS: 0x2464,
-    CURRENT_BOX_NUMBER: 0x2724,
-    BOX_NAMES: 0x2727,
-    CURRENT_BOX_DATA: 0x2d6c,
+    PLAYER_GENDER: GEN2_SAVE_LAYOUTS.goldSilver.offsets.playerGender,
+    PLAYER_NAME: GEN2_SAVE_LAYOUTS.goldSilver.offsets.playerName,
+    TRAINER_ID: GEN2_SAVE_LAYOUTS.goldSilver.offsets.trainerId,
+    MONEY: GEN2_SAVE_LAYOUTS.goldSilver.offsets.money,
+    BADGES_JOHTO: GEN2_SAVE_LAYOUTS.goldSilver.offsets.badgesJohto,
+    BADGES_KANTO: GEN2_SAVE_LAYOUTS.goldSilver.offsets.badgesKanto,
+    PLAY_TIME: GEN2_SAVE_LAYOUTS.goldSilver.offsets.playTime,
+    PARTY_COUNT: GEN2_SAVE_LAYOUTS.goldSilver.offsets.partyCount,
+    PARTY_SPECIES: GEN2_SAVE_LAYOUTS.goldSilver.offsets.partySpecies,
+    PARTY_DATA: GEN2_SAVE_LAYOUTS.goldSilver.offsets.partyData,
+    CURRENT_MAP_GROUP: GEN2_SAVE_LAYOUTS.goldSilver.offsets.currentMapGroup,
+    CURRENT_MAP: GEN2_SAVE_LAYOUTS.goldSilver.offsets.currentMap,
+    CURRENT_MAP_X: GEN2_SAVE_LAYOUTS.goldSilver.offsets.currentMapX,
+    CURRENT_MAP_Y: GEN2_SAVE_LAYOUTS.goldSilver.offsets.currentMapY,
+    CURRENT_BOX_NUMBER: GEN2_SAVE_LAYOUTS.goldSilver.offsets.currentBoxNumber,
+    BOX_NAMES: GEN2_SAVE_LAYOUTS.goldSilver.offsets.boxNames,
+    CURRENT_BOX_DATA: GEN2_SAVE_LAYOUTS.goldSilver.offsets.currentBoxData,
+    INVENTORY_LAYOUT: GEN2_INVENTORY_LAYOUTS.goldSilver,
   },
   // Crystal offsets (slightly different)
   CRYSTAL: {
-    PLAYER_GENDER: 0x3e3d,
-    PLAYER_NAME: 0x200b,
-    TRAINER_ID: 0x2009,
-    MONEY: 0x23dc,
-    BADGES_JOHTO: 0x23e5,
-    BADGES_KANTO: 0x23e6,
-    PLAY_TIME: 0x2053,
-    PARTY_COUNT: 0x2865,
-    PARTY_SPECIES: 0x2866,
-    PARTY_DATA: 0x286d,
-    CURRENT_MAP_GROUP: 0x2843,
-    CURRENT_MAP: 0x2844,
-    CURRENT_MAP_X: 0x2845,
-    CURRENT_MAP_Y: 0x2846,
-    BAG_TMS_HMS: 0x23e7,
-    BAG_ITEMS: 0x2420,
-    BAG_KEY_ITEMS: 0x244a,
-    BAG_BALLS: 0x2465,
-    CURRENT_BOX_NUMBER: 0x2700,
-    BOX_NAMES: 0x2703,
-    CURRENT_BOX_DATA: 0x2d10,
+    PLAYER_GENDER: GEN2_SAVE_LAYOUTS.crystal.offsets.playerGender,
+    PLAYER_NAME: GEN2_SAVE_LAYOUTS.crystal.offsets.playerName,
+    TRAINER_ID: GEN2_SAVE_LAYOUTS.crystal.offsets.trainerId,
+    MONEY: GEN2_SAVE_LAYOUTS.crystal.offsets.money,
+    BADGES_JOHTO: GEN2_SAVE_LAYOUTS.crystal.offsets.badgesJohto,
+    BADGES_KANTO: GEN2_SAVE_LAYOUTS.crystal.offsets.badgesKanto,
+    PLAY_TIME: GEN2_SAVE_LAYOUTS.crystal.offsets.playTime,
+    PARTY_COUNT: GEN2_SAVE_LAYOUTS.crystal.offsets.partyCount,
+    PARTY_SPECIES: GEN2_SAVE_LAYOUTS.crystal.offsets.partySpecies,
+    PARTY_DATA: GEN2_SAVE_LAYOUTS.crystal.offsets.partyData,
+    CURRENT_MAP_GROUP: GEN2_SAVE_LAYOUTS.crystal.offsets.currentMapGroup,
+    CURRENT_MAP: GEN2_SAVE_LAYOUTS.crystal.offsets.currentMap,
+    CURRENT_MAP_X: GEN2_SAVE_LAYOUTS.crystal.offsets.currentMapX,
+    CURRENT_MAP_Y: GEN2_SAVE_LAYOUTS.crystal.offsets.currentMapY,
+    CURRENT_BOX_NUMBER: GEN2_SAVE_LAYOUTS.crystal.offsets.currentBoxNumber,
+    BOX_NAMES: GEN2_SAVE_LAYOUTS.crystal.offsets.boxNames,
+    CURRENT_BOX_DATA: GEN2_SAVE_LAYOUTS.crystal.offsets.currentBoxData,
+    INVENTORY_LAYOUT: GEN2_INVENTORY_LAYOUTS.crystal,
   },
 };
 
-const NUM_TMS = 50;
-const NUM_HMS = 7;
 const GEN2_NUM_SPECIES = 251;
 const GEN2_POKEDEX_FLAG_BYTES = Math.ceil(GEN2_NUM_SPECIES / 8);
 const POKEDEX_FLAGS_FROM_PARTY_COUNT = 0x1c2;
@@ -87,10 +81,7 @@ const BOX_CAPACITY = 20;
 const NUM_BOXES = 14;
 const BOX_NAME_LENGTH = 9;
 const BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES;
-const BOX_OFFSETS = [
-  0x4000, 0x4450, 0x48a0, 0x4cf0, 0x5140, 0x5590, 0x59e0,
-  0x6000, 0x6450, 0x68a0, 0x6cf0, 0x7140, 0x7590, 0x79e0,
-];
+const BOX_OFFSETS = GEN2_SAVE_LAYOUTS.crystal.boxOffsets;
 const BOX_RECORD_SIZE = 1 + BOX_CAPACITY + 1 + BOX_CAPACITY * BOX_POKEMON_SIZE + BOX_CAPACITY * 11 + BOX_CAPACITY * 11;
 
 function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
@@ -333,89 +324,74 @@ function parseParty(data: Uint8Array, offsets: typeof OFFSETS.GS): Pokemon[] {
   return party;
 }
 
-function parseInventory(data: Uint8Array, offsets: typeof OFFSETS.GS): InventorySection[] {
-  const sections: InventorySection[] = [];
-
-  // Regular items
-  const bagItems: InventoryItem[] = [];
-  const itemCount = data[offsets.BAG_ITEMS];
-  for (let i = 0; i < Math.min(itemCount, 20); i++) {
-    const itemId = data[offsets.BAG_ITEMS + 1 + i * 2];
-    const quantity = data[offsets.BAG_ITEMS + 2 + i * 2];
+function parseCountedPairPocket(data: Uint8Array, pocket: InventoryPocketLayout): InventoryItem[] {
+  const items: InventoryItem[] = [];
+  const itemCount = data[pocket.offset];
+  for (let i = 0; i < Math.min(itemCount, pocket.count); i++) {
+    const itemId = data[pocket.offset + 1 + i * 2];
+    const quantity = data[pocket.offset + 2 + i * 2];
     if (itemId !== 0xff && itemId !== 0) {
-      bagItems.push({
+      items.push({
         id: itemId,
         name: getGen2ItemName(itemId),
         quantity,
-        pocket: "Items",
+        pocket: pocket.pocketLabel ?? pocket.name,
       });
     }
   }
-  sections.push({ name: "Items", items: bagItems });
+  return items;
+}
 
-  // Key items
-  const keyItems: InventoryItem[] = [];
-  const keyCount = data[offsets.BAG_KEY_ITEMS];
-  for (let i = 0; i < Math.min(keyCount, 26); i++) {
-    const itemId = data[offsets.BAG_KEY_ITEMS + 1 + i];
+function parseCountedIdPocket(data: Uint8Array, pocket: InventoryPocketLayout): InventoryItem[] {
+  const items: InventoryItem[] = [];
+  const itemCount = data[pocket.offset];
+  for (let i = 0; i < Math.min(itemCount, pocket.count); i++) {
+    const itemId = data[pocket.offset + 1 + i];
     if (itemId !== 0xff && itemId !== 0) {
-      keyItems.push({
+      items.push({
         id: itemId,
         name: getGen2ItemName(itemId),
         quantity: 1,
-        pocket: "Key Items",
+        pocket: pocket.pocketLabel ?? pocket.name,
       });
     }
   }
-  sections.push({ name: "Key Items", items: keyItems });
+  return items;
+}
 
-  // Poke Balls
-  const balls: InventoryItem[] = [];
-  const ballCount = data[offsets.BAG_BALLS];
-  for (let i = 0; i < Math.min(ballCount, 12); i++) {
-    const itemId = data[offsets.BAG_BALLS + 1 + i * 2];
-    const quantity = data[offsets.BAG_BALLS + 2 + i * 2];
-    if (itemId !== 0xff && itemId !== 0) {
-      balls.push({
-        id: itemId,
-        name: getGen2ItemName(itemId),
-        quantity,
-        pocket: "Balls",
-      });
-    }
-  }
-  sections.push({ name: "Poke Balls", items: balls });
+function parseFixedQuantityPocket(data: Uint8Array, pocket: InventoryPocketLayout): InventoryItem[] {
+  const items: InventoryItem[] = [];
+  const itemIdBase = pocket.itemIdBase ?? 0;
 
-  // TMs/HMs are fixed-size quantity bytes in Gen 2 save data
-  const tmhmItems: InventoryItem[] = [];
-  for (let i = 0; i < NUM_TMS; i++) {
-    const quantity = data[offsets.BAG_TMS_HMS + i];
-    if (quantity > 0) {
-      const itemId = 0xbf + i;
-      tmhmItems.push({
-        id: itemId,
-        name: getGen2ItemName(itemId),
-        quantity,
-        pocket: "TMs/HMs",
-      });
-    }
+  for (let i = 0; i < pocket.count; i++) {
+    const quantity = data[pocket.offset + i];
+    if (quantity <= 0) continue;
+
+    const itemId = pocket.itemIds?.[i] ?? itemIdBase + i;
+    items.push({
+      id: itemId,
+      name: getGen2ItemName(itemId),
+      quantity,
+      pocket: pocket.pocketLabel ?? pocket.name,
+    });
   }
 
-  for (let i = 0; i < NUM_HMS; i++) {
-    const quantity = data[offsets.BAG_TMS_HMS + NUM_TMS + i];
-    if (quantity > 0) {
-      const itemId = 0xf3 + i;
-      tmhmItems.push({
-        id: itemId,
-        name: getGen2ItemName(itemId),
-        quantity,
-        pocket: "TMs/HMs",
-      });
-    }
-  }
-  sections.push({ name: "TMs/HMs", items: tmhmItems });
+  return items;
+}
 
-  return sections;
+function parseInventory(data: Uint8Array, offsets: typeof OFFSETS.GS): InventorySection[] {
+  return offsets.INVENTORY_LAYOUT.pockets.map((pocket) => {
+    let items: InventoryItem[] = [];
+    if (pocket.format === "counted-pairs") {
+      items = parseCountedPairPocket(data, pocket);
+    } else if (pocket.format === "counted-ids") {
+      items = parseCountedIdPocket(data, pocket);
+    } else {
+      items = parseFixedQuantityPocket(data, pocket);
+    }
+
+    return { name: pocket.name, items };
+  });
 }
 
 function parseLocation(data: Uint8Array, offsets: typeof OFFSETS.GS): LocationInfo {

@@ -33,12 +33,14 @@ test("normalizeLiveSnapshot preserves live PC box names and current-box marker",
     ],
   });
 
-  assert.equal(data.pcBoxes.length, 2);
+  assert.equal(data.pcBoxes.length, 3);
   assert.equal(data.pcBoxes[0].name, "WATER");
   assert.equal(data.pcBoxes[0].isCurrent, true);
   assert.equal(data.pcBoxes[0].pokemon[0]?.species, 160);
-  assert.equal(data.pcBoxes[1].name, "FLYING");
-  assert.equal(data.pcBoxes[1].isCurrent, false);
+  assert.equal(data.pcBoxes[1].name, "EMPTY");
+  assert.equal(data.pcBoxes[1].pokemon.length, 0);
+  assert.equal(data.pcBoxes[2].name, "FLYING");
+  assert.equal(data.pcBoxes[2].isCurrent, false);
 });
 
 test("normalizeLiveSnapshot treats Current Box fallback as current", () => {
@@ -56,6 +58,7 @@ test("normalizeLiveSnapshot treats Current Box fallback as current", () => {
 
   assert.equal(data.pcBoxes.length, 1);
   assert.equal(data.pcBoxes[0].isCurrent, true);
+  assert.equal(data.pcBoxes[0].name, "Box 1");
 });
 
 test("normalizeLiveSnapshot accepts badge objects and normalizes trainer metadata", () => {
@@ -129,16 +132,50 @@ test("normalizeLiveSnapshot normalizes live inventory pockets", () => {
         tms: [{ id: 0xbf, quantity: 2 }],
         hms: [{ id: 0xf3, quantity: 1 }],
       },
+      pcStorage: [{ id: 0x49, quantity: 1 }],
     },
   });
 
   assert.deepEqual(
     data.inventory.map((section) => [section.name, section.items.length]),
-    [["Items", 1], ["Key Items", 1], ["Poke Balls", 1], ["TMs/HMs", 2]]
+    [["Items", 1], ["Key Items", 1], ["Poke Balls", 1], ["TMs/HMs", 2], ["PC Storage", 1]]
   );
   assert.equal(data.inventory[2].items[0].quantity, 12);
   assert.equal(data.inventory[3].items[0].id, 0xbf);
   assert.equal(data.inventory[3].items[1].id, 0xf3);
+  assert.equal(data.inventory[4].items[0].name, "Quick Claw");
+});
+
+test("normalizeLiveSnapshot uses Gen 1 item names and locations for Gen 1 live snapshots", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 1,
+    game: "yellow",
+    player: {},
+    party: [],
+    pcBoxes: [],
+    location: { mapId: 0 },
+    bag: {
+      items: [{ id: 0x04, quantity: 2 }],
+      pcStorage: [{ id: 0xc9, quantity: 1 }],
+    },
+  });
+
+  assert.equal(data.inventory[0].items[0].name, "Poke Ball");
+  assert.equal(data.inventory[1].items[0].name, "TM01 Mega Punch");
+  assert.equal(data.location.name, "Pallet Town");
+});
+
+test("normalizeLiveSnapshot maps Gen 1 indoor maps to town map landmarks", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 1,
+    game: "red",
+    player: {},
+    party: [],
+    pcBoxes: [],
+    location: { mapId: 0x29, name: "Pokemon Center" },
+  });
+
+  assert.equal(data.location.name, "Viridian City");
 });
 
 test("normalizeLiveSnapshot normalizes live Pokedex progress", () => {

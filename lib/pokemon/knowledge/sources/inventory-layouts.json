@@ -1,0 +1,387 @@
+{
+  "gen1": {
+    "generation": 1,
+    "gameProfile": "red-blue-yellow-en",
+    "sourceKey": "pretPokered",
+    "pockets": [
+      {
+        "name": "Bag",
+        "offset": "0x25c9",
+        "count": 20,
+        "format": "counted-pairs"
+      },
+      {
+        "name": "PC Storage",
+        "offset": "0x27e6",
+        "count": 50,
+        "format": "counted-pairs"
+      }
+    ]
+  },
+  "gen2": {
+    "goldSilver": {
+      "generation": 2,
+      "gameProfile": "gold-silver-en",
+      "sourceKey": "pokecrystal",
+      "pockets": [
+        {
+          "name": "Items",
+          "offset": "0x241f",
+          "count": 20,
+          "format": "counted-pairs"
+        },
+        {
+          "name": "Key Items",
+          "offset": "0x2449",
+          "count": 26,
+          "format": "counted-ids"
+        },
+        {
+          "name": "Poke Balls",
+          "offset": "0x2464",
+          "count": 12,
+          "format": "counted-pairs",
+          "pocketLabel": "Balls"
+        },
+        {
+          "name": "TMs/HMs",
+          "offset": "0x23e6",
+          "count": 57,
+          "format": "fixed-quantity",
+          "itemIdBase": "0xbf",
+          "itemIds": [
+            "0xbf",
+            "0xc0",
+            "0xc1",
+            "0xc2",
+            "0xc4",
+            "0xc5",
+            "0xc6",
+            "0xc7",
+            "0xc8",
+            "0xc9",
+            "0xca",
+            "0xcb",
+            "0xcc",
+            "0xcd",
+            "0xce",
+            "0xcf",
+            "0xd0",
+            "0xd1",
+            "0xd2",
+            "0xd3",
+            "0xd4",
+            "0xd5",
+            "0xd6",
+            "0xd7",
+            "0xd8",
+            "0xd9",
+            "0xda",
+            "0xdb",
+            "0xdd",
+            "0xde",
+            "0xdf",
+            "0xe0",
+            "0xe1",
+            "0xe2",
+            "0xe3",
+            "0xe4",
+            "0xe5",
+            "0xe6",
+            "0xe7",
+            "0xe8",
+            "0xe9",
+            "0xea",
+            "0xeb",
+            "0xec",
+            "0xed",
+            "0xee",
+            "0xef",
+            "0xf0",
+            "0xf1",
+            "0xf2",
+            "0xf3",
+            "0xf4",
+            "0xf5",
+            "0xf6",
+            "0xf7",
+            "0xf8",
+            "0xf9"
+          ]
+        },
+        {
+          "name": "PC Storage",
+          "offset": "0x247e",
+          "count": 50,
+          "format": "counted-pairs"
+        }
+      ]
+    },
+    "crystal": {
+      "generation": 2,
+      "gameProfile": "crystal-en",
+      "sourceKey": "pokecrystal",
+      "pockets": [
+        {
+          "name": "Items",
+          "offset": "0x2420",
+          "count": 20,
+          "format": "counted-pairs"
+        },
+        {
+          "name": "Key Items",
+          "offset": "0x244a",
+          "count": 26,
+          "format": "counted-ids"
+        },
+        {
+          "name": "Poke Balls",
+          "offset": "0x2465",
+          "count": 12,
+          "format": "counted-pairs",
+          "pocketLabel": "Balls"
+        },
+        {
+          "name": "TMs/HMs",
+          "offset": "0x23e7",
+          "count": 57,
+          "format": "fixed-quantity",
+          "itemIdBase": "0xbf",
+          "itemIds": [
+            "0xbf",
+            "0xc0",
+            "0xc1",
+            "0xc2",
+            "0xc4",
+            "0xc5",
+            "0xc6",
+            "0xc7",
+            "0xc8",
+            "0xc9",
+            "0xca",
+            "0xcb",
+            "0xcc",
+            "0xcd",
+            "0xce",
+            "0xcf",
+            "0xd0",
+            "0xd1",
+            "0xd2",
+            "0xd3",
+            "0xd4",
+            "0xd5",
+            "0xd6",
+            "0xd7",
+            "0xd8",
+            "0xd9",
+            "0xda",
+            "0xdb",
+            "0xdd",
+            "0xde",
+            "0xdf",
+            "0xe0",
+            "0xe1",
+            "0xe2",
+            "0xe3",
+            "0xe4",
+            "0xe5",
+            "0xe6",
+            "0xe7",
+            "0xe8",
+            "0xe9",
+            "0xea",
+            "0xeb",
+            "0xec",
+            "0xed",
+            "0xee",
+            "0xef",
+            "0xf0",
+            "0xf1",
+            "0xf2",
+            "0xf3",
+            "0xf4",
+            "0xf5",
+            "0xf6",
+            "0xf7",
+            "0xf8",
+            "0xf9"
+          ]
+        },
+        {
+          "name": "PC Storage",
+          "offset": "0x247f",
+          "count": 50,
+          "format": "counted-pairs"
+        }
+      ]
+    }
+  },
+  "gen3": {
+    "rubySapphire": {
+      "generation": 3,
+      "gameProfile": "ruby-sapphire-en",
+      "sourceKey": "gen3SaveReference",
+      "pockets": [
+        {
+          "name": "PC Items",
+          "offset": "0x0498",
+          "count": 50,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        },
+        {
+          "name": "Items",
+          "offset": "0x0560",
+          "count": 20,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        },
+        {
+          "name": "Key Items",
+          "offset": "0x05b0",
+          "count": 20,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        },
+        {
+          "name": "Poke Balls",
+          "offset": "0x0600",
+          "count": 16,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        },
+        {
+          "name": "TMs/HMs",
+          "offset": "0x0640",
+          "count": 64,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        },
+        {
+          "name": "Berries",
+          "offset": "0x0740",
+          "count": 46,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        }
+      ]
+    },
+    "emerald": {
+      "generation": 3,
+      "gameProfile": "emerald-en",
+      "sourceKey": "gen3SaveReference",
+      "pockets": [
+        {
+          "name": "PC Items",
+          "offset": "0x0498",
+          "count": 50,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        },
+        {
+          "name": "Items",
+          "offset": "0x0560",
+          "count": 30,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "Key Items",
+          "offset": "0x05d8",
+          "count": 30,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "Poke Balls",
+          "offset": "0x0650",
+          "count": 16,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "TMs/HMs",
+          "offset": "0x0690",
+          "count": 64,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "Berries",
+          "offset": "0x0790",
+          "count": 46,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        }
+      ]
+    },
+    "fireRedLeafGreen": {
+      "generation": 3,
+      "gameProfile": "firered-leafgreen-en",
+      "sourceKey": "gen3SaveReference",
+      "pockets": [
+        {
+          "name": "PC Items",
+          "offset": "0x0298",
+          "count": 30,
+          "format": "counted-pairs",
+          "quantityMask": "none"
+        },
+        {
+          "name": "Items",
+          "offset": "0x0310",
+          "count": 42,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "Key Items",
+          "offset": "0x03b8",
+          "count": 30,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "Poke Balls",
+          "offset": "0x0430",
+          "count": 13,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "TMs/HMs",
+          "offset": "0x0464",
+          "count": 58,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        },
+        {
+          "name": "Berries",
+          "offset": "0x054c",
+          "count": 43,
+          "format": "counted-pairs",
+          "quantityMask": "security-key-low16"
+        }
+      ]
+    }
+  },
+  "gen1Yellow": {
+    "generation": 1,
+    "gameProfile": "yellow-en",
+    "sourceKey": "bulbapediaGen1Save",
+    "pockets": [
+      {
+        "name": "Bag",
+        "offset": "0x25c9",
+        "count": 20,
+        "format": "counted-pairs"
+      },
+      {
+        "name": "PC Storage",
+        "offset": "0x27e6",
+        "count": 50,
+        "format": "counted-pairs"
+      }
+    ]
+  }
+}

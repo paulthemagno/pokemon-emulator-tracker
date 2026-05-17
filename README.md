@@ -2,23 +2,28 @@
 
 ![Pokemon Emulator Tracker banner](public/pokemon-emulator-tracker-wallpaper.png)
 
-Web dashboard for reading Pokemon save files and, in live mode, following Gen 2 games while they run in mGBA.
+Web dashboard for reading Pokemon save files and following live gameplay from mGBA.
 
-## What it does
+## Current Status
 
-- Imports Gen 1, Gen 2, and partial Gen 3 `.sav` / `.srm` files.
-- Shows trainer data, party, PC boxes, inventory, and location.
-- Includes a modern Pokedex panel with search and owned/missing filters.
-- Uses in-game Pokedex seen/caught flags when available (save or live), with fallback to party+PC inference.
-- Supports live mode for Pokemon Gold/Silver/Crystal through a Lua script in mGBA.
-- In live mode, updates party, HP, EXP, moves, badges, trainer info, and Pokégear landmarks.
+Main support:
 
-## Status
+- Gen 1 Red/Blue/Yellow: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen1-live.lua`.
+- Gen 2 Gold/Silver/Crystal: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen2-live.lua`.
+- Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen: partial `.sav` parser, no live mode yet.
 
-Live mode is currently focused on **Pokemon Gold/Silver/Crystal (mGBA)**.
-Other generations and emulators will need additional work (new adapters and/or offset support) before live mode is considered supported.
+Available features:
 
-## Setup
+- trainer data, money, play time, badges, Pokedex
+- party Pokemon with moves, HP, stats, EXP, and held items where the game supports them
+- PC boxes and PC item storage
+- inventory
+- local map/landmark display for Gen 1 and Gen 2
+- local Ollama chatbot with current game context
+
+See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the full support matrix.
+
+## Quick Start
 
 Requires a recent Node.js version and Corepack.
 
@@ -28,110 +33,133 @@ corepack pnpm install
 corepack pnpm dev
 ```
 
-If `pnpm install` fails with `ERR_PNPM_IGNORED_BUILDS` (for example, `sharp`), approve build scripts and rerun install:
-
-```bash
-corepack pnpm approve-builds --all
-corepack pnpm install
-```
-
 Open:
 
 ```text
 http://localhost:3000
 ```
 
-Run the automated regression suite:
+If `pnpm install` fails with `ERR_PNPM_IGNORED_BUILDS`, approve build scripts and reinstall:
 
 ```bash
-corepack pnpm test
+corepack pnpm approve-builds --all
+corepack pnpm install
 ```
 
-To expose the UI to other devices on the same network:
+To expose the UI on your LAN:
 
 ```bash
 corepack pnpm dev --hostname 0.0.0.0
 ```
 
-Then open the host computer's IP address, for example:
+Then open the host machine IP, for example:
 
 ```text
 http://192.168.1.83:3000
 ```
 
-## Live with mGBA
+## Save Files
 
-1. Open Pokemon Gold/Silver/Crystal in mGBA.
+1. Start the web app.
+2. Upload a `.sav` or `.srm` file.
+3. For Gen 1 saves with generic filenames, include `red`, `blue`, or `yellow` in the filename. Gen 1 save detection is currently filename-based.
+
+The parser normalizes save files into the same data model used by live mode.
+
+## Live mGBA
+
+1. Open the game in mGBA.
 2. Open `Tools -> Scripting...`.
-3. Load `live-adapters/mgba-gen2-live.lua`.
+3. Load the correct script:
+   - Red/Blue/Yellow: `live-adapters/mgba-gen1-live.lua`
+   - Gold/Silver/Crystal: `live-adapters/mgba-gen2-live.lua`
 4. In the web app, press **Start Live**.
 
-The mGBA script exposes a small local server at:
+The Lua script exposes:
 
 ```text
 http://127.0.0.1:8080/snapshot
 ```
 
-The web app calls `/api/live`, which proxies to the live script.
+The UI calls `GET /api/live`, which proxies to mGBA.
 
-## Sharing the project
+If you change a Lua script or a file under `live-adapters/generated/`, reload the script in mGBA.
 
-When sharing the code, share the whole repository but not `node_modules`.
+## Local Chatbot With Ollama
 
-Important files/folders:
+The chatbot uses local Ollama. It is optional for tracker/live mode, but enables contextual questions about the current game state.
 
-- `app/`
-- `components/`
-- `hooks/`
-- `lib/`
-- `live-adapters/`
-- `public/`
-- `package.json`
-- `pnpm-lock.yaml`
-- `next.config.mjs`
-- `tsconfig.json`
-
-Whoever receives the project should run:
+1. Install and start Ollama.
+2. Pull a model:
 
 ```bash
-corepack enable
-corepack pnpm install
-corepack pnpm dev
+ollama pull mistral
+ollama serve
 ```
 
-## Known status
+3. Start the web app and open the chat panel.
 
-- `.sav` mode remains the most universal path for emulators without a live adapter.
-- True live mode depends on the emulator. The maintained adapter right now is `mGBA + Pokemon Gold/Silver/Crystal`.
-- The live map uses the original 160x144 Pokemon Crystal Pokégear town-map layout with landmark coordinates from `pokecrystal`.
-- Some Gen 3 areas still have legacy TypeScript errors and should be cleaned up before considering the project stable.
-
-## Generated data
-
-Item descriptions in tooltips are stored locally in `lib/pokemon/data/item-descriptions.ts`.
-The file is generated from PokeAPI for the Gen 1-3 items the app can parse.
-
-Move descriptions in tooltips are stored locally in `lib/pokemon/data/move-descriptions.ts`.
-The file is generated from PokeAPI for Gen 1-3 move IDs used by the app.
-
-To regenerate it after item table changes:
+Optional environment variables:
 
 ```bash
-node scripts/generate-item-descriptions.mjs
-node scripts/generate-move-descriptions.mjs
+OLLAMA_ENDPOINT=http://127.0.0.1:11434
+OLLAMA_MODEL=mistral
+OLLAMA_MAX_TOKENS=2048
+OLLAMA_TEMPERATURE=0.7
+OLLAMA_ENABLE_TOOLS=true
 ```
 
-The Gen 2 Pokégear map PNGs in `public/maps/` are generated from a local `pokecrystal` checkout:
+With an active save or live session, the chatbot receives trainer data, party, inventory, badges, location, and Pokedex progress. If the model does not support tool calls, the provider automatically falls back to a text-context prompt.
+
+Details: [docs/chatbot-phase1.md](docs/chatbot-phase1.md) and [docs/llm-pokemon-agent.md](docs/llm-pokemon-agent.md).
+
+## Test And Audit
 
 ```bash
-git clone --depth 1 https://github.com/pret/pokecrystal.git /tmp/pokecrystal
-node scripts/generate-gen2-town-maps.mjs /tmp/pokecrystal
-node scripts/generate-gen2-map-landmarks.mjs /tmp/pokecrystal
+corepack pnpm test
+corepack pnpm audit:pokemon-data
 ```
+
+Before promoting a new game to supported, update the support matrix and add fixtures/tests.
+
+## Generated Data
+
+Pokemon data should stay local at runtime and have traceable sources.
+
+Source manifests:
+
+```text
+lib/pokemon/knowledge/sources/
+```
+
+Generated outputs:
+
+```text
+lib/pokemon/knowledge/
+live-adapters/generated/gen1-live-offsets.lua
+live-adapters/generated/gen2-live-offsets.lua
+```
+
+Regenerate:
+
+```bash
+corepack pnpm generate:pokemon-knowledge
+```
+
+If local `pret` checkouts are available, refresh extractable manifests first:
+
+```bash
+corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
+corepack pnpm generate:pokemon-knowledge
+```
+
+Policy and source pins: [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md) and [docs/source-lockfile.md](docs/source-lockfile.md).
 
 ## Documents
 
-- [Live adapters](live-adapters/README.md)
-- [Agent notes](AGENTS.md)
-- [Architecture notes](docs/architecture.md)
-- [Known issues](docs/known-issues.md)
+- [live-adapters/README.md](live-adapters/README.md): using and debugging the mGBA scripts.
+- [docs/architecture.md](docs/architecture.md): stable technical data flow.
+- [docs/game-support-matrix.md](docs/game-support-matrix.md): per-game support status.
+- [docs/known-issues.md](docs/known-issues.md): open limitations.
+- [docs/source-lockfile.md](docs/source-lockfile.md): sources, pins, and offset notes.
+- [AGENTS.md](AGENTS.md): operational notes for Codex/agents.

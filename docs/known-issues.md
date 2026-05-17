@@ -1,14 +1,20 @@
 # Known Issues
 
-## TypeScript cleanup
+## Gen 1 and Gen 3 support gaps
 
-There are existing TypeScript errors outside the live Crystal path, especially around:
+Gen 1 has a first supported pass for Red/Blue/Yellow save parsing and mGBA live mode. Gen 3 save parsing exists but is not yet at the same confidence level as Gen 1/2.
 
-- Gen 3 parser types
-- Inventory section vs inventory item component expectations
-- PC box nullable Pokemon entries
+Known examples:
 
-These have not blocked the live Crystal UI but should be cleaned before a stable release.
+- Gen 1 Red/Blue/Yellow save detection is filename-based; extensionless or generically named saves default to Red.
+- Gen 1 PC box names remain generic because Gen 1 boxes are not player-named.
+- Gen 1 live PC boxes depend on mGBA exposing readable SRAM. When SRAM is unavailable, the UI can still merge live current-box data with an uploaded save file.
+- Gen 3 game detection, location offsets, badges, Pokédex, and gender calculation need per-game data from `pret/pokeruby`, `pret/pokeemerald`, and `pret/pokefirered`.
+- Gen 3 Team/Items offsets are now split into R/S, Emerald, and FR/LG profiles, but fixture coverage with real saves is still needed before marking Gen 3 stable.
+- Gen 1 and Gen 3 generated location/encounter/learnset datasets are not first-class local data yet.
+- Gen 1 and Gen 2 PC item storage is parsed, but the UI labels it generically as `PC Storage` rather than with game-specific copy.
+
+Track support status in `docs/game-support-matrix.md` and run `corepack pnpm audit:pokemon-data` before promoting a game to supported.
 
 ## mGBA Lua sockets
 
@@ -25,6 +31,16 @@ The current adapter avoids a complex HTTP parser and sends a snapshot as soon as
 During menu transitions or battle frames, the emulator memory snapshot can briefly come back partially empty.
 The client now keeps the last good live sections in place instead of flashing empty panels, but the underlying
 live read is still best-effort and may lag by one refresh.
+
+The Gen 1 mGBA live adapter reads PC boxes from the documented SRAM box layout. It prefers mGBA's linear SRAM memory
+domain, but can fall back to brief MBC1 SRAM bank selection through the `$A000` bus window when the domain exposes only
+an erased/windowed view. If SRAM is unavailable, it falls back to the active WRAM box only. When an uploaded save file is
+also loaded, the UI merges live current-box data with non-current boxes from the save file so switching the in-game
+current PC box does not hide the rest of the stored collection. The live UI also caches Gen 1 boxes already observed as
+the current WRAM box during the current session. Box names remain plain in Gen 1; current-box state is represented by
+`isCurrent`, not by adding `Current` to the box name.
+The Gen 1 live adapter now caches snapshots on the frame callback like the Gen 2 adapter, but full PC boxes still
+depend on mGBA exposing a readable SRAM memory domain.
 
 ## Next dev origins
 
@@ -66,7 +82,10 @@ Example: item id `0x5b` / decimal `91` is `Amulet Coin` in Gen 2, not `Unknown (
 
 ## Emulator support
 
-Only mGBA + Pokemon Crystal has an in-repo live adapter right now.
+The in-repo mGBA adapters currently cover:
+
+- Pokemon Red/Blue/Yellow through `live-adapters/mgba-gen1-live.lua`
+- Pokemon Gold/Silver/Crystal through `live-adapters/mgba-gen2-live.lua`
 
 Future adapters could target:
 

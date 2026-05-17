@@ -35,11 +35,10 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
     pokemon: box.pokemon.filter((pokemon) => pokemon !== null),
   }));
 
-  // Filter to boxes that have Pokemon
-  const nonEmptyBoxes = boxesWithPokemon.filter((box) => box.pokemon.length > 0);
-  const liveCurrentBoxIndex = nonEmptyBoxes.findIndex((box) => box.isCurrent);
+  const availableBoxes = boxesWithPokemon;
+  const liveCurrentBoxIndex = availableBoxes.findIndex((box) => box.isCurrent);
 
-  if (nonEmptyBoxes.length === 0) {
+  if (availableBoxes.length === 0) {
     return (
       <Card className={className}>
         <CardHeader>
@@ -65,27 +64,27 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
       : 0;
   const selectedBoxIndex = Math.min(
     Math.max(selectedIndexCandidate, 0),
-    nonEmptyBoxes.length - 1
+    availableBoxes.length - 1
   );
-  const currentBox = nonEmptyBoxes[selectedBoxIndex];
+  const currentBox = availableBoxes[selectedBoxIndex];
   const currentBoxName = getDisplayBoxName(currentBox, selectedBoxIndex);
 
   const goToPrevBox = () => {
     const baseIndex = selectedBoxIndex;
     setCurrentBoxIndex(
-      baseIndex === 0 ? nonEmptyBoxes.length - 1 : baseIndex - 1
+      baseIndex === 0 ? availableBoxes.length - 1 : baseIndex - 1
     );
   };
 
   const goToNextBox = () => {
     const baseIndex = selectedBoxIndex;
     setCurrentBoxIndex(
-      baseIndex === nonEmptyBoxes.length - 1 ? 0 : baseIndex + 1
+      baseIndex === availableBoxes.length - 1 ? 0 : baseIndex + 1
     );
   };
 
   // Count total Pokemon in PC
-  const totalPokemon = nonEmptyBoxes.reduce(
+  const totalPokemon = availableBoxes.reduce(
     (sum, box) => sum + box.pokemon.length,
     0
   );
@@ -132,7 +131,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
         </div>
 
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {nonEmptyBoxes.map((box, index) => {
+          {availableBoxes.map((box, index) => {
             const isActive = index === selectedBoxIndex;
             const isLiveCurrent = index === liveCurrentBoxIndex;
             return (
@@ -218,7 +217,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
 
         {/* Box selector dots */}
         <div className="flex justify-center gap-2 mt-4">
-          {nonEmptyBoxes.map((box, index) => (
+          {availableBoxes.map((box, index) => (
             <button
               key={index}
               onClick={() => setCurrentBoxIndex(index)}
@@ -229,7 +228,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
                   ? "bg-emerald-500"
                   : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
               } ${box.isCurrent ? "ring-2 ring-emerald-500/40 ring-offset-2 ring-offset-background" : ""}`}
-              title={getDisplayBoxName(nonEmptyBoxes[index], index)}
+              title={getDisplayBoxName(availableBoxes[index], index)}
             />
           ))}
         </div>

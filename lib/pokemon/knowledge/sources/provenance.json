@@ -1,0 +1,86 @@
+{
+  "pokemonOfficial": {
+    "kind": "official",
+    "name": "Pokemon official video game pages",
+    "url": "https://www.pokemon.com/us/pokemon-video-games",
+    "note": "Use for public game identity and user-facing feature context, not save offsets."
+  },
+  "pokeapi": {
+    "kind": "pokeapi",
+    "name": "PokeAPI",
+    "url": "https://pokeapi.co/docs/v2",
+    "note": "Community API used for generated local descriptions and metadata mirrors."
+  },
+  "gen1SaveReference": {
+    "kind": "secondary",
+    "name": "Pokemon Generation 1 Save Files reference",
+    "url": "https://github-wiki-see.page/m/sopoforic/cgrr-pokemon/wiki/Pokemon-Generation-1-Save-Files",
+    "note": "Cross-checked community save map for English Red/Blue/Yellow offsets."
+  },
+  "dataCrystalRedBlueRamMap": {
+    "kind": "secondary",
+    "name": "Data Crystal Pokemon Red and Blue RAM map",
+    "url": "https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Red_and_Blue/RAM_map",
+    "note": "Cross-check source for English Red/Blue live WRAM addresses, including DA80 current box data and SRAM box bank layout."
+  },
+  "dataCrystalYellowRamMap": {
+    "kind": "secondary",
+    "name": "Data Crystal Pokemon Yellow RAM map",
+    "url": "https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Yellow/RAM_map",
+    "note": "Cross-check source for English Yellow live WRAM addresses; most Yellow addresses are Red/Blue minus one."
+  },
+  "pretPokered": {
+    "kind": "pret",
+    "name": "pret/pokered",
+    "url": "https://github.com/pret/pokered",
+    "repo": "pret/pokered",
+    "note": "Primary reproducible technical source for English Red/Blue symbolic data when a pinned checkout is used.",
+    "commit": "3c814341c81307b3193a9ea890ff3a197b09b4e3",
+    "path": "ram/wram.asm, ram/sram.asm, constants/item_constants.asm"
+  },
+  "pretPokeyellow": {
+    "kind": "pret",
+    "name": "pret/pokeyellow",
+    "url": "https://github.com/pret/pokeyellow",
+    "repo": "pret/pokeyellow",
+    "note": "Cross-check source for English Yellow symbolic data when a pinned checkout is used.",
+    "commit": "bfa7170107eea23b89febb60bfb2ce39173bf2e1",
+    "path": "ram/wram.asm, ram/sram.asm, constants/item_constants.asm"
+  },
+  "bulbapediaGen1Save": {
+    "kind": "secondary",
+    "name": "Bulbapedia Generation I save data structure",
+    "url": "https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_(Generation_I)",
+    "note": "Secondary reference for Gen 1 SRAM and save layout."
+  },
+  "bulbapediaGen1PokemonData": {
+    "kind": "secondary",
+    "name": "Bulbapedia Generation I Pokemon data structure",
+    "url": "https://bulbapedia.bulbagarden.net/wiki/Pokemon_data_structure_in_Generation_I",
+    "note": "Secondary reference for Gen 1 party and current-box WRAM structure starts, including Yellow-specific current box."
+  },
+  "gen3SaveReference": {
+    "kind": "secondary",
+    "name": "Bulbapedia Generation III save data structure",
+    "url": "https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_in_Generation_III",
+    "note": "Secondary reference for Gen 3 section and item pocket offsets."
+  },
+  "pokecrystal": {
+    "kind": "pret",
+    "name": "pret/pokecrystal",
+    "url": "https://github.com/pret/pokecrystal",
+    "repo": "pret/pokecrystal",
+    "note": "Primary reproducible technical source for Gen 2 symbolic data when a pinned checkout is used.",
+    "commit": "8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217",
+    "path": "constants/item_constants.asm, ram/wram.asm, ram/sram.asm"
+  },
+  "pretPokegold": {
+    "kind": "pret",
+    "name": "pret/pokegold",
+    "url": "https://github.com/pret/pokegold",
+    "repo": "pret/pokegold",
+    "note": "Primary reproducible technical source for English Gold/Silver symbolic data when a pinned checkout is used.",
+    "commit": "09d2148d6d26b20840fb4997916321666ca1e953",
+    "path": "ram/wram.asm, ram/sram.asm, layout.link"
+  }
+}

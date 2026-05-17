@@ -1,6 +1,8 @@
 import type { InventorySection, PCBox, Pokemon, SaveData } from "./types";
-import { getGen2ItemName } from "./data/items";
+import { getGen1ItemName, getGen2ItemName } from "./data/items";
 import { getGen2MapLandmark } from "./data/gen2-map-landmarks";
+import { getGen1MapLandmark } from "./data/gen1-map-landmarks";
+import { getGen1Location } from "./data/locations";
 import { getMoveById } from "./data/moves";
 import { getSpeciesById } from "./data/species";
 import { getStatusCondition } from "./utils";
@@ -106,7 +108,11 @@ function normalizePokemon(pokemon: AnyRecord): Pokemon | null {
   };
 }
 
-function normalizeInventory(bag: AnyRecord | null): InventorySection[] {
+function getLiveItemName(generation: number, id: number): string {
+  return generation === 1 ? getGen1ItemName(id) : getGen2ItemName(id);
+}
+
+function normalizeInventory(bag: AnyRecord | null, generation: number): InventorySection[] {
   if (!bag) return [];
   const sections: InventorySection[] = [];
   const sectionMap: Array<[string, unknown]> = [
@@ -114,6 +120,7 @@ function normalizeInventory(bag: AnyRecord | null): InventorySection[] {
     ["Key Items", bag.keyItems],
     ["Poke Balls", bag.pokeballs ?? bag.balls],
     ["TMs/HMs", bag.tmhms],
+    ["PC Storage", bag.pcStorage ?? bag.pcItems ?? bag.itemStorage],
   ];
 
   for (const [name, items] of sectionMap) {
@@ -124,7 +131,7 @@ function normalizeInventory(bag: AnyRecord | null): InventorySection[] {
       const id = Number(item.id ?? index + 1);
       return {
         id,
-        name: String(item.name ?? getGen2ItemName(id)),
+        name: String(item.name ?? getLiveItemName(generation, id)),
         quantity: Number(item.quantity ?? item.count ?? 1),
         pocket: name,
       };
@@ -148,19 +155,21 @@ function normalizePCBoxes(pcBoxes: unknown): PCBox[] {
       const pokemon = asArray(record.pokemon)
         .map(normalizePokemon)
         .filter(Boolean) as Pokemon[];
-      const name = String(record.name ?? `Box ${index + 1}`);
+      const rawName = String(record.name ?? `Box ${index + 1}`);
+      const legacyCurrentMatch = rawName.match(/^current box(?:\s+(\d+))?/i);
+      const name = legacyCurrentMatch ? `Box ${legacyCurrentMatch[1] ?? index + 1}` : rawName;
 
       return {
         name,
         pokemon,
         capacity: Number(record.capacity ?? 20),
-        isCurrent: Boolean(record.isCurrent) || name.toLowerCase().startsWith("current box"),
+        isCurrent: Boolean(record.isCurrent) || Boolean(legacyCurrentMatch),
       };
-    })
-    .filter((box) => box.pokemon.length > 0);
+    });
 }
 
 export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
+  const generation = Number(snapshot.generation ?? snapshot.status?.generation ?? 2) as SaveData["generation"];
   const player = snapshot.player ?? snapshot.trainer ?? {};
   const partySource = snapshot.party?.party ?? snapshot.party?.pokemon ?? snapshot.party;
   const party = asArray(partySource).map(normalizePokemon).filter(Boolean) as Pokemon[];
@@ -169,14 +178,17 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
   const liveMapId = Number(snapshot.location?.mapId ?? player.location?.mapId ?? 0);
   const liveMapGroup = Number(snapshot.location?.mapGroup ?? player.location?.mapGroup ?? 0);
   const rawLocationName = String(snapshot.location?.name ?? player.location?.name ?? "");
-  const landmark = getGen2MapLandmark(liveMapGroup, liveMapId, rawLocationName);
+  const landmark = generation === 2 ? getGen2MapLandmark(liveMapGroup, liveMapId, rawLocationName) : undefined;
+  const gen1Landmark = generation === 1 ? getGen1MapLandmark(liveMapId) : undefined;
   const locationName =
     landmark?.name ??
+    gen1Landmark?.name ??
+    (generation === 1 && Number.isFinite(liveMapId) ? getGen1Location(liveMapId) : undefined) ??
     (rawLocationName && rawLocationName !== "Live" ? rawLocationName : "Location syncing");
   const livePokedex = snapshot.pokedex as AnyRecord | undefined;
 
   return {
-    generation: Number(snapshot.generation ?? snapshot.status?.generation ?? 2) as SaveData["generation"],
+    generation,
     game: String(snapshot.game ?? snapshot.status?.game ?? snapshot.status?.version ?? "crystal").toLowerCase() as SaveData["game"],
     trainer: {
       name: String(player.name ?? "Live Trainer"),
@@ -202,7 +214,7 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
       : undefined,
     party,
     pcBoxes: pcBoxes.length ? pcBoxes : [{ name: "Live PC", pokemon: [], capacity: 20 }],
-    inventory: normalizeInventory(snapshot.bag ?? snapshot.inventory),
+    inventory: normalizeInventory(snapshot.bag ?? snapshot.inventory, generation),
     location: {
       mapId: liveMapId,
       mapGroup: liveMapGroup || undefined,

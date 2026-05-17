@@ -534,7 +534,21 @@ export const GEN3_FRLG_LOCATIONS: Record<number, string> = {
   97: "Trainer Tower 2",
 };
 
+const GEN1_LOCATION_OVERRIDES: Record<number, string> = {
+  174: "Indigo Plateau Lobby",
+  175: "Copycat's House 1F",
+  176: "Copycat's House 2F",
+  177: "Fighting Dojo",
+  178: "Saffron Gym",
+  179: "Saffron Pidgey House",
+  180: "Saffron Mart",
+  181: "Silph Co 1F",
+  182: "Saffron Pokemon Center",
+  183: "Mr. Psychic's House",
+};
+
 export function getGen1Location(mapId: number): string {
+  if (GEN1_LOCATION_OVERRIDES[mapId]) return GEN1_LOCATION_OVERRIDES[mapId];
   return GEN1_LOCATIONS[mapId] || `Unknown Location (${mapId})`;
 }
 
