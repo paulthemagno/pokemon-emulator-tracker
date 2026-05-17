@@ -93,7 +93,7 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
             game={saveData.game}
             compact
           />
-          <TrainerMapCard location={saveData.location} />
+          <TrainerMapCard location={saveData.location} generation={saveData.generation} />
         </div>
       </DashboardSection>
 

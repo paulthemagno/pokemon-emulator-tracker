@@ -111,7 +111,7 @@ export function parseSaveFile(buffer: ArrayBuffer, filename = ""): ParseResult {
 
     switch (generation) {
       case 1:
-        return { success: true, data: parseGen1Save(new Uint8Array(normalizedBuffer)) };
+        return { success: true, data: parseGen1Save(new Uint8Array(normalizedBuffer), filename) };
       case 2:
         return { success: true, data: parseGen2Save(new Uint8Array(normalizedBuffer), filename) };
       case 3:

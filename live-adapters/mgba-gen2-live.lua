@@ -25,62 +25,8 @@ local BOX_OFFSETS = {
 }
 local SRAM_BANK_SIZE = 0x2000
 local SRAM_WINDOW = 0xA000
-local NUM_TMS = 50
-local NUM_HMS = 7
-
-local OFFSET_PROFILES = {
-  crystal = {
-    key = "crystal",
-    game = "crystal",
-    playerGender = 0xD472,
-    trainerId = 0xD47B,
-    trainerName = 0xD47D,
-    playTime = 0xD4C4,
-    money = 0xD84E,
-    moneyFormat = "be24",
-    johtoBadges = 0xD857,
-    kantoBadges = 0xD858,
-    tmsHms = 0xD859,
-    numItems = 0xD892,
-    items = 0xD893,
-    numKeyItems = 0xD8BC,
-    keyItems = 0xD8BD,
-    numBalls = 0xD8D7,
-    balls = 0xD8D8,
-    mapGroup = 0xDCB5,
-    mapNumber = 0xDCB6,
-    playerY = 0xDCB7,
-    playerX = 0xDCB8,
-    partyCount = 0xDCD7,
-    partyMon1 = 0xDCDF,
-    partyNicknames = 0xDE41,
-  },
-  gold_silver = {
-    key = "gold_silver",
-    game = "gold",
-    trainerId = 0xD1A1,
-    trainerName = 0xD1A3,
-    playTime = 0xD1EB,
-    money = 0xD573,
-    moneyFormat = "be24",
-    johtoBadges = 0xD57C,
-    kantoBadges = 0xD57D,
-    tmsHms = 0xD57E,
-    numItems = 0xD5B7,
-    items = 0xD5B8,
-    numKeyItems = 0xD5E1,
-    keyItems = 0xD5E2,
-    numBalls = 0xD5FC,
-    balls = 0xD5FD,
-    mapGroup = 0xDA00,
-    mapNumber = 0xDA01,
-    playerX = 0xDA02,
-    playerY = 0xDA03,
-    partyCount = 0xDA22,
-    partyMon1 = 0xDA2A,
-    partyNicknames = 0xDB8C,
-  },
-}
+local GEN2_MACHINE_ITEM_IDS = nil
+local OFFSET_PROFILES = nil
 
 local GB_CHARS = {
   [0x7f] = " ", [0x80] = "A", [0x81] = "B", [0x82] = "C", [0x83] = "D",
@@ -122,6 +68,7 @@ local boxNamesAddressCache = nil
 local activeOffsetProfile = nil
 local detectedGame = nil
 local detectedRomTitle = nil
+local lastRequestTarget = ""
 local cachedSnapshotBody = nil
 local cachedSnapshotAt = 0
 local cachedSnapshotData = nil
@@ -152,6 +99,10 @@ local function script_directory()
   end
   return ""
 end
+
+local generatedOffsets = dofile(script_directory() .. "generated/gen2-live-offsets.lua")
+GEN2_MACHINE_ITEM_IDS = generatedOffsets.machineItemIds
+OFFSET_PROFILES = generatedOffsets.profiles
 
 local function temp_directory()
   local tmp = os and os.getenv and os.getenv("TMPDIR")
@@ -349,6 +300,8 @@ end
 local ensure_sram_ready
 local get_offset_profile
 local read_cached_pc_data
+local read_box_names
+local get_sram_size
 local get_game
 local read_player
 local read_pokedex
@@ -360,6 +313,7 @@ local function build_snapshot()
   ensure_sram_ready()
   local offsets = get_offset_profile()
   local pcData = read_cached_pc_data()
+  local _, currentBoxIndex = read_box_names()
 
   local status = {
     emulator = "mGBA",
@@ -369,12 +323,17 @@ local function build_snapshot()
     romTitle = detectedRomTitle,
     ok = get_wram() ~= nil,
     sram = get_sram() ~= nil,
+    sramSize = get_sram_size(),
     sramHealth = lastSramHealth,
     sramReadMode = sramReadMode,
+    lastRequestTarget = lastRequestTarget,
+    currentBoxNumber = currentBoxIndex,
     pcBoxCount = pcData.pcBoxCount,
     currentPcBoxPokemon = #pcData.currentPcBox.pokemon,
     pcBoxes = #pcData.pcBoxes,
     pcBoxPokemon = pcData.pcPokemonCount,
+    boxNamesAddress = boxNamesAddressCache,
+    pcCacheRemaining = pcCacheRemaining,
   }
 
   return {
@@ -421,7 +380,7 @@ ensure_sram_ready = function()
   sramReadMode = "domain"
 end
 
-local function get_sram_size()
+get_sram_size = function()
   local memory = get_sram()
   if not memory or not memory.size then return 0 end
   local ok, value = pcall(function() return memory:size() end)
@@ -613,7 +572,7 @@ local function find_box_names_address()
   return boxNamesAddressCache
 end
 
-local function read_box_names()
+read_box_names = function()
   local names = {}
   for i = 1, NUM_BOXES do
     names[i] = "Box " .. tostring(i)
@@ -832,6 +791,21 @@ local function read_item_stack(address, countAddress, maxCount)
   return items
 end
 
+local function read_sram_item_stack(offset, maxCount)
+  local count = math.min(read_sram_offset8(offset), maxCount)
+  local items = {}
+
+  for index = 0, count - 1 do
+    local itemId = read_sram_offset8(offset + 1 + (index * 2))
+    local quantity = read_sram_offset8(offset + 2 + (index * 2))
+    if itemId > 0 and itemId < 0xff and quantity > 0 then
+      table.insert(items, { id = itemId, quantity = quantity })
+    end
+  end
+
+  return items
+end
+
 local function read_key_items()
   local offsets = get_offset_profile()
   local count = math.min(read8(offsets.numKeyItems), 26)
@@ -851,17 +825,10 @@ local function read_tms_hms()
   local offsets = get_offset_profile()
   local items = {}
 
-  for index = 0, NUM_TMS - 1 do
-    local quantity = read8(offsets.tmsHms + index)
+  for index = 1, #GEN2_MACHINE_ITEM_IDS do
+    local quantity = read8(offsets.tmsHms + index - 1)
     if quantity > 0 then
-      table.insert(items, { id = 0xbf + index, quantity = quantity })
-    end
-  end
-
-  for index = 0, NUM_HMS - 1 do
-    local quantity = read8(offsets.tmsHms + NUM_TMS + index)
-    if quantity > 0 then
-      table.insert(items, { id = 0xf3 + index, quantity = quantity })
+      table.insert(items, { id = GEN2_MACHINE_ITEM_IDS[index], quantity = quantity })
     end
   end
 
@@ -875,6 +842,7 @@ read_bag = function()
     keyItems = read_key_items(),
     pokeballs = read_item_stack(offsets.balls, offsets.numBalls, 12),
     tmhms = read_tms_hms(),
+    pcStorage = read_sram_item_stack(offsets.pcStorage, 50),
   }
 end
 
@@ -972,6 +940,13 @@ local function read_pc_boxes()
   end
 
   if #boxes > 0 then return boxes end
+
+  if currentBoxIndex ~= nil then
+    currentBox.name = boxNames[currentBoxIndex + 1] or ("Box " .. tostring(currentBoxIndex + 1))
+  else
+    currentBox.name = "Box 1"
+  end
+  currentBox.isCurrent = true
 
   return { currentBox }
 end
@@ -1092,6 +1067,7 @@ local function poll_server()
     -- Non-blocking send() can frequently fail/partial-write and looks like a reset to curl/UI.
     call_if_exists(client, "settimeout", 0.5)
     local target = read_request_target(client)
+    lastRequestTarget = target or ""
     local dumpOverride = parse_dump_override(target)
     local ok, body = pcall(function() return snapshot_json(dumpOverride) end)
     if ok then

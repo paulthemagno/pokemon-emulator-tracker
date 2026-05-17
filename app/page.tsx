@@ -10,13 +10,7 @@ import { useLiveData } from "@/hooks/use-live-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Gamepad2, Info, MessageSquare } from "lucide-react";
-import type { SaveData } from "@/lib/pokemon/types";
-
-function hasStoredPokemon(data: SaveData | null) {
-  return Boolean(
-    data?.pcBoxes.some((box) => box.pokemon.some((pokemon) => pokemon !== null))
-  );
-}
+import { mergeLiveWithSavePcBoxes } from "@/lib/pokemon/pc-box-merge";
 
 export default function Home() {
   const { saveData, isLoading, error, filename, uploadFile, clearData, lastUpdated } =
@@ -26,12 +20,7 @@ export default function Home() {
   const [showChatbot, setShowChatbot] = useState(false);
   const activeSaveData = useMemo(() => {
     if (!live.data) return saveData;
-    if (hasStoredPokemon(live.data) || !hasStoredPokemon(saveData)) return live.data;
-
-    return {
-      ...live.data,
-      pcBoxes: saveData?.pcBoxes ?? live.data.pcBoxes,
-    };
+    return mergeLiveWithSavePcBoxes(live.data, saveData);
   }, [live.data, saveData]);
   const activeFilename = live.data ? "Live emulator memory" : filename;
   const activeUpdated = live.lastUpdated ?? lastUpdated;

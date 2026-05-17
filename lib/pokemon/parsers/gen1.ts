@@ -21,32 +21,17 @@ import {
 import { getSpeciesName } from "../data/species";
 import { getMoveName } from "../data/moves";
 import { getGen1ItemName } from "../data/items";
+import { getGen1MapLandmark } from "../data/gen1-map-landmarks";
 import { getGen1Location } from "../data/locations";
-
-// Gen 1 Memory Offsets
-const OFFSETS = {
-  PLAYER_NAME: 0x2598,
-  RIVAL_NAME: 0x25f6,
-  MONEY: 0x25f3,
-  BADGES: 0x2602,
-  CURRENT_MAP: 0x2613,
-  PLAY_TIME_HOURS: 0x2ced,
-  PLAY_TIME_MINUTES: 0x2cef,
-  PLAY_TIME_SECONDS: 0x2cf0,
-  PARTY_COUNT: 0x2f2c,
-  PARTY_SPECIES: 0x2f2d,
-  PARTY_DATA: 0x2f34,
-  BAG_ITEMS: 0x25c9,
-  PC_ITEMS: 0x27e6,
-  TRAINER_ID: 0x2605,
-  // PC Box data in different banks
-  CURRENT_BOX: 0x284c,
-  BOX_NAMES_START: 0x284d,
-};
+import { GEN1_INVENTORY_LAYOUT, GEN1_YELLOW_INVENTORY_LAYOUT } from "../knowledge/inventory-layouts";
+import { GEN1_SAVE_LAYOUTS, type Gen1SaveLayout } from "../knowledge/save-layouts";
 
 // Pokemon data structure sizes
 const PARTY_POKEMON_SIZE = 44;
 const BOX_POKEMON_SIZE = 33;
+const GEN1_NUM_SPECIES = 151;
+const BOX_CAPACITY = 20;
+const BOX_RECORD_SIZE = 0x462;
 
 // Species index conversion (Gen 1 uses internal indices)
 const GEN1_INDEX_TO_NATIONAL: Record<number, number> = {
@@ -207,6 +192,27 @@ function convertSpeciesIndex(gen1Index: number): number {
   return GEN1_INDEX_TO_NATIONAL[gen1Index] || 0;
 }
 
+function parseSpeciesFlagArray(data: Uint8Array, offset: number, speciesCount: number): number[] {
+  const species: number[] = [];
+
+  for (let nationalDex = 1; nationalDex <= speciesCount; nationalDex++) {
+    const bitIndex = nationalDex - 1;
+    const byte = data[offset + Math.floor(bitIndex / 8)];
+    if ((byte & (1 << (bitIndex % 8))) !== 0) {
+      species.push(nationalDex);
+    }
+  }
+
+  return species;
+}
+
+function detectGameVersion(filename = ""): GameVersion {
+  const lowerFilename = filename.toLowerCase();
+  if (/\byellow\b/.test(lowerFilename)) return "yellow";
+  if (/\bblue\b/.test(lowerFilename)) return "blue";
+  return "red";
+}
+
 function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
   const speciesIndex = data[offset];
   if (speciesIndex === 0 || speciesIndex === 0xff) return null;
@@ -276,20 +282,89 @@ function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
   };
 }
 
-function parseTrainerInfo(data: Uint8Array): TrainerInfo {
-  const name = decodeGen1String(data, OFFSETS.PLAYER_NAME, 11);
-  const id = readUint16BE(data, OFFSETS.TRAINER_ID);
-  const money = readBCD(data, OFFSETS.MONEY, 3);
-  const badgeByte = data[OFFSETS.BADGES];
+function parseBoxPokemon(data: Uint8Array, offset: number): Pokemon | null {
+  if (offset + BOX_POKEMON_SIZE > data.length) return null;
+
+  const speciesIndex = data[offset];
+  if (speciesIndex === 0 || speciesIndex === 0xff) return null;
+
+  const species = convertSpeciesIndex(speciesIndex);
+  if (!species) return null;
+
+  const currentHP = readUint16BE(data, offset + 1);
+  const level = data[offset + 3];
+  const status = data[offset + 4];
+  const move1 = data[offset + 8];
+  const move2 = data[offset + 9];
+  const move3 = data[offset + 10];
+  const move4 = data[offset + 11];
+  const otId = readUint16BE(data, offset + 12);
+  const experience = (data[offset + 14] << 16) | (data[offset + 15] << 8) | data[offset + 16];
+  const hpEV = readUint16BE(data, offset + 17);
+  const attackEV = readUint16BE(data, offset + 19);
+  const defenseEV = readUint16BE(data, offset + 21);
+  const speedEV = readUint16BE(data, offset + 23);
+  const specialEV = readUint16BE(data, offset + 25);
+  const ivs = readUint16BE(data, offset + 27);
+  const pp1 = data[offset + 29];
+  const pp2 = data[offset + 30];
+  const pp3 = data[offset + 31];
+  const pp4 = data[offset + 32];
+
+  const moves: Move[] = [];
+  if (move1) moves.push({ id: move1, name: getMoveName(move1), pp: pp1 & 0x3f, maxPP: 35 });
+  if (move2) moves.push({ id: move2, name: getMoveName(move2), pp: pp2 & 0x3f, maxPP: 35 });
+  if (move3) moves.push({ id: move3, name: getMoveName(move3), pp: pp3 & 0x3f, maxPP: 35 });
+  if (move4) moves.push({ id: move4, name: getMoveName(move4), pp: pp4 & 0x3f, maxPP: 35 });
+
+  return {
+    species,
+    speciesName: getSpeciesName(species),
+    nickname: "",
+    level,
+    currentHP,
+    maxHP: 0,
+    experience,
+    moves,
+    stats: {
+      hp: 0,
+      attack: 0,
+      defense: 0,
+      speed: 0,
+      special: 0,
+    },
+    evs: {
+      hp: hpEV,
+      attack: attackEV,
+      defense: defenseEV,
+      speed: speedEV,
+      special: specialEV,
+    },
+    originalTrainer: "",
+    originalTrainerID: otId,
+    status: getStatusCondition(status),
+  };
+}
+
+function getGen1SaveLayout(game: GameVersion): Gen1SaveLayout {
+  return game === "yellow" ? GEN1_SAVE_LAYOUTS.yellow : GEN1_SAVE_LAYOUTS.redBlue;
+}
+
+function parseTrainerInfo(data: Uint8Array, layout: Gen1SaveLayout): TrainerInfo {
+  const offsets = layout.offsets;
+  const name = decodeGen1String(data, offsets.playerName, 11);
+  const id = readUint16BE(data, offsets.trainerId);
+  const money = readBCD(data, offsets.money, 3);
+  const badgeByte = data[offsets.badges];
   
   const badges: boolean[] = [];
   for (let i = 0; i < 8; i++) {
     badges.push((badgeByte & (1 << i)) !== 0);
   }
 
-  const hours = data[OFFSETS.PLAY_TIME_HOURS] | (data[OFFSETS.PLAY_TIME_HOURS + 1] << 8);
-  const minutes = data[OFFSETS.PLAY_TIME_MINUTES];
-  const seconds = data[OFFSETS.PLAY_TIME_SECONDS];
+  const hours = data[offsets.playTimeHours] | (data[offsets.playTimeHours + 1] << 8);
+  const minutes = data[offsets.playTimeMinutes];
+  const seconds = data[offsets.playTimeSeconds];
 
   return {
     name,
@@ -305,21 +380,21 @@ function parseTrainerInfo(data: Uint8Array): TrainerInfo {
   };
 }
 
-function parseParty(data: Uint8Array): Pokemon[] {
-  const partyCount = data[OFFSETS.PARTY_COUNT];
+function parseParty(data: Uint8Array, layout: Gen1SaveLayout): Pokemon[] {
+  const partyCount = data[layout.offsets.partyCount];
   const party: Pokemon[] = [];
 
   for (let i = 0; i < Math.min(partyCount, 6); i++) {
-    const pokemon = parsePartyPokemon(data, OFFSETS.PARTY_DATA + i * PARTY_POKEMON_SIZE);
+    const pokemon = parsePartyPokemon(data, layout.offsets.partyData + i * PARTY_POKEMON_SIZE);
     if (pokemon) {
       // Parse nickname (located after all party data)
-      const nicknameOffset = OFFSETS.PARTY_DATA + 6 * PARTY_POKEMON_SIZE + 6 * 11 + i * 11;
+      const nicknameOffset = layout.offsets.partyData + 6 * PARTY_POKEMON_SIZE + 6 * 11 + i * 11;
       pokemon.nickname = decodeGen1String(data, nicknameOffset, 11);
       if (!pokemon.nickname || pokemon.nickname === pokemon.speciesName.toUpperCase()) {
         pokemon.nickname = pokemon.speciesName;
       }
       // Parse OT name
-      const otOffset = OFFSETS.PARTY_DATA + 6 * PARTY_POKEMON_SIZE + i * 11;
+      const otOffset = layout.offsets.partyData + 6 * PARTY_POKEMON_SIZE + i * 11;
       pokemon.originalTrainer = decodeGen1String(data, otOffset, 11);
       party.push(pokemon);
     }
@@ -328,80 +403,116 @@ function parseParty(data: Uint8Array): Pokemon[] {
   return party;
 }
 
-function parseInventory(data: Uint8Array): InventorySection[] {
-  const bagItems: InventoryItem[] = [];
-  const bagCount = data[OFFSETS.BAG_ITEMS];
-  
-  for (let i = 0; i < Math.min(bagCount, 20); i++) {
-    const itemId = data[OFFSETS.BAG_ITEMS + 1 + i * 2];
-    const quantity = data[OFFSETS.BAG_ITEMS + 2 + i * 2];
-    if (itemId !== 0xff && itemId !== 0) {
-      bagItems.push({
-        id: itemId,
-        name: getGen1ItemName(itemId),
-        quantity,
-      });
-    }
-  }
+function parseInventory(data: Uint8Array, game: GameVersion): InventorySection[] {
+  const layout = game === "yellow" ? GEN1_YELLOW_INVENTORY_LAYOUT : GEN1_INVENTORY_LAYOUT;
+  return layout.pockets.map((pocket) => {
+    const items: InventoryItem[] = [];
+    const itemCount = data[pocket.offset];
 
-  const pcItems: InventoryItem[] = [];
-  const pcCount = data[OFFSETS.PC_ITEMS];
-  
-  for (let i = 0; i < Math.min(pcCount, 50); i++) {
-    const itemId = data[OFFSETS.PC_ITEMS + 1 + i * 2];
-    const quantity = data[OFFSETS.PC_ITEMS + 2 + i * 2];
-    if (itemId !== 0xff && itemId !== 0) {
-      pcItems.push({
-        id: itemId,
-        name: getGen1ItemName(itemId),
-        quantity,
-      });
+    for (let i = 0; i < Math.min(itemCount, pocket.count); i++) {
+      const itemId = data[pocket.offset + 1 + i * 2];
+      const quantity = data[pocket.offset + 2 + i * 2];
+      if (itemId !== 0xff && itemId !== 0) {
+        items.push({
+          id: itemId,
+          name: getGen1ItemName(itemId),
+          quantity,
+          pocket: pocket.name,
+        });
+      }
     }
-  }
 
-  return [
-    { name: "Bag", items: bagItems },
-    { name: "PC Storage", items: pcItems },
-  ];
+    return { name: pocket.name, items };
+  });
 }
 
-function parseLocation(data: Uint8Array): LocationInfo {
-  const mapId = data[OFFSETS.CURRENT_MAP];
+function parseLocation(data: Uint8Array, layout: Gen1SaveLayout): LocationInfo {
+  const mapId = data[layout.offsets.currentMap];
+  const landmark = getGen1MapLandmark(mapId);
   return {
     mapId,
-    name: getGen1Location(mapId),
+    name: landmark?.name ?? getGen1Location(mapId),
     areaType: mapId <= 10 ? "town" : mapId <= 36 ? "route" : "building",
   };
 }
 
-function parsePCBoxes(data: Uint8Array): PCBox[] {
-  // Gen 1 PC boxes are stored in banks and are complex to parse fully
-  // For now, return empty boxes as placeholder
+function getCurrentBoxIndex(data: Uint8Array, layout: Gen1SaveLayout): number {
+  const raw = data[layout.offsets.currentBoxNumber] ?? 0;
+  const normalized = raw & 0x7f;
+  return normalized >= 0 && normalized < 12 ? normalized : 0;
+}
+
+function parsePCBoxRecord(data: Uint8Array, offset: number): Pokemon[] {
+  if (offset + BOX_RECORD_SIZE > data.length) return [];
+
+  const count = data[offset];
+  if (count > BOX_CAPACITY) return [];
+
+  const pokemon: Pokemon[] = [];
+  const pokemonDataOffset = offset + 0x16;
+  const otNamesOffset = offset + 0x2aa;
+  const nicknamesOffset = offset + 0x386;
+
+  for (let slot = 0; slot < count; slot++) {
+    const listedSpecies = data[offset + 1 + slot];
+    if (listedSpecies === 0xff || listedSpecies === 0) break;
+
+    const parsed = parseBoxPokemon(data, pokemonDataOffset + slot * BOX_POKEMON_SIZE);
+    if (!parsed) continue;
+
+    const nickname = decodeGen1String(data, nicknamesOffset + slot * 11, 11);
+    parsed.nickname = nickname || parsed.speciesName;
+    const otName = decodeGen1String(data, otNamesOffset + slot * 11, 11);
+    parsed.originalTrainer = otName;
+    pokemon.push(parsed);
+  }
+
+  return pokemon;
+}
+
+function parsePCBoxes(data: Uint8Array, layout: Gen1SaveLayout): PCBox[] {
+  const currentBoxIndex = getCurrentBoxIndex(data, layout);
   const boxes: PCBox[] = [];
+
   for (let i = 0; i < 12; i++) {
+    const offset = i === currentBoxIndex ? layout.offsets.currentBoxData : layout.boxOffsets[i];
     boxes.push({
       name: `Box ${i + 1}`,
-      pokemon: [],
-      capacity: 20,
+      pokemon: parsePCBoxRecord(data, offset),
+      capacity: BOX_CAPACITY,
+      isCurrent: i === currentBoxIndex,
     });
   }
+
   return boxes;
 }
 
-export function parseGen1Save(data: Uint8Array): SaveData {
-  // Detect if it's Yellow by checking certain memory locations
-  const isYellow = false; // Detection logic can be added
+function parsePokedexProgress(data: Uint8Array, layout: Gen1SaveLayout): SaveData["pokedex"] {
+  const caughtSpecies = parseSpeciesFlagArray(data, layout.offsets.pokedexOwned, GEN1_NUM_SPECIES);
+  const seenSpecies = parseSpeciesFlagArray(data, layout.offsets.pokedexSeen, GEN1_NUM_SPECIES);
 
-  const game: GameVersion = isYellow ? "yellow" : "red";
+  return {
+    seenSpecies,
+    caughtSpecies,
+    seenCount: seenSpecies.length,
+    caughtCount: caughtSpecies.length,
+    source: "save",
+  };
+}
+
+export function parseGen1Save(data: Uint8Array, filename = ""): SaveData {
+  const game = detectGameVersion(filename);
+  const layout = getGen1SaveLayout(game);
 
   return {
     generation: 1,
     game,
-    trainer: parseTrainerInfo(data),
-    party: parseParty(data),
-    pcBoxes: parsePCBoxes(data),
-    inventory: parseInventory(data),
-    location: parseLocation(data),
+    trainer: parseTrainerInfo(data, layout),
+    pokedex: parsePokedexProgress(data, layout),
+    party: parseParty(data, layout),
+    pcBoxes: parsePCBoxes(data, layout),
+    inventory: parseInventory(data, game),
+    location: parseLocation(data, layout),
     valid: true,
     rawSize: data.length,
   };

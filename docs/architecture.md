@@ -9,6 +9,14 @@ Save upload
   -> SaveData
   -> UI
 
+mGBA + Pokemon Red/Blue/Yellow
+  -> live-adapters/mgba-gen1-live.lua
+  -> http://127.0.0.1:8080/snapshot
+  -> app/api/live
+  -> lib/pokemon/live-normalizer.ts
+  -> SaveData
+  -> UI
+
 mGBA + Pokemon Gold/Silver/Crystal
   -> live-adapters/mgba-gen2-live.lua
   -> http://127.0.0.1:8080/snapshot
@@ -20,6 +28,69 @@ mGBA + Pokemon Gold/Silver/Crystal
 
 The UI should consume normalized `SaveData` and avoid caring whether the source is a save file or live memory.
 
+## Data provenance
+
+Pokemon gameplay data should be local at runtime and should have a documented source trail. The source policy lives in:
+
+```text
+docs/pokemon-source-policy.md
+```
+
+The support status for each Gen 1-3 game lives in:
+
+```text
+docs/game-support-matrix.md
+```
+
+The local Pokemon knowledge modules live in:
+
+```text
+lib/pokemon/knowledge/
+```
+
+Gen 1 and Gen 2 save parser offsets live in the generated module:
+
+```text
+lib/pokemon/knowledge/save-layouts.ts
+```
+
+The source manifest is:
+
+```text
+lib/pokemon/knowledge/sources/save-layouts.json
+```
+
+The Gen 1 and Gen 2 mGBA live adapters consume generated Lua projections of the same source data:
+
+```text
+live-adapters/generated/gen1-live-offsets.lua
+live-adapters/generated/gen2-live-offsets.lua
+```
+
+Their current source pins and source URLs are listed in:
+
+```text
+docs/source-lockfile.md
+```
+
+Regenerate the knowledge modules and generated live adapter offsets from the source manifests with:
+
+```bash
+corepack pnpm generate:pokemon-knowledge
+```
+
+If local pret checkouts are available, refresh extracted Gen 1/2 source values first:
+
+```bash
+corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
+```
+
+Run the lightweight audit with:
+
+```bash
+corepack pnpm audit:pokemon-data
+```
+
 ## Important files
 
 - `app/page.tsx`: main upload/live orchestration.
@@ -30,9 +101,10 @@ The UI should consume normalized `SaveData` and avoid caring whether the source 
 - `components/pokemon/trainer-card.tsx`: trainer, badges, Pokégear map.
 - `components/pokemon/pokemon-card.tsx`: party Pokemon card.
 - `lib/pokemon/live-normalizer.ts`: converts live JSON to app data model.
+- `live-adapters/mgba-gen1-live.lua`: mGBA Gen 1 RAM reader.
 - `live-adapters/mgba-gen2-live.lua`: mGBA Gen 2 RAM reader.
 
-## Live adapter contract
+## Live Adapter Contract
 
 The app expects `/snapshot` to return JSON with some or all of:
 
@@ -44,7 +116,8 @@ The app expects `/snapshot` to return JSON with some or all of:
   "party": [],
   "pcBoxes": [
     {
-      "name": "Current Box",
+      "name": "Box 1",
+      "isCurrent": true,
       "pokemon": [],
       "capacity": 20
     }
@@ -62,7 +135,7 @@ The app expects `/snapshot` to return JSON with some or all of:
 
 `live-normalizer.ts` fills gaps using local datasets.
 
-For live inventory, the mGBA adapter selects the Gen 2 WRAM profile first, then reads that version's bag pockets. Crystal uses:
+For live inventory, the Gen 2 mGBA adapter selects the WRAM profile first, then reads that version's bag pockets. Crystal uses:
 
 ```text
 wTMsHMs      D859
@@ -76,7 +149,7 @@ wBalls       D8D8
 
 The adapter sends raw item IDs and quantities. `live-normalizer.ts` maps those IDs through the Gen 2 item table before the UI renders names and icons.
 
-For live PC data, the mGBA adapter reads the official Gen 2 box offsets from SRAM and then falls back to scanning for valid Gen 2 box records. The offsets match `pret/pokecrystal`'s SRAM layout and Bulbapedia's Gen 2 save structure:
+For Gen 2 live PC data, the mGBA adapter reads the official box offsets from SRAM and then falls back to scanning for valid Gen 2 box records. The offsets match `pret/pokecrystal`'s SRAM layout and Bulbapedia's Gen 2 save structure:
 
 ```text
 Current box: 0x2D10
@@ -141,6 +214,67 @@ node scripts/generate-item-descriptions.mjs
 ```
 
 Runtime gameplay should not call PokeAPI for item tooltips.
+
+Gen 1 and Gen 2 both expose PC item storage as a separate inventory section named `PC Storage`. This is not a bag pocket; it mirrors the in-game item storage available from the PC.
+
+In Gen 2 live mode, the mGBA adapter reads PC item storage from SRAM and exposes it in the live `bag.pcStorage` payload. The normalizer maps that to the same `PC Storage` inventory section used by uploaded save files.
+
+Gen 1 Red/Blue and Yellow use separate generated inventory layout exports, but the supported US save layout uses the same PC item storage offset, `0x27E6`, for all three games. Keep the Yellow export so parser selection stays explicit, but do not shift Yellow save inventory offsets unless a separate localized profile is added.
+
+Gen 1 and Gen 2 save parser offsets are centralized in `GEN1_SAVE_LAYOUTS` and `GEN2_SAVE_LAYOUTS`. Parsers should import those generated layouts instead of adding local hardcoded save offsets.
+
+Gen 1 HM/TM item IDs use the late item ID range:
+
+```text
+HM01-HM05: 0xC4-0xC8
+TM01-TM50: 0xC9-0xFA
+```
+
+The local item-name lookup maps these dynamically, so IDs like `216` (`0xD8`) and `222` (`0xDE`) display as `TM16 Pay Day` and `TM22 Solar Beam`.
+
+Gen 2 TM/HM quantities use a fixed 57-byte table, but the item IDs are not fully contiguous. The generated knowledge layout stores the exact `itemIds` sequence extracted from `pret/pokecrystal` so gaps such as `0xC3` and `0xDC` do not shift decoded TMs.
+
+## Gen 1 save support
+
+Gen 1 upload parsing passes filename context into the parser so Red, Blue, and Yellow can be identified when the save filename contains the game name. The save format itself does not currently provide a trusted in-repo version discriminator, so unknown Gen 1 filenames still default to Red.
+
+The Gen 1 parser reads Pokédex owned/seen bitfields from the save offsets documented by community save research and cross-checked against the Red/Blue memory naming used by `pret/pokered`:
+
+```text
+owned: 0x25A3
+seen:  0x25B6
+```
+
+Gen 1 PC boxes use the current box cache at `0x30C0` for the active box and banked SRAM records for boxes 1-12:
+
+```text
+box 1-6:  0x4000, 0x4462, 0x48C4, 0x4D26, 0x5188, 0x55EA
+box 7-12: 0x6000, 0x6462, 0x68C4, 0x6D26, 0x7188, 0x75EA
+```
+
+Each box uses the Gen 1 full box structure: count, species list, 20 compact 33-byte Pokemon records, OT names, and nicknames.
+
+Gen 1 save-file location reads use the shared US save `Current Map` field:
+
+```text
+current map: 0x260A
+```
+
+That field is distinct from nearby coordinate/block/header bytes. Use `lib/pokemon/data/gen1-map-landmarks.ts` to convert route, city, and indoor map IDs to the Kanto town-map marker.
+
+## Gen 3 save profiles
+
+Gen 3 saves rotate 14 sections inside two save slots. The parser reads the active slot, reconstructs sections by section ID, then applies a game profile for Team/Items data.
+
+Profiles currently separate:
+
+```text
+Ruby/Sapphire: party 0x0234/0x0238, money 0x0490, bag pockets 0x0560/0x05B0/0x0600/0x0640/0x0740
+Emerald:       party 0x0234/0x0238, money 0x0490, bag pockets 0x0560/0x05D8/0x0650/0x0690/0x0790
+FireRed/LG:    party 0x0034/0x0038, money 0x0290, bag pockets 0x0310/0x03B8/0x0430/0x0464/0x054C
+```
+
+Emerald and FireRed/LeafGreen money and bag quantities use the save security key. Ruby/Sapphire quantities are read unmasked. Gen 3 level calculation now uses the same species growth-rate table as the EXP UI instead of a medium-fast approximation.
 
 ## Pokégear map
 

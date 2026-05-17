@@ -1,4 +1,5 @@
 // Pokemon Items Data for Gen 1-3
+import { getGen1MachineItemName } from "../knowledge/item-id-ranges";
 
 export interface ItemData {
   id: number;
@@ -611,6 +612,8 @@ export const GEN3_ITEMS: ItemData[] = [
 ];
 
 export function getGen1ItemName(id: number): string {
+  const machineName = getGen1MachineItemName(id);
+  if (machineName) return machineName;
   return GEN1_ITEMS[id] || `Unknown (${id})`;
 }
 

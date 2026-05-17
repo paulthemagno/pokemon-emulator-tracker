@@ -1,0 +1,91 @@
+{
+  "ranges": {
+    "gen1Hms": {
+      "generation": 1,
+      "label": "HM01-HM05",
+      "start": "0xc4",
+      "end": "0xc8",
+      "sourceKey": "pretPokered"
+    },
+    "gen1Tms": {
+      "generation": 1,
+      "label": "TM01-TM50",
+      "start": "0xc9",
+      "end": "0xfa",
+      "sourceKey": "pretPokered"
+    },
+    "gen2Tms": {
+      "generation": 2,
+      "label": "TM01-TM50",
+      "start": "0xbf",
+      "end": "0xf2",
+      "sourceKey": "pokecrystal"
+    },
+    "gen2Hms": {
+      "generation": 2,
+      "label": "HM01-HM07",
+      "start": "0xf3",
+      "end": "0xf9",
+      "sourceKey": "pokecrystal"
+    }
+  },
+  "gen1HmMoves": [
+    "Cut",
+    "Fly",
+    "Surf",
+    "Strength",
+    "Flash"
+  ],
+  "gen1TmMoves": [
+    "Mega Punch",
+    "Razor Wind",
+    "Swords Dance",
+    "Whirlwind",
+    "Mega Kick",
+    "Toxic",
+    "Horn Drill",
+    "Body Slam",
+    "Take Down",
+    "Double-Edge",
+    "Bubble Beam",
+    "Water Gun",
+    "Ice Beam",
+    "Blizzard",
+    "Hyper Beam",
+    "Pay Day",
+    "Submission",
+    "Counter",
+    "Seismic Toss",
+    "Rage",
+    "Mega Drain",
+    "Solar Beam",
+    "Dragon Rage",
+    "Thunderbolt",
+    "Thunder",
+    "Earthquake",
+    "Fissure",
+    "Dig",
+    "Psychic",
+    "Teleport",
+    "Mimic",
+    "Double Team",
+    "Reflect",
+    "Bide",
+    "Metronome",
+    "Self-Destruct",
+    "Egg Bomb",
+    "Fire Blast",
+    "Swift",
+    "Skull Bash",
+    "Soft-Boiled",
+    "Dream Eater",
+    "Sky Attack",
+    "Rest",
+    "Thunder Wave",
+    "Psywave",
+    "Explosion",
+    "Rock Slide",
+    "Tri Attack",
+    "Substitute"
+  ]
+}

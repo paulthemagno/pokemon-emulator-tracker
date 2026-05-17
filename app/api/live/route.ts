@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeLiveSnapshot } from "@/lib/pokemon/live-normalizer";
+import { mergeLiveData } from "@/lib/pokemon/live-data-merge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       inFlight = null;
     });
     const snapshot = await inFlight;
-    const data = normalizeLiveSnapshot(snapshot);
+    const data = mergeLiveData(lastSuccess?.data ?? null, normalizeLiveSnapshot(snapshot));
     lastSuccess = {
       source: baseUrl,
       data,

@@ -11,6 +11,12 @@ import {
   GEN2_TOWN_MAP_WIDTH,
   getGen2MapLandmark,
 } from "@/lib/pokemon/data/gen2-map-landmarks";
+import {
+  GEN1_TOWN_MAP_HEIGHT,
+  GEN1_TOWN_MAP_WIDTH,
+  getGen1MapLandmark,
+  getGen1TownMapPixel,
+} from "@/lib/pokemon/data/gen1-map-landmarks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -79,7 +85,18 @@ type BadgeDescriptor = {
   sprite: string;
 };
 
-const BADGE_DESCRIPTORS: BadgeDescriptor[] = [
+const GEN1_BADGE_DESCRIPTORS: BadgeDescriptor[] = [
+  { name: "Boulder Badge", shortName: "Boulder", sprite: "/badges/boulder.png" },
+  { name: "Cascade Badge", shortName: "Cascade", sprite: "/badges/cascade.png" },
+  { name: "Thunder Badge", shortName: "Thunder", sprite: "/badges/thunder.png" },
+  { name: "Rainbow Badge", shortName: "Rainbow", sprite: "/badges/rainbow.png" },
+  { name: "Soul Badge", shortName: "Soul", sprite: "/badges/soul.png" },
+  { name: "Marsh Badge", shortName: "Marsh", sprite: "/badges/marsh.png" },
+  { name: "Volcano Badge", shortName: "Volcano", sprite: "/badges/volcano.png" },
+  { name: "Earth Badge", shortName: "Earth", sprite: "/badges/earth.png" },
+];
+
+const GEN2_BADGE_DESCRIPTORS: BadgeDescriptor[] = [
   { name: "Zephyr Badge", shortName: "Zephyr", sprite: "/badges/zephyr.png" },
   { name: "Hive Badge", shortName: "Hive", sprite: "/badges/hive.png" },
   { name: "Plain Badge", shortName: "Plain", sprite: "/badges/plain.png" },
@@ -98,8 +115,9 @@ const BADGE_DESCRIPTORS: BadgeDescriptor[] = [
   { name: "Earth Badge", shortName: "Earth", sprite: "/badges/earth.png" },
 ];
 
-function getBadgeState(index: number): BadgeDescriptor {
-  const badge = BADGE_DESCRIPTORS[index] ?? BADGE_DESCRIPTORS[index % BADGE_DESCRIPTORS.length];
+function getBadgeState(generation: Generation, index: number): BadgeDescriptor {
+  const descriptors = generation === 1 ? GEN1_BADGE_DESCRIPTORS : GEN2_BADGE_DESCRIPTORS;
+  const badge = descriptors[index] ?? descriptors[index % descriptors.length];
   return badge;
 }
 
@@ -114,7 +132,17 @@ const POKEGEAR_MAPS = {
   kanto: "/maps/kanto-town-map-gsc.png",
 } as const;
 
-function PlayerMapMarker({ landmark }: { landmark: NonNullable<ReturnType<typeof getGen2MapLandmark>> }) {
+function PlayerMapMarker({
+  x,
+  y,
+  width,
+  height,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
   const markerHeight = 14;
   const markerWidth = 12;
 
@@ -123,24 +151,78 @@ function PlayerMapMarker({ landmark }: { landmark: NonNullable<ReturnType<typeof
       aria-hidden="true"
       className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
       shapeRendering="crispEdges"
-      viewBox={`0 0 ${GEN2_TOWN_MAP_WIDTH} ${GEN2_TOWN_MAP_HEIGHT}`}
+      viewBox={`0 0 ${width} ${height}`}
     >
       <image
         href="/maps/trainer-marker.png"
         height={markerHeight}
         preserveAspectRatio="xMidYMid meet"
         width={markerWidth}
-        x={landmark.x - markerWidth / 2}
-        y={landmark.y - markerHeight / 2}
+        x={x - markerWidth / 2}
+        y={y - markerHeight / 2}
       />
     </svg>
   );
 }
 
-function MiniMap({ location, compact = false }: { location?: LocationInfo | string; compact?: boolean }) {
+function MiniMap({
+  location,
+  generation,
+  compact = false,
+}: {
+  location?: LocationInfo | string;
+  generation: Generation;
+  compact?: boolean;
+}) {
   const locationName = typeof location === "string" ? location : location?.name;
   const mapGroup = typeof location === "string" ? undefined : location?.mapGroup;
   const mapId = typeof location === "string" ? undefined : location?.mapId;
+  if (generation === 1) {
+    const label = getMapLabel(locationName);
+    const numericMapId = Number(mapId);
+    const landmark = getGen1MapLandmark(Number.isFinite(numericMapId) ? numericMapId : undefined);
+    const point = landmark ? getGen1TownMapPixel(landmark) : null;
+    const mapLabel = landmark?.name ?? label;
+
+    return (
+      <div className={`rounded-lg border border-[#6d7864] bg-[#d7d7c8] text-[#1d241c] ${compact ? "p-2.5" : "p-3"}`}>
+        <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
+          <div>
+            <p className="text-xs font-semibold uppercase text-[#5c654c]">Kanto Location</p>
+            <p className="text-sm font-bold text-[#1d241c]">{mapLabel}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-sm border border-[#8c9478] bg-[#eeeecc] px-2 py-0.5 text-[10px] font-bold uppercase text-[#5c654c]">
+              Map {Number.isFinite(Number(mapId)) ? `M${mapId}` : "M?"}
+            </span>
+            <MapPin className="h-4 w-4 text-[#4f5e36]" />
+          </div>
+        </div>
+        <div className={`relative overflow-hidden rounded-md border-[#182410] bg-[#6f9f48] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)] ${compact ? "border-2 p-1.5" : "border-4 p-2"}`}>
+          <div className="relative mx-auto aspect-[160/144] w-full max-w-[420px] overflow-hidden rounded-sm border-2 border-[#eeeecc] bg-[#c9dc99]">
+            <img
+              src="/maps/kanto-town-map-rby.png"
+              alt="Pokemon Red and Blue Kanto town map"
+              className="h-full w-full object-contain [image-rendering:pixelated]"
+              draggable={false}
+            />
+            {point && (
+              <PlayerMapMarker
+                height={GEN1_TOWN_MAP_HEIGHT}
+                width={GEN1_TOWN_MAP_WIDTH}
+                x={point.x}
+                y={point.y}
+              />
+            )}
+          </div>
+          <p className="mt-1.5 text-[10px] font-semibold uppercase text-[#4f5e36]">
+            Town Map {landmark ? `X${landmark.x} / Y${landmark.y}` : "position pending"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const landmark = getGen2MapLandmark(mapGroup, mapId, locationName);
   const label = landmark?.name ?? getMapLabel(locationName);
   const mapRegion = landmark?.region === "kanto" ? "kanto" : "johto";
@@ -167,17 +249,30 @@ function MiniMap({ location, compact = false }: { location?: LocationInfo | stri
             className="h-full w-full object-contain [image-rendering:pixelated]"
             draggable={false}
           />
-          {landmark && <PlayerMapMarker landmark={landmark} />}
+          {landmark && (
+            <PlayerMapMarker
+              height={GEN2_TOWN_MAP_HEIGHT}
+              width={GEN2_TOWN_MAP_WIDTH}
+              x={landmark.x}
+              y={landmark.y}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-export function TrainerMapCard({ location }: { location?: LocationInfo | string }) {
+export function TrainerMapCard({
+  location,
+  generation,
+}: {
+  location?: LocationInfo | string;
+  generation: Generation;
+}) {
   if (!location) return null;
 
-  return <MiniMap location={location} compact />;
+  return <MiniMap location={location} generation={generation} compact />;
 }
 
 export function TrainerCard({ trainer, generation, game, location, compact = false }: TrainerCardProps) {
@@ -242,7 +337,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                   <div className="flex min-w-0 flex-wrap gap-1.5">
                     {Array.from({ length: totalBadges }).map((_, i) => {
                       const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
-                      const badge = getBadgeState(i);
+                      const badge = getBadgeState(generation, i);
                       return (
                         <div
                           key={badge.name}
@@ -345,7 +440,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
           <div className="grid grid-cols-[repeat(auto-fit,minmax(70px,1fr))] gap-2">
             {Array.from({ length: totalBadges }).map((_, i) => {
               const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
-              const badge = getBadgeState(i);
+              const badge = getBadgeState(generation, i);
               return (
                 <div
                   key={badge.name}
@@ -370,7 +465,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
         </div>
 
         {/* Location */}
-        {locationName && <MiniMap location={location} />}
+        {locationName && <MiniMap location={location} generation={generation} />}
       </CardContent>
     </Card>
   );
