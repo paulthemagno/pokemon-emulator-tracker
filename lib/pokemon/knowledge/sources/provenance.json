@@ -65,6 +65,33 @@
     "url": "https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_in_Generation_III",
     "note": "Secondary reference for Gen 3 section and item pocket offsets."
   },
+  "pretPokeruby": {
+    "kind": "pret",
+    "name": "pret/pokeruby",
+    "url": "https://github.com/pret/pokeruby",
+    "repo": "pret/pokeruby",
+    "note": "Primary reproducible technical source for Ruby/Sapphire save structures when a pinned checkout is used.",
+    "commit": "63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1",
+    "path": "include/global.h, include/constants/flags.h, src/pokemon_storage_system.c"
+  },
+  "pretPokeemerald": {
+    "kind": "pret",
+    "name": "pret/pokeemerald",
+    "url": "https://github.com/pret/pokeemerald",
+    "repo": "pret/pokeemerald",
+    "note": "Primary reproducible technical source for Emerald save structures when a pinned checkout is used.",
+    "commit": "0d3100185e0b13faabfc589fc402dd46f83c1d6a",
+    "path": "include/global.h, include/constants/flags.h, include/pokemon_storage_system.h"
+  },
+  "pretPokefirered": {
+    "kind": "pret",
+    "name": "pret/pokefirered",
+    "url": "https://github.com/pret/pokefirered",
+    "repo": "pret/pokefirered",
+    "note": "Primary reproducible technical source for FireRed/LeafGreen save structures when a pinned checkout is used.",
+    "commit": "e060ab955b5dc9ac1c4904c2cd141683615cf477",
+    "path": "include/global.h, include/constants/flags.h, include/pokemon_storage_system.h"
+  },
   "pokecrystal": {
     "kind": "pret",
     "name": "pret/pokecrystal",

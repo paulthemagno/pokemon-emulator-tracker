@@ -15,9 +15,14 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | `pretPokeyellow` | pret | https://github.com/pret/pokeyellow | Yellow source pin and symbolic cross-checks | `bfa7170107eea23b89febb60bfb2ce39173bf2e1` |
 | `bulbapediaGen1Save` | secondary | https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_(Generation_I) | Gen 1 SRAM/save cross-check | URL only |
 | `bulbapediaGen1PokemonData` | secondary | https://bulbapedia.bulbagarden.net/wiki/Pokemon_data_structure_in_Generation_I | Gen 1 party/current-box WRAM structure starts | URL only |
-| `gen3SaveReference` | secondary | https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_in_Generation_III | Gen 3 Team/Items section profiles | URL only |
+| `gen3SaveReference` | secondary | https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_in_Generation_III | Gen 3 save section cross-check | URL only |
+| `pretPokeruby` | pret | https://github.com/pret/pokeruby | Ruby/Sapphire SaveBlock1/SaveBlock2 offsets, flags, and PC storage layout | `63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1` |
+| `pretPokeemerald` | pret | https://github.com/pret/pokeemerald | Emerald SaveBlock1/SaveBlock2 offsets, flags, item quantity encryption, and PC storage layout | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
+| `pretPokefirered` | pret | https://github.com/pret/pokefirered | FireRed/LeafGreen SaveBlock1/SaveBlock2 offsets, flags, item quantity encryption, and PC storage layout | `e060ab955b5dc9ac1c4904c2cd141683615cf477` |
 | `pokecrystal` | pret | https://github.com/pret/pokecrystal | Gen 2 inventory offsets and TM/HM item IDs | `8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217` |
 | `pretPokegold` | pret | https://github.com/pret/pokegold | Gold/Silver Gen 2 save and live offset profiles | `09d2148d6d26b20840fb4997916321666ca1e953` |
+| `hoennMapImage` | media | https://github.com/pret/pokeemerald/tree/master/graphics/pokenav/region_map | Gen 3 Hoenn overview map asset for save uploads, rendered from `map.png` tileset plus `map.bin` tilemap | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
+| `hoennBadgeSprites` | media | https://github.com/pret/pokeemerald/blob/master/graphics/trainer_card/badges.png | Gen 3 trainer card badge sprites split into local 16x16 files | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
 
 ## Pinning Rules
 
@@ -29,7 +34,10 @@ For pret-based generated data, replace `commit pin pending` with an exact commit
 lib/pokemon/knowledge/provenance.ts
 lib/pokemon/knowledge/inventory-layouts.ts
 lib/pokemon/knowledge/item-id-ranges.ts
+lib/pokemon/knowledge/species-id-maps.ts
 lib/pokemon/knowledge/save-layouts.ts
+lib/pokemon/data/gen3-hoenn-dex.ts
+lib/pokemon/data/gen3-map-landmarks.ts
 live-adapters/generated/gen1-live-offsets.lua
 live-adapters/generated/gen2-live-offsets.lua
 ```
@@ -40,6 +48,7 @@ These files are generated from:
 lib/pokemon/knowledge/sources/provenance.json
 lib/pokemon/knowledge/sources/inventory-layouts.json
 lib/pokemon/knowledge/sources/item-id-ranges.json
+lib/pokemon/knowledge/sources/species-id-maps.json
 lib/pokemon/knowledge/sources/save-layouts.json
 ```
 
@@ -93,10 +102,46 @@ header data, so they must not be used as the map id.
 
 - Gen 1 Red/Blue inventory offsets and HM/TM ranges from `pret/pokered`.
 - Gen 1 Yellow save/inventory offsets from the shared US Red/Blue/Yellow save layout.
-- Gen 1/2 parser save offset profiles from `lib/pokemon/knowledge/sources/save-layouts.json`, with source pins for `pret/pokered`, `pret/pokeyellow`, `pret/pokegold`, and `pret/pokecrystal`.
+- Gen 1/2/3 parser save offset profiles from `lib/pokemon/knowledge/sources/save-layouts.json`, with source pins for `pret/pokered`, `pret/pokeyellow`, `pret/pokegold`, `pret/pokecrystal`, `pret/pokeruby`, `pret/pokeemerald`, and `pret/pokefirered`.
 - Gen 1 Red/Blue and Yellow live offset profiles generated into `live-adapters/generated/gen1-live-offsets.lua`.
 - Gen 2 Gold/Silver and Crystal live offset profiles generated into `live-adapters/generated/gen2-live-offsets.lua`.
 - Gen 2 TM/HM item IDs from `pret/pokecrystal` `constants/item_constants.asm`.
+- Gen 3 SaveBlock1/SaveBlock2 offsets from `pret` `include/global.h`, badge flag constants from `include/constants/flags.h`, Pokédex flag arrays from `struct Pokedex` plus SaveBlock1 seen mirrors, and PC storage geometry from `include/pokemon_storage_system.h` or the Ruby/Sapphire storage source.
+- Gen 3 internal species IDs from `pret/pokeemerald` `include/constants/species.h`, mapped to the local National Dex species table.
+- Gen 3 Hoenn Pokédex order from `pret/pokeemerald` `src/pokemon.c` `sHoennToNationalOrder`. The first 202 entries are the in-game Hoenn Dex; later entries are explicitly marked unseen in Hoenn mode.
+
+Important: Gen 3 save sections are chunks, not complete independent structs. Parser offsets from `SaveBlock1` are applied
+after assembling section IDs 1 through 4 into one contiguous SaveBlock1 buffer. PC boxes are assembled separately from
+section IDs 5 through 13. The parser validates the official section signature/checksum and then chooses one coherent save
+slot before assembling those buffers; it must not mix section IDs from different save slots. The footer starts at
+`0xFF4`, but game save chunks are `0xF80` bytes (`SECTOR_DATA_SIZE = 3968`) and must be concatenated at that stride.
+The effective first boxed Pokémon offset is `0x0004`, derived from `boxNames 0x8344 - (14 boxes * 30 slots * 80 bytes)`,
+because `currentBox` is followed by alignment before the boxed Pokémon array.
+
+Important: Gen 3 Pokemon structures store internal species IDs. IDs `277..411`, for example, are not National Dex
+numbers. The parser must translate them through `lib/pokemon/knowledge/species-id-maps.ts` before rendering names,
+growth curves, gender, or sprites.
+
+Important: Gen 3 `BoxPokemon` records are encrypted and include both a `hasSpecies` bit and a checksum over the secure
+substructures. PC parsing must validate both before rendering a stored Pokémon; otherwise empty or stale PC slots can
+decode into plausible-looking garbage. The parser keeps null entries for rejected/empty PC slots so the UI can render
+the original 30-slot grid and expose diagnostics instead of compacting valid records into misleading positions.
+
+Important: Gen 3 Pokédex mode is not inferred from the filename or from raw counts. Ruby/Sapphire/Emerald use
+`struct Pokedex` `nationalMagic` at `0x001A`, while FireRed/LeafGreen use `0x001B`; all profiles use `mode` at
+`0x0019`. The parser treats the save as National Dex only when the profile-specific magic byte and National mode match
+the values used by the game. Otherwise, RSE saves are rendered against the 202-entry Hoenn Dex order extracted from
+`sHoennToNationalOrder`.
+
+Important: `public/maps/hoenn-map-emerald.svg` is the 240x160 PokéNav full-view Hoenn map rendered from
+`pret/pokeemerald` `graphics/pokenav/region_map/map.png` (tileset) and `graphics/pokenav/region_map/map.bin`
+(64x64 tilemap, cropped to the visible 30x20 tile viewport). Do not use `map.png` by itself as a final map image:
+it is source tile graphics, not the composed region map. The UI must not reuse the Gen 1 Kanto or Gen 2 Pokégear
+maps for Ruby/Sapphire/Emerald. Gen 3 marker coordinates are derived from `pret/pokeemerald`
+`src/data/region_map/region_map_sections.json` and `data/maps/map_groups.json`, then converted with the full-view
+Region Map constants from `src/region_map.c` (`MAPCURSOR_X_MIN = 1`, `MAPCURSOR_Y_MIN = 2`). Gen 3 badge sprites
+come from `pret/pokeemerald` `graphics/trainer_card/badges.png` and are exposed as local 16x16 SVG crops; do not
+reuse the Gen 2 badge list for Hoenn games.
 
 Important: Yellow's Gen 1 save-file inventory offsets do not differ from Red/Blue for the supported US layout. The
 generated knowledge still exports a Yellow-specific inventory layout so parsers can keep game selection explicit, but

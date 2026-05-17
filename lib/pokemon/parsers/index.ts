@@ -115,7 +115,7 @@ export function parseSaveFile(buffer: ArrayBuffer, filename = ""): ParseResult {
       case 2:
         return { success: true, data: parseGen2Save(new Uint8Array(normalizedBuffer), filename) };
       case 3:
-        return { success: true, data: parseGen3Save(normalizedBuffer) };
+        return { success: true, data: parseGen3Save(normalizedBuffer, filename) };
       case "unknown":
         return {
           success: false,

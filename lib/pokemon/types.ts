@@ -112,6 +112,24 @@ export interface PCBox {
   pokemon: (Pokemon | null)[];
   capacity: number;
   isCurrent?: boolean;
+  diagnostics?: {
+    validSlots: number;
+    emptySlots: number;
+    noSpeciesSlots: number;
+    checksumFailedSlots: number;
+    invalidSpeciesSlots: number;
+    shortSlots: number;
+    sectionIds?: number[];
+    sampleSlots?: Array<{
+      slot: number;
+      status: "valid" | "no-species" | "checksum" | "invalid-species" | "short";
+      internalSpecies?: number;
+      nationalSpecies?: number;
+      personality?: number;
+      storedChecksum?: number;
+      computedChecksum?: number;
+    }>;
+  };
 }
 
 export interface InventoryItem {
@@ -136,6 +154,9 @@ export interface SaveData {
     seenCount: number;
     caughtCount: number;
     source?: "save" | "live" | "inferred";
+    mode?: "regional" | "national";
+    regionalDex?: "hoenn";
+    dexMax?: number;
   };
   party: Pokemon[];
   pcBoxes: PCBox[];

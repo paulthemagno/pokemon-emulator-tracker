@@ -268,7 +268,7 @@ export const GEN3_INVENTORY_LAYOUTS = {
   rubySapphire: {
     generation: 3,
     gameProfile: "ruby-sapphire-en",
-    source: POKEMON_KNOWLEDGE_SOURCES.gen3SaveReference,
+    source: POKEMON_KNOWLEDGE_SOURCES.pretPokeruby,
     pockets: [
       {
         name: "PC Items",
@@ -317,7 +317,7 @@ export const GEN3_INVENTORY_LAYOUTS = {
   emerald: {
     generation: 3,
     gameProfile: "emerald-en",
-    source: POKEMON_KNOWLEDGE_SOURCES.gen3SaveReference,
+    source: POKEMON_KNOWLEDGE_SOURCES.pretPokeemerald,
     pockets: [
       {
         name: "PC Items",
@@ -366,7 +366,7 @@ export const GEN3_INVENTORY_LAYOUTS = {
   fireRedLeafGreen: {
     generation: 3,
     gameProfile: "firered-leafgreen-en",
-    source: POKEMON_KNOWLEDGE_SOURCES.gen3SaveReference,
+    source: POKEMON_KNOWLEDGE_SOURCES.pretPokefirered,
     pockets: [
       {
         name: "PC Items",

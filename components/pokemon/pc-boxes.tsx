@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PCBox } from "@/lib/pokemon/types";
+import { PCBox, Pokemon } from "@/lib/pokemon/types";
 import { PokemonCard } from "./pokemon-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ interface PCBoxesProps {
   boxes: PCBox[];
   className?: string;
 }
+
+type SlotSample = NonNullable<NonNullable<PCBox["diagnostics"]>["sampleSlots"]>[number];
 
 function getDisplayBoxName(box: PCBox, index: number): string {
   const rawName = box.name?.trim();
@@ -26,16 +28,36 @@ function getSpriteUrl(species: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${species}.png`;
 }
 
+function isPokemon(pokemon: Pokemon | null): pokemon is Pokemon {
+  return pokemon !== null;
+}
+
+function formatSlotSample(sample: SlotSample): string {
+  const base = `#${sample.slot} ${sample.status}`;
+  const species =
+    sample.internalSpecies !== undefined
+      ? ` int ${sample.internalSpecies}${sample.nationalSpecies !== undefined ? ` -> nat ${sample.nationalSpecies}` : ""}`
+      : "";
+  const checksums =
+    sample.storedChecksum !== undefined && sample.computedChecksum !== undefined
+      ? ` chk ${sample.storedChecksum.toString(16)}/${sample.computedChecksum.toString(16)}`
+      : "";
+  return `${base}${species}${checksums}`;
+}
+
 export function PCBoxes({ boxes, className }: PCBoxesProps) {
   const [currentBoxIndex, setCurrentBoxIndex] = useState(-1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showDiagnostics] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return new URLSearchParams(window.location.search).has("debug");
+    } catch {
+      return false;
+    }
+  });
 
-  const boxesWithPokemon = boxes.map((box) => ({
-    ...box,
-    pokemon: box.pokemon.filter((pokemon) => pokemon !== null),
-  }));
-
-  const availableBoxes = boxesWithPokemon;
+  const availableBoxes = boxes;
   const liveCurrentBoxIndex = availableBoxes.findIndex((box) => box.isCurrent);
 
   if (availableBoxes.length === 0) {
@@ -85,9 +107,10 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
 
   // Count total Pokemon in PC
   const totalPokemon = availableBoxes.reduce(
-    (sum, box) => sum + box.pokemon.length,
+    (sum, box) => sum + box.pokemon.filter(Boolean).length,
     0
   );
+  const currentBoxPokemonCount = currentBox.pokemon.filter(Boolean).length;
 
   return (
     <Card className={className}>
@@ -116,7 +139,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
           <div className="flex items-center gap-2">
             <span className="font-medium">{currentBoxName}</span>
             <span className="text-xs text-muted-foreground">
-              ({currentBox.pokemon.length}/{currentBox.capacity})
+              ({currentBoxPokemonCount}/{currentBox.capacity})
             </span>
           </div>
 
@@ -145,7 +168,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
                     ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700"
                     : "border-border bg-background/50 text-muted-foreground hover:bg-muted/70"
                 }`}
-                title={`${getDisplayBoxName(box, index)} (${box.pokemon.length}/${box.capacity})`}
+                title={`${getDisplayBoxName(box, index)} (${box.pokemon.filter(Boolean).length}/${box.capacity})`}
               >
                 {getDisplayBoxName(box, index)}
                 {isLiveCurrent && (
@@ -157,6 +180,26 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
             );
           })}
         </div>
+
+        {showDiagnostics && currentBox.diagnostics && (
+          <div className="mt-2 rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+            Parser diagnostics: {currentBox.diagnostics.validSlots} valid,{" "}
+            {currentBox.diagnostics.noSpeciesSlots} no species,{" "}
+            {currentBox.diagnostics.checksumFailedSlots} checksum failed,{" "}
+            {currentBox.diagnostics.invalidSpeciesSlots} invalid species
+            {currentBox.diagnostics.sectionIds?.length
+              ? `, sections ${currentBox.diagnostics.sectionIds.join(", ")}`
+              : ""}
+            {currentBox.diagnostics.sampleSlots?.length ? (
+              <div className="mt-1 break-words">
+                Samples:{" "}
+                {currentBox.diagnostics.sampleSlots
+                  .map((sample) => formatSlotSample(sample))
+                  .join(" | ")}
+              </div>
+            ) : null}
+          </div>
+        )}
 
         {/* View Mode Toggle */}
         <div className="flex justify-end mt-2">
@@ -209,7 +252,7 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
         ) : (
           // List view - shows detailed cards
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {currentBox.pokemon.map((pokemon, index) => (
+            {currentBox.pokemon.filter(isPokemon).map((pokemon, index) => (
               <PokemonCard key={index} pokemon={pokemon} compact />
             ))}
           </div>

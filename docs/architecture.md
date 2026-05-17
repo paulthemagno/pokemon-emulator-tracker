@@ -48,11 +48,35 @@ The local Pokemon knowledge modules live in:
 lib/pokemon/knowledge/
 ```
 
-Gen 1 and Gen 2 save parser offsets live in the generated module:
+Gen 1, Gen 2, and Gen 3 save parser offsets live in the generated module:
 
 ```text
 lib/pokemon/knowledge/save-layouts.ts
 ```
+
+Gen 3 Pokemon structures use internal species IDs, so the parser also consumes:
+
+```text
+lib/pokemon/knowledge/species-id-maps.ts
+```
+
+Ruby/Sapphire/Emerald regional Pokédex rendering uses:
+
+```text
+lib/pokemon/data/gen3-hoenn-dex.ts
+```
+
+That file is extracted from `pret/pokeemerald` `src/pokemon.c` `sHoennToNationalOrder`, not from manually sorted local
+species data.
+
+Gen 3 Pokédex and PC storage offsets are also kept in `save-layouts.ts`. The PC storage buffer is reconstructed from
+section IDs 5 through 13 at the game chunk stride of `0xF80` bytes per section before reading the aligned boxed Pokémon
+array. The footer still lives at `0xFF4`; do not use the footer offset as the concatenation stride.
+
+Gen 3 party and PC Pokémon records are accepted only when the `BoxPokemon` `hasSpecies` flag is set and the encrypted
+substructure checksum matches. This prevents stale or empty PC slots from being rendered as stray stored Pokémon. The
+PC UI preserves all 30 slot positions per box and shows parser diagnostics for Gen 3 boxes, including rejected checksum
+records and the save section IDs crossed by that box.
 
 The source manifest is:
 
@@ -264,7 +288,10 @@ That field is distinct from nearby coordinate/block/header bytes. Use `lib/pokem
 
 ## Gen 3 save profiles
 
-Gen 3 saves rotate 14 sections inside two save slots. The parser reads the active slot, reconstructs sections by section ID, then applies a game profile for Team/Items data.
+Gen 3 saves rotate 14 sections inside two save slots. The parser validates the official section signature and checksum,
+then chooses one coherent slot before applying a game profile for Team/Items data. This matters for PC storage because
+boxes are spread across section IDs 5 through 13; mixing section 5 from one save slot with section 6 from another can
+make Box 2 look valid while later boxes collapse into garbage.
 
 Profiles currently separate:
 
@@ -274,7 +301,34 @@ Emerald:       party 0x0234/0x0238, money 0x0490, bag pockets 0x0560/0x05D8/0x06
 FireRed/LG:    party 0x0034/0x0038, money 0x0290, bag pockets 0x0310/0x03B8/0x0430/0x0464/0x054C
 ```
 
-Emerald and FireRed/LeafGreen money and bag quantities use the save security key. Ruby/Sapphire quantities are read unmasked. Gen 3 level calculation now uses the same species growth-rate table as the EXP UI instead of a medium-fast approximation.
+Emerald and FireRed/LeafGreen money and bag quantities use the save security key. Ruby/Sapphire quantities are read unmasked. Gen 3 level calculation now uses the same species growth-rate table as the EXP UI instead of a medium-fast approximation. Gen 3 Pokédex progress is read from `SaveBlock2.pokedex` and cross-checked against the SaveBlock1 seen mirrors used by the game.
+
+Gen 3 Pokédex mode is read from `struct Pokedex`, not guessed from observed species. Ruby/Sapphire/Emerald use
+`nationalMagic` at `0x001A`; FireRed/LeafGreen use `0x001B`; all profiles use `mode` at `0x0019`. When National Dex is
+not enabled, RSE saves are rendered against the 202-entry Hoenn Dex order from `pret/pokeemerald`
+`sHoennToNationalOrder`.
+
+The RSE Pokédex panel can also switch the display lens between the save's current mode, Hoenn `202`, and National
+`386`. This changes only which species list is displayed; seen/caught state still comes from the parsed save flags.
+FireRed/LeafGreen do not expose a regional-view toggle yet because the Kanto regional order has not been added as a
+source-backed local dataset.
+
+The parser first follows the game's `GetSetPokedexFlag` consistency check, which requires `SaveBlock2.pokedex.seen`,
+`SaveBlock1.seen1`, and `SaveBlock1.seen2` to agree for seen entries and additionally requires
+`SaveBlock2.pokedex.owned` for caught entries. If those mirror arrays are empty but `SaveBlock2.pokedex` itself has
+owned/seen flags, the parser falls back to those raw `struct Pokedex` flags instead of fabricating entries from party or
+PC boxes. The Pokédex UI must not infer caught/seen entries from party or PC boxes when parser/live data already
+includes a Pokédex payload. Party/PC inference is only a last-resort fallback for sources that provide no Pokédex flags
+at all.
+
+Gen 3 save uploads use a Hoenn overview image at:
+
+```text
+public/maps/hoenn-map-emerald.png
+```
+
+The app deliberately does not draw a Gen 3 save-location marker yet because marker coordinates still need a documented
+source extraction. It should never reuse Gen 1 Kanto or Gen 2 Pokégear maps for Gen 3.
 
 ## Pokégear map
 

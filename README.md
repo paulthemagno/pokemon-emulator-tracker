@@ -10,7 +10,7 @@ Main support:
 
 - Gen 1 Red/Blue/Yellow: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen1-live.lua`.
 - Gen 2 Gold/Silver/Crystal: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen2-live.lua`.
-- Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen: partial `.sav` parser, no live mode yet.
+- Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen: partial `.sav` parser with party, inventory, badges, Pokédex, and PC boxes; no live mode yet.
 
 Available features:
 
@@ -18,7 +18,7 @@ Available features:
 - party Pokemon with moves, HP, stats, EXP, and held items where the game supports them
 - PC boxes and PC item storage
 - inventory
-- local map/landmark display for Gen 1 and Gen 2
+- local map/landmark display for Gen 1 and Gen 2; Gen 3 save uploads show the matching Hoenn overview map without a marker until source-backed coordinates are added
 - local Ollama chatbot with current game context
 
 See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the full support matrix.
@@ -62,7 +62,8 @@ http://192.168.1.83:3000
 
 1. Start the web app.
 2. Upload a `.sav` or `.srm` file.
-3. For Gen 1 saves with generic filenames, include `red`, `blue`, or `yellow` in the filename. Gen 1 save detection is currently filename-based.
+3. For Gen 1 saves with generic filenames, include `red`, `blue`, or `yellow` in the filename.
+4. For Gen 3 saves, include `ruby`, `sapphire`, `emerald`, `firered`, or `leafgreen` in the filename. Gen 3 save layout selection is filename-based.
 
 The parser normalizes save files into the same data model used by live mode.
 
@@ -153,7 +154,7 @@ corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --
 corepack pnpm generate:pokemon-knowledge
 ```
 
-Policy and source pins: [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md) and [docs/source-lockfile.md](docs/source-lockfile.md).
+Policy and source pins: [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md) and [docs/source-lockfile.md](docs/source-lockfile.md). Gen 3 Pokédex mode, Hoenn Dex order, and PC storage offsets are source-backed; do not patch them by hand in generated files.
 
 ## Documents
 
