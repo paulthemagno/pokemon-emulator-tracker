@@ -91,6 +91,16 @@ local lastRequestTarget = ""
 local cachedSnapshotData = nil
 local cachedSnapshotBody = nil
 local cachedSnapshotAt = 0
+local debugSnapshotDumped = false
+-- Snapshot dump mode:
+--   "once"   -> write one file per script load
+--   "always" -> overwrite on every request
+--   "off"    -> never auto-write (default)
+-- Query override on /snapshot:
+--   ?dump=1      force one write now
+--   ?dump=always enable per-request writes for this response
+--   ?dump=off    disable write for this response
+local DEBUG_SNAPSHOT_MODE = "off"
 local get_offset_profile
 
 local function log(message)
@@ -127,6 +137,19 @@ end
 
 local generatedOffsets = dofile(script_directory() .. "generated/gen1-live-offsets.lua")
 OFFSET_PROFILES = generatedOffsets.profiles
+
+local function temp_directory()
+  local tmp = os and os.getenv and os.getenv("TMPDIR")
+  if tmp and #tmp > 0 then
+    if tmp:sub(-1) ~= "/" and tmp:sub(-1) ~= "\\" then
+      tmp = tmp .. "/"
+    end
+    return tmp
+  end
+  return "/tmp/"
+end
+
+local DEBUG_SNAPSHOT_PATH = temp_directory() .. "pokemon-emulator-tracker-gen1-live-snapshot.json"
 
 local function get_wram()
   if wram then return wram end
@@ -373,6 +396,35 @@ end
 
 local function error_json(message)
   return '{"success":false,"error":' .. json(tostring(message)) .. '}'
+end
+
+local function write_text_file(path, contents)
+  local file, openErr = io.open(path, "w")
+  if not file then
+    return false, openErr
+  end
+
+  local ok, writeErr = pcall(function()
+    file:write(contents)
+    file:flush()
+    file:close()
+  end)
+
+  if not ok then
+    pcall(function() file:close() end)
+    return false, writeErr
+  end
+
+  return true
+end
+
+local function should_dump_snapshot(override)
+  local mode = override or DEBUG_SNAPSHOT_MODE
+  if mode == "force" then return true end
+  if mode == "always" then return true end
+  if mode == "off" then return false end
+  if mode == "once" then return not debugSnapshotDumped end
+  return false
 end
 
 local function read_rom_title()
@@ -806,6 +858,7 @@ local function build_snapshot()
       currentBoxScanScore = lastCurrentBoxScanScore,
       currentBoxRawCount = lastCurrentBoxRawCount,
       currentBoxTerminator = lastCurrentBoxTerminator,
+      currentPcBoxPokemon = #(pcBoxes[currentBoxNumber + 1] and pcBoxes[currentBoxNumber + 1].pokemon or {}),
       pcBoxes = #pcBoxes,
       pcBoxPokemon = pcPokemonCount,
     },
@@ -833,8 +886,17 @@ local function refresh_snapshot_cache(force)
   return data, body
 end
 
-local function snapshot_json()
-  local _, body = refresh_snapshot_cache(false)
+local function snapshot_json(dumpOverride)
+  local _, body = refresh_snapshot_cache(dumpOverride == "force" or dumpOverride == "always")
+  if should_dump_snapshot(dumpOverride) then
+    local ok, err = write_text_file(DEBUG_SNAPSHOT_PATH, body)
+    if ok then
+      debugSnapshotDumped = true
+      log("Wrote Gen 1 live debug snapshot to " .. DEBUG_SNAPSHOT_PATH)
+    else
+      log("Failed to write Gen 1 live debug snapshot: " .. tostring(err))
+    end
+  end
   return body
 end
 
@@ -849,6 +911,23 @@ local function read_request_target(client)
   return target or "/snapshot"
 end
 
+local function parse_dump_override(target)
+  if not target then return nil end
+  local query = target:match("%?(.*)$")
+  if not query then return nil end
+
+  for pair in string.gmatch(query, "[^&]+") do
+    local key, value = pair:match("^([^=]+)=?(.*)$")
+    if key == "dump" then
+      if value == "1" or value == "true" then return "force" end
+      if value == "always" then return "always" end
+      if value == "off" or value == "0" or value == "false" then return "off" end
+    end
+  end
+
+  return nil
+end
+
 local function send(client, status, body)
   local response = "HTTP/1.1 " .. status .. "\r\n"
     .. "Content-Type: application/json\r\n"
@@ -857,6 +936,10 @@ local function send(client, status, body)
     .. "Content-Length: " .. tostring(#body) .. "\r\n\r\n"
     .. body
   pcall(function() client:send(response) end)
+end
+
+local function close_client(client)
+  pcall(function() client:close() end)
 end
 
 local function start_server()
@@ -878,11 +961,12 @@ local function poll_server()
     call_if_exists(client, "settimeout", 0.5)
     local target = read_request_target(client)
     lastRequestTarget = target or ""
+    local dumpOverride = parse_dump_override(target)
     local ok, body = pcall(function()
       if target and target:find("debug") then
         return json(build_box_debug())
       end
-      return snapshot_json()
+      return snapshot_json(dumpOverride)
     end)
     if ok then
       send(client, "200 OK", body)
@@ -890,7 +974,7 @@ local function poll_server()
       log("Snapshot error: " .. tostring(body))
       send(client, "500 Internal Server Error", error_json(body))
     end
-    pcall(function() client:close() end)
+    close_client(client)
   end
 end
 

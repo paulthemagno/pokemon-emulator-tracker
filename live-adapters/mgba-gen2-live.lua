@@ -68,6 +68,7 @@ local boxNamesAddressCache = nil
 local activeOffsetProfile = nil
 local detectedGame = nil
 local detectedRomTitle = nil
+local lastRequestTarget = ""
 local cachedSnapshotBody = nil
 local cachedSnapshotAt = 0
 local cachedSnapshotData = nil
@@ -299,6 +300,8 @@ end
 local ensure_sram_ready
 local get_offset_profile
 local read_cached_pc_data
+local read_box_names
+local get_sram_size
 local get_game
 local read_player
 local read_pokedex
@@ -310,6 +313,7 @@ local function build_snapshot()
   ensure_sram_ready()
   local offsets = get_offset_profile()
   local pcData = read_cached_pc_data()
+  local _, currentBoxIndex = read_box_names()
 
   local status = {
     emulator = "mGBA",
@@ -319,12 +323,17 @@ local function build_snapshot()
     romTitle = detectedRomTitle,
     ok = get_wram() ~= nil,
     sram = get_sram() ~= nil,
+    sramSize = get_sram_size(),
     sramHealth = lastSramHealth,
     sramReadMode = sramReadMode,
+    lastRequestTarget = lastRequestTarget,
+    currentBoxNumber = currentBoxIndex,
     pcBoxCount = pcData.pcBoxCount,
     currentPcBoxPokemon = #pcData.currentPcBox.pokemon,
     pcBoxes = #pcData.pcBoxes,
     pcBoxPokemon = pcData.pcPokemonCount,
+    boxNamesAddress = boxNamesAddressCache,
+    pcCacheRemaining = pcCacheRemaining,
   }
 
   return {
@@ -371,7 +380,7 @@ ensure_sram_ready = function()
   sramReadMode = "domain"
 end
 
-local function get_sram_size()
+get_sram_size = function()
   local memory = get_sram()
   if not memory or not memory.size then return 0 end
   local ok, value = pcall(function() return memory:size() end)
@@ -563,7 +572,7 @@ local function find_box_names_address()
   return boxNamesAddressCache
 end
 
-local function read_box_names()
+read_box_names = function()
   local names = {}
   for i = 1, NUM_BOXES do
     names[i] = "Box " .. tostring(i)
@@ -932,6 +941,13 @@ local function read_pc_boxes()
 
   if #boxes > 0 then return boxes end
 
+  if currentBoxIndex ~= nil then
+    currentBox.name = boxNames[currentBoxIndex + 1] or ("Box " .. tostring(currentBoxIndex + 1))
+  else
+    currentBox.name = "Box 1"
+  end
+  currentBox.isCurrent = true
+
   return { currentBox }
 end
 
@@ -1051,6 +1067,7 @@ local function poll_server()
     -- Non-blocking send() can frequently fail/partial-write and looks like a reset to curl/UI.
     call_if_exists(client, "settimeout", 0.5)
     local target = read_request_target(client)
+    lastRequestTarget = target or ""
     local dumpOverride = parse_dump_override(target)
     local ok, body = pcall(function() return snapshot_json(dumpOverride) end)
     if ok then

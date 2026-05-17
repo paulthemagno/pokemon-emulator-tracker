@@ -32,6 +32,9 @@ During menu transitions or battle frames, the emulator memory snapshot can brief
 The client now keeps the last good live sections in place instead of flashing empty panels, but the underlying
 live read is still best-effort and may lag by one refresh.
 
+The Gen 1 and Gen 2 mGBA live adapters both expose common status fields such as `sram`, `sramSize`, `sramHealth`,
+`sramReadMode`, `profile`, `romTitle`, `pcBoxes`, and `pcBoxPokemon`.
+
 The Gen 1 mGBA live adapter reads PC boxes from the documented SRAM box layout. It prefers mGBA's linear SRAM memory
 domain, but can fall back to brief MBC1 SRAM bank selection through the `$A000` bus window when the domain exposes only
 an erased/windowed view. If SRAM is unavailable, it falls back to the active WRAM box only. When an uploaded save file is

@@ -76,8 +76,10 @@ trainer/money/play-time/location glitches.
 If a future emulator exposes SRAM differently, check the raw `/snapshot` status fields:
 
 - `sram`: whether the adapter can access SRAM
+- `sramSize`: reported SRAM memory-domain size, when mGBA exposes it
 - `sramHealth`: whether SRAM looks ready, zeroed, erased, or unknown
 - `sramReadMode`: whether the adapter is reading mGBA SRAM through the memory domain or bus window
+- `lastRequestTarget`: the last HTTP target handled by the adapter
 - `profile`: selected live WRAM profile (`crystal` or `gold_silver`)
 - `romTitle`: ROM title read from the cartridge header, when mGBA exposes it
 - `pcBoxes`: number of non-empty box records found
@@ -102,6 +104,12 @@ The Gen 1 adapter serves `GET /snapshot` on `127.0.0.1:8080` and exposes trainer
 PC boxes are read from the documented Gen 1 SRAM save layout: bank 2 stores boxes 1-6 at `0x4000..0x55EA`, and bank 3 stores boxes 7-12 at `0x6000..0x75EA`. The adapter first tries mGBA's linear SRAM memory domain. If that domain only exposes an erased/windowed view, it briefly selects the matching MBC1 SRAM bank through the `$A000` bus window, reads the box, then restores normal ROM-banking mode.
 Current-box state is exposed through `isCurrent`; box names stay plain (`Box 1`, `Box 2`, etc.) because Gen 1 does not store custom box names.
 Snapshots are cached and refreshed about every 250 ms from the frame callback, matching the Gen 2 adapter behavior closely enough for the web UI's live polling.
+
+Like Gen 2, the Gen 1 adapter can write a local debug snapshot file in the system temp directory: `pokemon-emulator-tracker-gen1-live-snapshot.json`.
+
+- Default mode in script: `DEBUG_SNAPSHOT_MODE = "off"`
+- Per-request override: call `/snapshot?dump=1`, `/snapshot?dump=always`, or `/snapshot?dump=off`
+- Extra box diagnostics are available at `/debug/boxes`
 
 The WRAM profiles are loaded from `live-adapters/generated/gen1-live-offsets.lua`, generated from `lib/pokemon/knowledge/sources/save-layouts.json`. Red/Blue's active current-box WRAM offset is cross-checked against Data Crystal's Red/Blue RAM map (`DA80`), while the rest of the profile is tied back to the pinned source manifests. Rerun `corepack pnpm generate:pokemon-knowledge` after changing those manifests.
 The Gen 1 Kanto Town Map asset is generated locally from `pret/pokered` `gfx/town_map/town_map.png` plus `gfx/town_map/town_map.rle` with `node scripts/generate-gen1-town-map.mjs`.
