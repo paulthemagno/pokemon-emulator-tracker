@@ -97,5 +97,5 @@ export interface ProviderConfig {
 
 export interface OllamaConfig extends ProviderConfig {
   endpoint: string; // e.g., http://127.0.0.1:11434
-  modelName: string; // e.g., 'mistral'
+  modelName: string; // e.g., 'gemma4:latest'
 }

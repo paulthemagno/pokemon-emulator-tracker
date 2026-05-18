@@ -12,7 +12,7 @@ async function initializeProvider() {
     try {
       await provider.initialize({
         endpoint: process.env.OLLAMA_ENDPOINT || 'http://127.0.0.1:11434',
-        modelName: process.env.OLLAMA_MODEL || 'mistral',
+        modelName: process.env.OLLAMA_MODEL || 'gemma4:latest',
         maxTokens: parseInt(process.env.OLLAMA_MAX_TOKENS || '2048'),
         temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0.7'),
       });

@@ -1,6 +1,8 @@
 # Pokemon Emulator Tracker
 
-![Pokemon Emulator Tracker banner](public/pokemon-emulator-tracker-wallpaper.png)
+<p align="center">
+  <img src="public/logo.png" width="160" alt="Pokemon Emulator Tracker logo" />
+</p>
 
 Web dashboard for reading Pokemon save files and following live gameplay from mGBA.
 
@@ -94,7 +96,7 @@ The chatbot uses local Ollama. It is optional for tracker/live mode, but enables
 2. Pull a model:
 
 ```bash
-ollama pull mistral
+ollama pull gemma4:latest
 ollama serve
 ```
 
@@ -104,7 +106,7 @@ Optional environment variables:
 
 ```bash
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
-OLLAMA_MODEL=mistral
+OLLAMA_MODEL=gemma4:latest
 OLLAMA_MAX_TOKENS=2048
 OLLAMA_TEMPERATURE=0.7
 OLLAMA_ENABLE_TOOLS=true
