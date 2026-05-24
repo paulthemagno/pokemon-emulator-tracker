@@ -36,7 +36,7 @@ Status labels:
 | Ruby | partial | First mGBA live pass in `live-adapters/mgba-gen3-live.lua`; fixed SaveBlock addresses from `pret/pokeruby`, runtime PC storage scan, encrypted Pokemon record validation. |
 | Sapphire | partial | Shares Ruby/Sapphire live profile and ROM-title detection. |
 | Emerald | partial | First mGBA live pass with runtime SaveBlock/PokemonStorage resolution for Emerald ASLR, then source-backed `pret/pokeemerald` struct offsets. |
-| FireRed | partial | First mGBA live pass using generated `pret/pokefirered` SaveBlock/PokemonStorage offsets and ROM-title detection. Kanto and Sevii map views are source-backed. |
+| FireRed | partial | First mGBA live pass using generated `pret/pokefirered` SaveBlock/PokemonStorage offsets, runtime pointer reads, and ROM-title detection. Kanto and Sevii map views are source-backed. |
 | LeafGreen | partial | Shares the FireRed/LeafGreen live profile with version-specific labels. |
 
 ## Data Coverage

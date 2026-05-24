@@ -65,6 +65,18 @@
     "url": "https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_in_Generation_III",
     "note": "Secondary reference for Gen 3 section and item pocket offsets."
   },
+  "bulbapediaGen3PokemonData": {
+    "kind": "secondary",
+    "name": "Bulbapedia Generation III Pokemon data structure",
+    "url": "https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_data_structure_(Generation_III)",
+    "note": "Secondary reference for Gen 3 active party RAM starts and 100-byte party Pokemon structure."
+  },
+  "dataCrystalFireRedLeafGreenRamMap": {
+    "kind": "secondary",
+    "name": "Data Crystal Pokemon FireRed and LeafGreen RAM map",
+    "url": "https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_FireRed_and_LeafGreen%3ARAM_map",
+    "note": "Cross-check source for FireRed/LeafGreen US live RAM addresses, including party Pokemon records and runtime SaveBlock pointers."
+  },
   "pretPokeruby": {
     "kind": "pret",
     "name": "pret/pokeruby",
@@ -88,9 +100,9 @@
     "name": "pret/pokefirered",
     "url": "https://github.com/pret/pokefirered",
     "repo": "pret/pokefirered",
-    "note": "Primary reproducible technical source for FireRed/LeafGreen save structures when a pinned checkout is used.",
+    "note": "Primary reproducible technical source for FireRed/LeafGreen save and live memory structures when a pinned checkout is used.",
     "commit": "e060ab955b5dc9ac1c4904c2cd141683615cf477",
-    "path": "include/global.h, include/constants/flags.h, include/pokemon_storage_system.h"
+    "path": "include/global.h, include/constants/flags.h, include/pokemon_storage_system.h, src/load_save.c, data/maps/map_groups.json"
   },
   "pokecrystal": {
     "kind": "pret",

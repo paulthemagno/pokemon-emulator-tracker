@@ -16,9 +16,11 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | `bulbapediaGen1Save` | secondary | https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_(Generation_I) | Gen 1 SRAM/save cross-check | URL only |
 | `bulbapediaGen1PokemonData` | secondary | https://bulbapedia.bulbagarden.net/wiki/Pokemon_data_structure_in_Generation_I | Gen 1 party/current-box WRAM structure starts | URL only |
 | `gen3SaveReference` | secondary | https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_in_Generation_III | Gen 3 save section cross-check | URL only |
+| `bulbapediaGen3PokemonData` | secondary | https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_data_structure_(Generation_III) | Gen 3 active party RAM starts and 100-byte party Pokemon structure | URL only |
+| `dataCrystalFireRedLeafGreenRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_FireRed_and_LeafGreen%3ARAM_map | FireRed/LeafGreen US live RAM party records and runtime SaveBlock pointers | URL only |
 | `pretPokeruby` | pret | https://github.com/pret/pokeruby | Ruby/Sapphire SaveBlock1/SaveBlock2 offsets, flags, and PC storage layout | `63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1` |
 | `pretPokeemerald` | pret | https://github.com/pret/pokeemerald | Emerald SaveBlock1/SaveBlock2 offsets, flags, item quantity encryption, PC storage layout, Gen 3 character map, and Hoenn Dex/map data | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
-| `pretPokefirered` | pret | https://github.com/pret/pokefirered | FireRed/LeafGreen SaveBlock1/SaveBlock2 offsets, live ASLR move range, flags, item quantity encryption, PC storage layout, Kanto Dex order/count, and Kanto region-map data | `e060ab955b5dc9ac1c4904c2cd141683615cf477` |
+| `pretPokefirered` | pret | https://github.com/pret/pokefirered | FireRed/LeafGreen SaveBlock1/SaveBlock2 offsets, live ASLR move range and runtime pointer model, flags, item quantity encryption, PC storage layout, Kanto Dex order/count, map group count, and Kanto/Sevii region-map data | `e060ab955b5dc9ac1c4904c2cd141683615cf477` |
 | `pokecrystal` | pret | https://github.com/pret/pokecrystal | Gen 2 inventory offsets and TM/HM item IDs | `8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217` |
 | `pretPokegold` | pret | https://github.com/pret/pokegold | Gold/Silver Gen 2 save and live offset profiles | `09d2148d6d26b20840fb4997916321666ca1e953` |
 | `hoennMapImage` | media | https://github.com/pret/pokeemerald/tree/master/graphics/pokenav/region_map | Gen 3 Hoenn overview map asset for save uploads, rendered from `map.png` tileset plus `map.bin` tilemap | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
@@ -97,6 +99,10 @@ Gen 1 save-file location reads use the saved `Current Map` field for Town Map pl
 Red/Blue/Yellow save layout, `0x260A` is `Current Map`; later nearby bytes hold coordinates/block state and map
 header data, so they must not be used as the map id.
 
+Gen 3 live party reads must use active `gPlayerParty` RAM, not only the serialized `SaveBlock1.playerParty`
+copy. pret sources show menu/heal/battle code mutating `gPlayerParty`; the live address manifests are cross-checked
+against Bulbapedia's Gen 3 Pokemon data structure and the Data Crystal FRLG RAM map.
+
 ## Extraction Notes
 
 `scripts/extract-pokemon-knowledge-from-pret.mjs` currently extracts:
@@ -130,9 +136,11 @@ Important: Gen 3 live mode cannot use one fixed address strategy for all games. 
 SaveBlock1 and SaveBlock2 addresses in `pret/pokeruby` `include/global.h`, while Emerald moves SaveBlock1,
 SaveBlock2, and PokemonStorage at runtime via `SetSaveBlocksPointers` in `pret/pokeemerald` `src/load_save.c`.
 `live-adapters/mgba-gen3-live.lua` therefore resolves the runtime base addresses first, then applies the generated
-source-backed struct offsets from `gen3-live-offsets.lua`. Emerald reads `gSaveBlock1Ptr`, `gSaveBlock2Ptr`, and
-`gPokemonStoragePtr` from the live runtime pointer table on every snapshot before falling back to scans; do not cache
-the pointed Emerald SaveBlock addresses because `MoveSaveBlocks_ResetHeap` can move them at runtime. The live PokemonStorage scan is
+source-backed struct offsets from `gen3-live-offsets.lua`. Emerald and FireRed/LeafGreen read `gSaveBlock1Ptr`,
+`gSaveBlock2Ptr`, and `gPokemonStoragePtr` from the live runtime pointer table on every snapshot before falling back
+to scans; do not cache the pointed ASLR SaveBlock addresses because `MoveSaveBlocks_ResetHeap` can move them at
+runtime. FireRed/LeafGreen also validates SaveBlock1 against the 43 map groups generated from `data/maps/map_groups.json`,
+so Sevii indoor groups are not rejected as invalid memory. The live PokemonStorage scan is
 anchored to the official `struct PokemonStorage` layout (`currentBox`, `boxes`, `boxNames`, and wallpaper bytes), not
 to guessed boxed-Pokemon content. Ruby/Sapphire use a prioritized storage candidate plus structural validation.
 Storage candidates must also contain at least one valid boxed Pokémon record before they are accepted; otherwise
@@ -140,8 +148,8 @@ zero-filled or unrelated EWRAM can look plausible enough to produce false empty 
 addresses are derived from observed mGBA runtime storage positions and corrected by the official boxed-Pokemon record
 stride (`sizeof(BoxPokemon) = 0x50`; one box is `30 * 0x50 = 0x960`) from `struct PokemonStorage`; the adapter does
 not run a full EWRAM PC-storage scan during normal live snapshots. FireRed/LeafGreen use `pret/pokefirered`
-`src/load_save.c` for `SAVEBLOCK_MOVE_RANGE = 128`, `include/global.h` for SaveBlock offsets, and
-`include/pokemon_storage_system.h` for the same `struct PokemonStorage` geometry.
+`src/load_save.c` for `SAVEBLOCK_MOVE_RANGE = 128` and the moving pointer model, `include/global.h` for SaveBlock
+offsets, and `include/pokemon_storage_system.h` for the same `struct PokemonStorage` geometry.
 
 Important: Gen 3 `BoxPokemon` records are encrypted and include both a `hasSpecies` bit and a checksum over the secure
 substructures. PC parsing must validate both before rendering a stored Pokémon; otherwise empty or stale PC slots can

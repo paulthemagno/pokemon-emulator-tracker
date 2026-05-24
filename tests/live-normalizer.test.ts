@@ -91,6 +91,30 @@ test("normalizeLiveSnapshot infers Gen 3 boxed Pokemon levels from experience", 
   assert.equal(data.pcBoxes[0].pokemon[0]?.level, 5);
 });
 
+test("normalizeLiveSnapshot preserves Gen 3 live PC slot gaps", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 3,
+    game: "firered",
+    player: {},
+    party: [],
+    pcBoxes: [
+      {
+        name: "Box 1",
+        capacity: 30,
+        pokemon: [
+          { slotIndex: 0, species: 1, nickname: "BULBASAUR", level: 5 },
+          { slotIndex: 4, species: 4, nickname: "CHARMANDER", level: 8 },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(data.pcBoxes[0].pokemon.length, 30);
+  assert.equal(data.pcBoxes[0].pokemon[0]?.species, 1);
+  assert.equal(data.pcBoxes[0].pokemon[1], null);
+  assert.equal(data.pcBoxes[0].pokemon[4]?.species, 4);
+});
+
 test("normalizeLiveSnapshot preserves Gen 3 live egg state with underlying species", () => {
   const data = normalizeLiveSnapshot({
     generation: 3,

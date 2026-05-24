@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   GEN1_INVENTORY_LAYOUT,
   GEN1_YELLOW_INVENTORY_LAYOUT,
@@ -121,6 +122,15 @@ test("knowledge save layouts keep Gen 3 offsets from pret save structs", () => {
   assert.equal(GEN3_SAVE_LAYOUTS.emerald.offsets.pokedexSeen2, 0x3b24);
   assert.equal(GEN3_SAVE_LAYOUTS.emerald.offsets.boxData, 0x0004);
   assert.equal(GEN3_SAVE_LAYOUTS.emerald.offsets.boxNames, 0x8344);
+});
+
+test("knowledge source manifests keep Gen 3 live party addresses source-backed", () => {
+  const source = JSON.parse(
+    readFileSync("lib/pokemon/knowledge/sources/save-layouts.json", "utf8")
+  );
+  assert.equal(source.gen3.rubySapphire.liveMemory.activeParty, "0x03004360");
+  assert.deepEqual(source.gen3.emerald.liveMemory.activePartyCandidates, ["0x020244ec", "0x02024190"]);
+  assert.equal(source.gen3.fireRedLeafGreen.liveMemory.activeParty, "0x02024284");
 });
 
 test("knowledge keeps Gen 3 Hoenn Pokedex order from pokeemerald", () => {

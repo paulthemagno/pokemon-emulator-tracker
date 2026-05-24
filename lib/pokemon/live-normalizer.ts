@@ -174,9 +174,31 @@ function normalizePCBoxes(pcBoxes: unknown, generation = 2): PCBox[] {
   return asArray(pcBoxes)
     .map((box, index) => {
       const record = (box ?? {}) as AnyRecord;
-      const pokemon = asArray(record.pokemon)
-        .map((mon) => normalizePokemon(mon, generation))
-        .filter(Boolean) as Pokemon[];
+      const capacity = Number(record.capacity ?? 20);
+      const rawPokemon = asArray(record.pokemon);
+      const hasExplicitSlots = rawPokemon.some((mon) => {
+        const candidate = (mon ?? {}) as AnyRecord;
+        return candidate.slotIndex !== undefined || candidate.slot !== undefined;
+      });
+      const pokemon: (Pokemon | null)[] = hasExplicitSlots ? Array.from({ length: capacity }, () => null) : [];
+      for (const [fallbackIndex, mon] of rawPokemon.entries()) {
+        const normalized = normalizePokemon(mon, generation);
+        if (!normalized) continue;
+        if (hasExplicitSlots) {
+          const rawSlotIndex = Number((mon as AnyRecord).slotIndex);
+          const rawOneBasedSlot = Number((mon as AnyRecord).slot);
+          const slotIndex = Number.isFinite(rawSlotIndex)
+            ? rawSlotIndex
+            : Number.isFinite(rawOneBasedSlot)
+              ? rawOneBasedSlot - 1
+              : fallbackIndex;
+          if (slotIndex >= 0 && slotIndex < capacity) {
+            pokemon[slotIndex] = normalized;
+          }
+        } else {
+          pokemon.push(normalized);
+        }
+      }
       const rawName = String(record.name ?? `Box ${index + 1}`);
       const legacyCurrentMatch = rawName.match(/^current box(?:\s+(\d+))?/i);
       const name = legacyCurrentMatch ? `Box ${legacyCurrentMatch[1] ?? index + 1}` : rawName;
@@ -184,7 +206,7 @@ function normalizePCBoxes(pcBoxes: unknown, generation = 2): PCBox[] {
       return {
         name,
         pokemon,
-        capacity: Number(record.capacity ?? 20),
+        capacity,
         isCurrent: Boolean(record.isCurrent) || Boolean(legacyCurrentMatch),
       };
     });

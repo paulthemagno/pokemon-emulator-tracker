@@ -10,7 +10,8 @@ local GEN3_KANTO_DEX_COUNT = 151
 local RSE_NATIONAL_MAGIC = 0xDA
 local DEX_MODE_NATIONAL = 1
 local SNAPSHOT_REFRESH_SECONDS = 0.25
-local ADAPTER_REVISION = "gen3-frlg-live-profile-2026-05-24"
+local HEAVY_SECTION_REFRESH_SECONDS = 1.25
+local ADAPTER_REVISION = "gen3-frlg-live-profile-2026-05-25"
 
 local function script_directory()
   local info = debug and debug.getinfo and debug.getinfo(1, "S")
@@ -93,6 +94,9 @@ local activeProfile = nil
 local blockCache = nil
 local cachedSnapshotBody = nil
 local cachedSnapshotAt = 0
+local cachedHeavySections = nil
+local cachedHeavySectionsAt = 0
+local cachedHeavySectionsGame = nil
 local lastPollAt = 0
 local saveBlockScanCursorByProfile = {}
 local saveBlockScanBestByProfile = {}
@@ -235,6 +239,9 @@ local function get_game()
     activeProfile = nil
     blockCache = nil
     cachedSnapshotBody = nil
+    cachedHeavySections = nil
+    cachedHeavySectionsAt = 0
+    cachedHeavySectionsGame = nil
     saveBlockScanCursorByProfile = {}
     saveBlockScanBestByProfile = {}
     storageScanCursorByProfile = {}
@@ -286,7 +293,8 @@ local function score_saveblock1(base, p, securityKey)
   if partyCount <= 6 then score = score + 2 end
   local mapGroup = read8(base + p.locationMapGroup)
   local mapNum = read8(base + p.locationMapNum)
-  if mapGroup < 40 and mapNum < 128 then score = score + 2 end
+  local mapGroupCount = p.mapGroupCount or 40
+  if mapGroup < mapGroupCount and mapNum < 128 then score = score + 2 end
   local money = read32(base + p.money)
   if p.quantityMask == "security-key-low16" then money = bxor(money, securityKey) end
   if money >= 0 and money <= 999999 then score = score + 1 end
@@ -840,9 +848,33 @@ end
 
 local function read_party()
   local p = get_profile()
+  local party = {}
+
+  local function read_from_active_party(address)
+    local activeParty = {}
+    for i = 0, 5 do
+      local mon = parse_pokemon(address + i * p.partyPokemonSize, p.partyPokemonSize, true)
+      if mon then activeParty[#activeParty + 1] = mon end
+    end
+    return activeParty
+  end
+
+  if type(p.activeParty) == "number" then
+    party = read_from_active_party(p.activeParty)
+    if #party > 0 then return party end
+  end
+
+  if type(p.activePartyCandidates) == "table" then
+    local bestParty = {}
+    for _, address in ipairs(p.activePartyCandidates) do
+      local candidate = read_from_active_party(address)
+      if #candidate > #bestParty then bestParty = candidate end
+    end
+    if #bestParty > 0 then return bestParty end
+  end
+
   local base = resolve_blocks().saveBlock1 or 0
   local count = math.min(read8(base + p.partyCount), 6)
-  local party = {}
   for i = 0, count - 1 do
     local mon = parse_pokemon(base + p.party + i * p.partyPokemonSize, p.partyPokemonSize, true)
     if mon then party[#party + 1] = mon end
@@ -888,7 +920,10 @@ local function read_pc_boxes()
     local pokemon = {}
     for slot = 0, p.pcBoxCapacity - 1 do
       local mon = parse_pokemon(storage + p.boxData + (box * p.pcBoxCapacity + slot) * p.pcPokemonSize, p.pcPokemonSize, false)
-      if mon then pokemon[#pokemon + 1] = mon end
+      if mon then
+        mon.slotIndex = slot
+        pokemon[#pokemon + 1] = mon
+      end
     end
     local name = decode_string(storage + p.boxNames + box * p.boxNameLength, p.boxNameLength)
     if name == "" or string.upper(name) == "BOX" then name = "Box " .. tostring(box + 1) end
@@ -909,9 +944,37 @@ local function read_location()
   }
 end
 
+local function now_seconds()
+  if socket and socket.gettime then return socket.gettime() end
+  if os and os.clock then return os.clock() end
+  return 0
+end
+
+local function read_heavy_sections(force)
+  local currentTime = now_seconds()
+  local game = get_game()
+  if not force
+    and cachedHeavySections
+    and cachedHeavySectionsGame == game
+    and (currentTime - cachedHeavySectionsAt) < HEAVY_SECTION_REFRESH_SECONDS
+  then
+    return cachedHeavySections
+  end
+
+  cachedHeavySections = {
+    pokedex = read_pokedex(),
+    pcBoxes = read_pc_boxes(),
+    bag = read_bag(),
+  }
+  cachedHeavySectionsAt = currentTime
+  cachedHeavySectionsGame = game
+  return cachedHeavySections
+end
+
 local function build_snapshot()
   local p = get_profile()
   local blocks = resolve_blocks()
+  local heavy = read_heavy_sections(false)
   return {
     generation = 3,
     game = get_game(),
@@ -933,18 +996,12 @@ local function build_snapshot()
       resolution = p.resolution,
     },
     player = read_player(),
-    pokedex = read_pokedex(),
+    pokedex = heavy.pokedex,
     party = read_party(),
-    pcBoxes = read_pc_boxes(),
-    bag = read_bag(),
+    pcBoxes = heavy.pcBoxes,
+    bag = heavy.bag,
     location = read_location(),
   }
-end
-
-local function now_seconds()
-  if socket and socket.gettime then return socket.gettime() end
-  if os and os.clock then return os.clock() end
-  return 0
 end
 
 local function snapshot_json(force)

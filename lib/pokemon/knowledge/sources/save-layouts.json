@@ -296,6 +296,7 @@
       "liveMemory": {
         "saveBlock1": "0x02025734",
         "saveBlock2": "0x02024ea4",
+        "activeParty": "0x03004360",
         "saveBlock1Size": "0x3ac0",
         "saveBlock2Size": "0x0f2c",
         "pokemonStorageMode": "scan",
@@ -371,6 +372,10 @@
         "saveBlock1Ptr": "0x03005d8c",
         "saveBlock2Ptr": "0x03005d90",
         "pokemonStoragePtr": "0x03005d94",
+        "activePartyCandidates": [
+          "0x020244ec",
+          "0x02024190"
+        ],
         "saveBlock1Size": "0x3d88",
         "saveBlock2Size": "0x0f2c",
         "pokemonStorageMode": "scan",
@@ -433,6 +438,10 @@
       "liveMemory": {
         "saveBlock1": "scan",
         "saveBlock2": "scan",
+        "saveBlock1Ptr": "0x03005008",
+        "saveBlock2Ptr": "0x0300500c",
+        "pokemonStoragePtr": "0x03005010",
+        "activeParty": "0x02024284",
         "saveBlock1Size": "0x3d68",
         "saveBlock2Size": "0x0f24",
         "pokemonStorageMode": "scan",
@@ -440,6 +449,7 @@
         "ewramStart": "0x02000000",
         "ewramEnd": "0x02040000",
         "aslrMoveRange": "0x0080",
+        "mapGroupCount": 43,
         "resolution": "aslr-runtime-scan"
       },
       "sectionIds": {

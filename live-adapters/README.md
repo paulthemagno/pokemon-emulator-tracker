@@ -39,9 +39,9 @@ GET http://127.0.0.1:8080/debug/storage
 
 It returns the best runtime `PokemonStorage` candidates, their decoded box names, and sampled boxed Pokemon records.
 
-Ruby/Sapphire use fixed SaveBlock1 and SaveBlock2 addresses documented in `pret/pokeruby` `include/global.h`. Emerald uses the ASLR saveblock model documented in `pret/pokeemerald` `src/load_save.c`: the Lua adapter reads `gSaveBlock1Ptr`, `gSaveBlock2Ptr`, and `gPokemonStoragePtr` from the runtime pointer table for every snapshot, then applies the source-backed struct offsets. FireRed/LeafGreen use the same ASLR move range documented in `pret/pokefirered` `src/load_save.c`, with struct offsets from `include/global.h` and PC storage geometry from `include/pokemon_storage_system.h`. Do not replace these with guessed fixed addresses or cache Emerald pointed SaveBlock addresses across snapshots.
+Ruby/Sapphire use fixed SaveBlock1 and SaveBlock2 addresses documented in `pret/pokeruby` `include/global.h`. Emerald uses the ASLR saveblock model documented in `pret/pokeemerald` `src/load_save.c`: the Lua adapter reads `gSaveBlock1Ptr`, `gSaveBlock2Ptr`, and `gPokemonStoragePtr` from the runtime pointer table for every snapshot, then applies the source-backed struct offsets. FireRed/LeafGreen use the same ASLR move range and moving pointer model documented in `pret/pokefirered` `src/load_save.c`, with struct offsets from `include/global.h`, PC storage geometry from `include/pokemon_storage_system.h`, and 43 valid map groups from `data/maps/map_groups.json`. Do not replace these with guessed fixed addresses or cache pointed ASLR SaveBlock addresses across snapshots.
 
-Gen 3 boxed and party Pokemon use the canonical encrypted `BoxPokemon` layout: 80-byte boxed records, 100-byte party records, XOR-decrypted secure substructures, `personality % 24` substructure order, checksum validation, internal-species-to-National-Dex mapping from the generated species map, the source-backed egg flags from the BoxPokemon flag byte plus encrypted misc substructure, and Unown form calculation from the personality value.
+Gen 3 boxed and party Pokemon use the canonical encrypted `BoxPokemon` layout: 80-byte boxed records, 100-byte party records, XOR-decrypted secure substructures, `personality % 24` substructure order, checksum validation, internal-species-to-National-Dex mapping from the generated species map, the source-backed egg flags from the BoxPokemon flag byte plus encrypted misc substructure, and Unown form calculation from the personality value. Boxed Pokemon include a zero-based `slotIndex` in the live payload so the UI can preserve empty slots in the 6x5 PC grid instead of compacting stored Pokemon.
 
 Gen 3 trainer names, Pokemon nicknames, OT names, and box names use the Gen 3 character table shared with the save parser. Keep the Lua table aligned with `lib/pokemon/utils.ts`.
 
@@ -69,6 +69,8 @@ The adapter can write a local debug snapshot file in the system temp directory: 
 The file includes the full live snapshot plus raw money bytes so you can inspect exact WRAM values offline.
 
 The app polls once per second by default. HP, levels, party composition, held items, bag contents, and PC boxes update when emulator memory changes.
+
+Gen 3 live party data is read from active `gPlayerParty` RAM before falling back to `SaveBlock1.playerParty`. This matters for healing and party-menu edits because the game updates the active party immediately and serializes the SaveBlock copy later. To reduce mGBA audio jitter, the Gen 3 adapter keeps party/player/location on the fast snapshot path and refreshes heavier bag, Pokedex, and PC box sections through a short cache.
 
 Gold/Silver and Crystal use different WRAM layouts for live memory. The adapter detects the ROM title and selects a matching offset profile for player, party, bag, badges, map, and Pokedex reads; PC box SRAM records stay shared across Gen 2. The Gold/Silver live profile follows the public Data Crystal RAM map for trainer data, bag, map coordinates, party, and Pokedex flags.
 
