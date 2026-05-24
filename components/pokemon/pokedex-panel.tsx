@@ -8,6 +8,11 @@ import {
   GEN3_HOENN_DEX_NATIONAL_ORDER,
   getGen3HoennDexNumber,
 } from "@/lib/pokemon/data/gen3-hoenn-dex";
+import {
+  GEN3_KANTO_DEX_COUNT,
+  GEN3_KANTO_DEX_NATIONAL_ORDER,
+  getGen3KantoDexNumber,
+} from "@/lib/pokemon/data/gen3-kanto-dex";
 import { TYPE_COLORS } from "@/lib/pokemon/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +21,7 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 
 type DexFilter = "all" | "seen" | "caught" | "missing";
-type DexViewMode = "hoenn" | "national";
+type DexViewMode = "hoenn" | "kanto" | "national";
 
 interface PokedexPanelProps {
   saveData: SaveData;
@@ -32,9 +37,15 @@ function isRseGame(saveData: SaveData): boolean {
   return saveData.game === "ruby" || saveData.game === "sapphire" || saveData.game === "emerald";
 }
 
+function isFrlgGame(saveData: SaveData): boolean {
+  return saveData.game === "firered" || saveData.game === "leafgreen";
+}
+
 function getSaveDexViewMode(saveData: SaveData): DexViewMode {
   if (saveData.pokedex?.regionalDex === "hoenn") return "hoenn";
+  if (saveData.pokedex?.regionalDex === "kanto") return "kanto";
   if (isRseGame(saveData) && saveData.pokedex?.mode !== "national") return "hoenn";
+  if (isFrlgGame(saveData) && saveData.pokedex?.mode !== "national") return "kanto";
   return "national";
 }
 
@@ -50,6 +61,12 @@ function getDexSpeciesIds(saveData: SaveData, viewMode: DexViewMode): number[] {
     resolvedViewMode === "hoenn"
   ) {
     return [...GEN3_HOENN_DEX_NATIONAL_ORDER];
+  }
+  if (
+    saveData.generation === 3 &&
+    resolvedViewMode === "kanto"
+  ) {
+    return [...GEN3_KANTO_DEX_NATIONAL_ORDER];
   }
 
   const max =
@@ -67,7 +84,35 @@ function getDisplayDexNumber(saveData: SaveData, viewMode: DexViewMode, national
   ) {
     return getGen3HoennDexNumber(nationalDex) ?? nationalDex;
   }
+  if (
+    saveData.generation === 3 &&
+    resolvedViewMode === "kanto"
+  ) {
+    return getGen3KantoDexNumber(nationalDex) ?? nationalDex;
+  }
   return nationalDex;
+}
+
+function getDexViewOptions(saveData: SaveData): Array<[DexViewMode, string]> {
+  if (isRseGame(saveData)) {
+    return [
+      ["hoenn", `Hoenn (${GEN3_HOENN_DEX_COUNT})`],
+      ["national", "National (386)"],
+    ];
+  }
+  if (isFrlgGame(saveData)) {
+    return [
+      ["kanto", `Kanto (${GEN3_KANTO_DEX_COUNT})`],
+      ["national", "National (386)"],
+    ];
+  }
+  return [];
+}
+
+function getDexViewLabel(viewMode: DexViewMode): string {
+  if (viewMode === "hoenn") return "Hoenn Dex";
+  if (viewMode === "kanto") return "Kanto Dex";
+  return "National Dex";
 }
 
 function getSpriteUrl(species: number): string {
@@ -82,32 +127,12 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
   const [filter, setFilter] = useState<DexFilter>("all");
   const [viewModeOverride, setViewModeOverride] = useState<DexViewMode | null>(null);
   const resolvedViewMode = getResolvedDexViewMode(saveData, viewModeOverride);
-  const canChooseGen3DexView =
-    saveData.generation === 3 && isRseGame(saveData);
+  const dexViewOptions = getDexViewOptions(saveData);
+  const canChooseGen3DexView = saveData.generation === 3 && dexViewOptions.length > 0;
 
   const dexSpeciesIds = useMemo(() => getDexSpeciesIds(saveData, resolvedViewMode), [saveData, resolvedViewMode]);
   const dexSpeciesSet = useMemo(() => new Set(dexSpeciesIds), [dexSpeciesIds]);
   const dexMax = dexSpeciesIds.length;
-
-  const inferredOwnedSet = useMemo(() => {
-    const owned = new Set<number>();
-
-    for (const pokemon of saveData.party) {
-      if (pokemon?.species > 0 && dexSpeciesSet.has(pokemon.species)) {
-        owned.add(pokemon.species);
-      }
-    }
-
-    for (const box of saveData.pcBoxes) {
-      for (const pokemon of box.pokemon) {
-        if (pokemon && pokemon.species > 0 && dexSpeciesSet.has(pokemon.species)) {
-          owned.add(pokemon.species);
-        }
-      }
-    }
-
-    return owned;
-  }, [saveData.party, saveData.pcBoxes, dexSpeciesSet]);
 
   const seenSetFromGame = useMemo(() => {
     return new Set(
@@ -122,8 +147,8 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
   }, [saveData.pokedex?.caughtSpecies, dexSpeciesSet]);
 
   const hasGamePokedex = Boolean(saveData.pokedex);
-  const caughtSet = hasGamePokedex ? caughtSetFromGame : inferredOwnedSet;
-  const seenSet = hasGamePokedex ? seenSetFromGame : caughtSet;
+  const caughtSet = caughtSetFromGame;
+  const seenSet = seenSetFromGame;
 
   const speciesInDex = useMemo(
     () => dexSpeciesIds
@@ -185,14 +210,11 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
       <CardContent className="space-y-3">
         {canChooseGen3DexView && (
           <div className="flex flex-wrap gap-2">
-            {[
-              ["hoenn", `Hoenn (${GEN3_HOENN_DEX_COUNT})`],
-              ["national", "National (386)"],
-            ].map(([mode, label]) => (
+            {dexViewOptions.map(([mode, label]) => (
               <button
                 key={mode}
                 type="button"
-                onClick={() => setViewModeOverride(mode as DexViewMode)}
+                onClick={() => setViewModeOverride(mode)}
                 className={cn(
                   "rounded-md border px-3 py-1.5 text-xs font-semibold transition",
                   resolvedViewMode === mode
@@ -204,7 +226,7 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
               </button>
             ))}
             <span className="self-center text-xs text-muted-foreground">
-              Showing {resolvedViewMode === "national" ? "National Dex" : "Hoenn Dex"} with the save's seen/caught flags.
+              Showing {getDexViewLabel(resolvedViewMode)} with in-game seen/caught flags.
             </span>
           </div>
         )}
@@ -346,7 +368,7 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Source: {hasGamePokedex ? "in-game Pokedex flags (seen/caught)" : "fallback inferred from current party and PC boxes because no Pokedex flags were provided"}.
+          Source: {hasGamePokedex ? "in-game Pokedex flags (seen/caught)" : "no Pokedex flags provided by this source"}.
         </p>
       </CardContent>
     </Card>

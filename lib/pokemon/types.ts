@@ -63,6 +63,9 @@ export interface Pokemon {
   nature?: number;
   natureName?: string;
   isShiny?: boolean;
+  isEgg?: boolean;
+  form?: number;
+  formName?: string;
   gender?: "male" | "female" | "unknown";
   // Status
   status?: StatusCondition;
@@ -153,9 +156,9 @@ export interface SaveData {
     caughtSpecies: number[];
     seenCount: number;
     caughtCount: number;
-    source?: "save" | "live" | "inferred";
+    source?: "save" | "live";
     mode?: "regional" | "national";
-    regionalDex?: "hoenn";
+    regionalDex?: "hoenn" | "kanto";
     dexMax?: number;
   };
   party: Pokemon[];

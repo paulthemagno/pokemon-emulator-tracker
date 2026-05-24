@@ -3,7 +3,10 @@ import { getGen1ItemName, getGen2ItemName, getGen3ItemName } from "./data/items"
 import { getGen2MapLandmark } from "./data/gen2-map-landmarks";
 import { getGen1MapLandmark } from "./data/gen1-map-landmarks";
 import { getGen3MapLandmark } from "./data/gen3-map-landmarks";
-import { getGen1Location } from "./data/locations";
+import { getGen3FRLGMapLandmark } from "./data/gen3-frlg-map-landmarks";
+import { GEN3_HOENN_DEX_COUNT } from "./data/gen3-hoenn-dex";
+import { GEN3_KANTO_DEX_COUNT } from "./data/gen3-kanto-dex";
+import { getGen1Location, getGen3FRLGLocation, getGen3RSELocation } from "./data/locations";
 import { getMoveById } from "./data/moves";
 import { getSpeciesById } from "./data/species";
 import { getExpForLevel } from "./experience";
@@ -69,10 +72,11 @@ function normalizeMoves(pokemon: AnyRecord) {
 
 function normalizePokemon(pokemon: AnyRecord, generation = 2): Pokemon | null {
   const species = Number(pokemon.species ?? pokemon.speciesId ?? pokemon.speciesID ?? pokemon.id ?? 0);
-  if (!species) return null;
+  const isEgg = Boolean(pokemon.isEgg ?? pokemon.egg);
+  if (!species && !isEgg) return null;
 
   const speciesData = getSpeciesById(species);
-  const speciesName = String(pokemon.speciesName ?? pokemon.name ?? speciesData.name ?? `Pokemon ${species}`);
+  const speciesName = String(pokemon.speciesName ?? pokemon.name ?? speciesData.name ?? (isEgg ? "Egg" : `Pokemon ${species}`));
   const currentHP = Number(pokemon.currentHP ?? pokemon.currentHp ?? pokemon.curHP ?? pokemon.hp ?? 0);
   const maxHP = Number(pokemon.maxHP ?? pokemon.maxHp ?? pokemon.maxhp ?? 0);
   const statusByte =
@@ -108,6 +112,9 @@ function normalizePokemon(pokemon: AnyRecord, generation = 2): Pokemon | null {
       ? pokemon.status
       : getStatusCondition(statusByte)) as Pokemon["status"],
     isShiny: Boolean(pokemon.isShiny ?? pokemon.shiny),
+    isEgg,
+    form: typeof pokemon.form === "number" ? pokemon.form : undefined,
+    formName: pokemon.formName !== undefined ? String(pokemon.formName) : undefined,
     gender: pokemon.gender,
   };
 }
@@ -190,23 +197,45 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
   const party = asArray(partySource).map((mon) => normalizePokemon(mon, generation)).filter(Boolean) as Pokemon[];
   const pcBoxes = normalizePCBoxes(snapshot.pcBoxes, generation);
   const badges = normalizeBadges(player.badges);
+  const game = String(snapshot.game ?? snapshot.status?.game ?? snapshot.status?.version ?? "crystal").toLowerCase() as SaveData["game"];
   const liveMapId = Number(snapshot.location?.mapId ?? player.location?.mapId ?? 0);
   const liveMapGroup = Number(snapshot.location?.mapGroup ?? player.location?.mapGroup ?? 0);
   const rawLocationName = String(snapshot.location?.name ?? player.location?.name ?? "");
   const landmark = generation === 2 ? getGen2MapLandmark(liveMapGroup, liveMapId, rawLocationName) : undefined;
   const gen1Landmark = generation === 1 ? getGen1MapLandmark(liveMapId) : undefined;
-  const gen3Landmark = generation === 3 ? getGen3MapLandmark(liveMapGroup, liveMapId) : undefined;
+  const isFRLG = game === "firered" || game === "leafgreen";
+  const gen3Landmark = generation === 3
+    ? isFRLG
+      ? getGen3FRLGMapLandmark(liveMapGroup, liveMapId)
+      : getGen3MapLandmark(liveMapGroup, liveMapId)
+    : undefined;
   const locationName =
     landmark?.name ??
     gen1Landmark?.name ??
     gen3Landmark?.name ??
     (generation === 1 && Number.isFinite(liveMapId) ? getGen1Location(liveMapId) : undefined) ??
+    (generation === 3 && Number.isFinite(liveMapId) ? (isFRLG ? getGen3FRLGLocation(liveMapId) : getGen3RSELocation(liveMapId)) : undefined) ??
     (rawLocationName && rawLocationName !== "Live" ? rawLocationName : "Location syncing");
   const livePokedex = snapshot.pokedex as AnyRecord | undefined;
+  const livePokedexMode = livePokedex?.mode === "national" ? "national" : "regional";
+  const liveRegionalDex =
+    generation === 3 && livePokedexMode === "regional"
+      ? isFRLG
+        ? "kanto"
+        : game === "ruby" || game === "sapphire" || game === "emerald"
+          ? "hoenn"
+          : undefined
+      : undefined;
+  const liveDexMax =
+    liveRegionalDex === "kanto"
+      ? GEN3_KANTO_DEX_COUNT
+      : liveRegionalDex === "hoenn"
+        ? GEN3_HOENN_DEX_COUNT
+        : livePokedex?.dexMax;
 
   return {
     generation,
-    game: String(snapshot.game ?? snapshot.status?.game ?? snapshot.status?.version ?? "crystal").toLowerCase() as SaveData["game"],
+    game,
     trainer: {
       name: String(player.name ?? "Live Trainer"),
       gender: normalizeTrainerGender(player.gender),
@@ -227,6 +256,9 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
           seenCount: Number(livePokedex.seenCount ?? asArray(livePokedex.seenSpecies).length),
           caughtCount: Number(livePokedex.caughtCount ?? asArray(livePokedex.caughtSpecies).length),
           source: "live",
+          mode: livePokedexMode,
+          regionalDex: liveRegionalDex,
+          dexMax: typeof liveDexMax === "number" ? liveDexMax : undefined,
         }
       : undefined,
     party,

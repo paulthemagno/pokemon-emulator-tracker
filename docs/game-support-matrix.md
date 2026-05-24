@@ -36,8 +36,8 @@ Status labels:
 | Ruby | partial | First mGBA live pass in `live-adapters/mgba-gen3-live.lua`; fixed SaveBlock addresses from `pret/pokeruby`, runtime PC storage scan, encrypted Pokemon record validation. |
 | Sapphire | partial | Shares Ruby/Sapphire live profile and ROM-title detection. |
 | Emerald | partial | First mGBA live pass with runtime SaveBlock/PokemonStorage resolution for Emerald ASLR, then source-backed `pret/pokeemerald` struct offsets. |
-| FireRed | planned | Should use `pret/pokefirered` symbols; map and bag data differ from RSE. |
-| LeafGreen | planned | Same engine as FireRed with version-specific labels. |
+| FireRed | partial | First mGBA live pass using generated `pret/pokefirered` SaveBlock/PokemonStorage offsets and ROM-title detection. Kanto map support is source-backed; Sevii map rendering still needs a dedicated map view. |
+| LeafGreen | partial | Shares the FireRed/LeafGreen live profile with version-specific labels. |
 
 ## Data Coverage
 
@@ -46,8 +46,8 @@ Status labels:
 | Species names/types/growth | Local TypeScript table; growth source documented as PokeAPI | Add provenance metadata and validate Gen 1-3 completeness. |
 | Moves | Local TypeScript table and PokeAPI descriptions | Add per-game learnsets and move mechanics by generation. |
 | Items | Local TypeScript tables and PokeAPI descriptions | Replace manual Gen 1/2/3 tables with generated files from pret where practical. |
-| Locations | Gen 1 town-map landmarks, generated Gen 2 landmarks, local Gen 3 names | Generate Gen 3 location IDs from pret sources. |
-| Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, and Gen 3 Hoenn overview map | Extract Gen 3 marker coordinates before showing save-location markers. |
+| Locations | Gen 1 town-map landmarks, generated Gen 2 landmarks, and source-backed Gen 3 Hoenn landmarks | Generate full Gen 3 location/encounter datasets for LLM tools. |
+| Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, Gen 3 Hoenn overview map, and FireRed/LeafGreen Kanto overview map with marker coordinates | Add dedicated Sevii map views before promoting FireRed/LeafGreen. |
 | Encounters | Not first-class local data | Generate per-game encounter datasets from pret for LLM tools. |
 | Trainers/gyms | Not first-class local data | Add gym leader/rival/E4 datasets after parser foundations are stable. |
 
@@ -60,12 +60,13 @@ Current local ground-truth modules:
 | `lib/pokemon/knowledge/provenance.ts` | Source records and source kinds. |
 | `lib/pokemon/knowledge/inventory-layouts.ts` | Gen 1-3 inventory/item-storage offsets and pocket formats. |
 | `lib/pokemon/knowledge/item-id-ranges.ts` | Gen 1/2 TM/HM item ID ranges and Gen 1 machine names. |
-| `lib/pokemon/knowledge/save-layouts.ts` | Gen 1/2/3 save parser offsets, Pokédex flag offsets, PC box offsets, and Gen 1/2 live offset profiles. |
+| `lib/pokemon/knowledge/save-layouts.ts` | Gen 1/2/3 save parser offsets, Pokédex flag offsets, PC box offsets, and generated live offset profile inputs. |
 | `lib/pokemon/knowledge/species-id-maps.ts` | Gen 3 internal species ID to National Dex mapping. |
 | `lib/pokemon/data/gen3-hoenn-dex.ts` | Gen 3 Hoenn Dex order extracted from `pret/pokeemerald` `sHoennToNationalOrder`. |
+| `lib/pokemon/data/gen3-kanto-dex.ts` | FireRed/LeafGreen Kanto Dex count/order from `pret/pokefirered` `KANTO_DEX_COUNT` and `GetKantoPokedexCount`. |
 | `live-adapters/generated/gen1-live-offsets.lua` | Generated Gen 1 live WRAM profiles loaded by the mGBA adapter. |
 | `live-adapters/generated/gen2-live-offsets.lua` | Generated Gen 2 live WRAM profiles and TM/HM item IDs loaded by the mGBA adapter. |
-| `live-adapters/generated/gen3-live-offsets.lua` | Generated Ruby/Sapphire/Emerald live profiles, inventory pockets, and internal species map loaded by the mGBA adapter. |
+| `live-adapters/generated/gen3-live-offsets.lua` | Generated Ruby/Sapphire/Emerald/FireRed/LeafGreen live profiles, inventory pockets, and internal species map loaded by the mGBA adapter. |
 
 ## Promotion Checklist
 

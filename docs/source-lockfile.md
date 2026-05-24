@@ -18,7 +18,7 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | `gen3SaveReference` | secondary | https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_in_Generation_III | Gen 3 save section cross-check | URL only |
 | `pretPokeruby` | pret | https://github.com/pret/pokeruby | Ruby/Sapphire SaveBlock1/SaveBlock2 offsets, flags, and PC storage layout | `63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1` |
 | `pretPokeemerald` | pret | https://github.com/pret/pokeemerald | Emerald SaveBlock1/SaveBlock2 offsets, flags, item quantity encryption, PC storage layout, Gen 3 character map, and Hoenn Dex/map data | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
-| `pretPokefirered` | pret | https://github.com/pret/pokefirered | FireRed/LeafGreen SaveBlock1/SaveBlock2 offsets, flags, item quantity encryption, and PC storage layout | `e060ab955b5dc9ac1c4904c2cd141683615cf477` |
+| `pretPokefirered` | pret | https://github.com/pret/pokefirered | FireRed/LeafGreen SaveBlock1/SaveBlock2 offsets, live ASLR move range, flags, item quantity encryption, PC storage layout, Kanto Dex order/count, and Kanto region-map data | `e060ab955b5dc9ac1c4904c2cd141683615cf477` |
 | `pokecrystal` | pret | https://github.com/pret/pokecrystal | Gen 2 inventory offsets and TM/HM item IDs | `8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217` |
 | `pretPokegold` | pret | https://github.com/pret/pokegold | Gold/Silver Gen 2 save and live offset profiles | `09d2148d6d26b20840fb4997916321666ca1e953` |
 | `hoennMapImage` | media | https://github.com/pret/pokeemerald/tree/master/graphics/pokenav/region_map | Gen 3 Hoenn overview map asset for save uploads, rendered from `map.png` tileset plus `map.bin` tilemap | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
@@ -126,7 +126,7 @@ Important: Gen 3 Pokemon structures store internal species IDs. IDs `277..411`, 
 numbers. The parser must translate them through `lib/pokemon/knowledge/species-id-maps.ts` before rendering names,
 growth curves, gender, or sprites.
 
-Important: Gen 3 live mode cannot use one fixed address strategy for all Hoenn games. Ruby/Sapphire expose fixed
+Important: Gen 3 live mode cannot use one fixed address strategy for all games. Ruby/Sapphire expose fixed
 SaveBlock1 and SaveBlock2 addresses in `pret/pokeruby` `include/global.h`, while Emerald moves SaveBlock1,
 SaveBlock2, and PokemonStorage at runtime via `SetSaveBlocksPointers` in `pret/pokeemerald` `src/load_save.c`.
 `live-adapters/mgba-gen3-live.lua` therefore resolves the runtime base addresses first, then applies the generated
@@ -139,7 +139,9 @@ Storage candidates must also contain at least one valid boxed Pokémon record be
 zero-filled or unrelated EWRAM can look plausible enough to produce false empty boxes. Ruby/Sapphire candidate
 addresses are derived from observed mGBA runtime storage positions and corrected by the official boxed-Pokemon record
 stride (`sizeof(BoxPokemon) = 0x50`; one box is `30 * 0x50 = 0x960`) from `struct PokemonStorage`; the adapter does
-not run a full EWRAM PC-storage scan during normal live snapshots.
+not run a full EWRAM PC-storage scan during normal live snapshots. FireRed/LeafGreen use `pret/pokefirered`
+`src/load_save.c` for `SAVEBLOCK_MOVE_RANGE = 128`, `include/global.h` for SaveBlock offsets, and
+`include/pokemon_storage_system.h` for the same `struct PokemonStorage` geometry.
 
 Important: Gen 3 `BoxPokemon` records are encrypted and include both a `hasSpecies` bit and a checksum over the secure
 substructures. PC parsing must validate both before rendering a stored Pokémon; otherwise empty or stale PC slots can
@@ -150,7 +152,20 @@ Important: Gen 3 Pokédex mode is not inferred from the filename or from raw cou
 `struct Pokedex` `nationalMagic` at `0x001A`, while FireRed/LeafGreen use `0x001B`; all profiles use `mode` at
 `0x0019`. The parser treats the save as National Dex only when the profile-specific magic byte and National mode match
 the values used by the game. Otherwise, RSE saves are rendered against the 202-entry Hoenn Dex order extracted from
-`sHoennToNationalOrder`.
+`sHoennToNationalOrder`, while FireRed/LeafGreen saves are rendered against the 151-entry Kanto Dex order backed by
+`pret/pokefirered` `KANTO_DEX_COUNT` and `GetKantoPokedexCount`.
+Seen entries are cross-checked against the SaveBlock1 mirror arrays when present. Caught entries come from
+`SaveBlock2.pokedex.owned` directly, matching the separate owned bitfield in `struct Pokedex`.
+
+Important: FireRed/LeafGreen key item names after the shared TM/HM range use `pret/pokefirered`
+`include/constants/items.h` IDs 349-374. Emerald adds `ITEM_MAGMA_EMBLEM` 375 and `ITEM_OLD_SEA_MAP` 376 from
+`pret/pokeemerald`. Keep those IDs named locally so bag and PC item storage do not show source-backed key items as
+`Unknown`.
+
+Important: Unown form rendering is form-based, not species-based. Gen 2 form calculation follows the documented DV
+method using the middle two bits of Attack, Defense, Speed, and Special DVs. Gen 3 follows the personality-value method
+using the least significant two bits of each personality byte. PokeAPI exposes the matching front sprites at form paths
+such as `sprites/pokemon/201-b.png`, while the default `201.png` is only form A.
 
 Important: `public/maps/hoenn-map-emerald.svg` is the 240x160 PokéNav full-view Hoenn map rendered from
 `pret/pokeemerald` `graphics/pokenav/region_map/map.png` (tileset) and `graphics/pokenav/region_map/map.bin`
@@ -163,6 +178,15 @@ cities additionally use `SaveBlock1.pos.x` / `pos.y` and `data/layouts/layouts.j
 `InitMapBasedOnPlayerLocation` in `src/region_map.c`. Gen 3 badge sprites
 come from `pret/pokeemerald` `graphics/trainer_card/badges.png` and are exposed as local 16x16 SVG crops; do not
 reuse the Gen 2 badge list for Hoenn games.
+
+Important: `public/maps/kanto-map-frlg.svg` is the 240x160 FireRed/LeafGreen Kanto region map generated with
+`scripts/generate-gen3-frlg-region-map.mjs` from `pret/pokefirered` `graphics/region_map/region_map.png` and
+`graphics/region_map/kanto.bin`. The SVG embeds the source tileset as a data URI and applies the GBA tilemap flags
+locally, so it does not depend on loading `public/maps/kanto-map-frlg-tiles.png` from inside an `<img>` render. The marker lookup in
+`lib/pokemon/data/gen3-frlg-map-landmarks.ts` is generated from `src/data/region_map/region_map_sections.json`,
+`src/data/region_map/region_map_layout_kanto.h`, and `data/maps/map_groups.json`. FireRed/LeafGreen Kanto marker
+coordinates use the Region Map formula from `src/region_map.c`: `pixel = 8 * cursor + 36`. Sevii Islands have
+separate region-map layouts and should not be forced onto the Kanto overview map.
 
 Important: Yellow's Gen 1 save-file inventory offsets do not differ from Red/Blue for the supported US layout. The
 generated knowledge still exports a Yellow-specific inventory layout so parsers can keep game selection explicit, but

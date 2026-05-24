@@ -29,6 +29,11 @@ import {
   getStatusCondition,
 } from "../utils";
 import { GEN3_HOENN_DEX_NATIONAL_ORDER } from "../data/gen3-hoenn-dex";
+import {
+  GEN3_KANTO_DEX_COUNT,
+  GEN3_KANTO_DEX_NATIONAL_ORDER,
+} from "../data/gen3-kanto-dex";
+import { getGen3UnownFormFromPersonality, getUnownFormLabel } from "../forms";
 
 // Gen 3 save structure constants
 const SECTION_SIZE = 0x1000; // 4KB per section
@@ -165,36 +170,65 @@ function getSlotSections(data: Uint8Array): Map<number, Section>[] {
   return slots;
 }
 
-function getSlotStats(sections: Map<number, Section>): {
+function getPhysicalLastSaveIndex(data: Uint8Array, slot: number): number {
+  const offset = slot * SAVE_SLOT_SIZE + (SECTION_COUNT - 1) * SECTION_SIZE + SECTION_FOOTER_OFFSET + 8;
+  if (offset + 4 > data.length) return 0;
+  return new DataView(data.buffer, data.byteOffset).getUint32(offset, true);
+}
+
+function getSlotStats(data: Uint8Array, slot: number, sections: Map<number, Section>): {
   validCount: number;
   latestSaveIndex: number;
+  maxSectionSaveIndex: number;
 } {
   let validCount = 0;
-  let latestSaveIndex = 0;
+  let maxSectionSaveIndex = 0;
   for (const section of sections.values()) {
     if (section.valid) {
       validCount++;
     }
-    if ((validCount > 0 || latestSaveIndex === 0) && (latestSaveIndex === 0 || isNewerSaveIndex(section.saveIndex, latestSaveIndex))) {
-      latestSaveIndex = section.saveIndex;
+    if (
+      (validCount > 0 || maxSectionSaveIndex === 0) &&
+      (maxSectionSaveIndex === 0 || isNewerSaveIndex(section.saveIndex, maxSectionSaveIndex))
+    ) {
+      maxSectionSaveIndex = section.saveIndex;
     }
   }
-  return { validCount, latestSaveIndex };
+  return {
+    validCount,
+    latestSaveIndex: getPhysicalLastSaveIndex(data, slot),
+    maxSectionSaveIndex,
+  };
 }
 
 function chooseBestSections(data: Uint8Array): Map<number, Section> {
   const slotSections = getSlotSections(data);
-  const [slot0Stats, slot1Stats] = slotSections.map(getSlotStats);
+  const [slot0Stats, slot1Stats] = slotSections.map((sections, slot) => getSlotStats(data, slot, sections));
+  const slot0Complete = slot0Stats.validCount === SECTION_COUNT;
+  const slot1Complete = slot1Stats.validCount === SECTION_COUNT;
+
+  if (slot0Complete && slot1Complete) {
+    if (slot0Stats.latestSaveIndex === slot1Stats.latestSaveIndex) {
+      return slotSections[1];
+    }
+    return isNewerSaveIndex(slot1Stats.latestSaveIndex, slot0Stats.latestSaveIndex)
+      ? slotSections[1]
+      : slotSections[0];
+  }
+
+  if (slot0Complete !== slot1Complete) {
+    return slot0Complete ? slotSections[0] : slotSections[1];
+  }
 
   if (slot0Stats.validCount !== slot1Stats.validCount) {
     return slot0Stats.validCount > slot1Stats.validCount ? slotSections[0] : slotSections[1];
   }
 
-  if (slot0Stats.latestSaveIndex === slot1Stats.latestSaveIndex) {
+  if (slot0Stats.maxSectionSaveIndex === slot1Stats.maxSectionSaveIndex) {
     return slotSections[0];
   }
 
-  return isNewerSaveIndex(slot1Stats.latestSaveIndex, slot0Stats.latestSaveIndex)
+  return isNewerSaveIndex(slot1Stats.maxSectionSaveIndex, slot0Stats.maxSectionSaveIndex)
     ? slotSections[1]
     : slotSections[0];
 }
@@ -526,6 +560,7 @@ function parsePokemonRecord(
 
   // Misc substructure
   const ivData = view.getUint32(miscOffset + 4, true);
+  const isEgg = (flags & 0x04) !== 0 || ((ivData >>> 30) & 1) !== 0;
   const ivs = {
     hp: ivData & 0x1f,
     attack: (ivData >> 5) & 0x1f,
@@ -563,6 +598,8 @@ function parsePokemonRecord(
 
   // Determine shiny status
   const isShiny = isGen3Shiny(pid, otid);
+  const form = species === 201 ? getGen3UnownFormFromPersonality(pid) : undefined;
+  const formName = species === 201 ? getUnownFormLabel(form) : undefined;
 
   return {
     pokemon: {
@@ -581,6 +618,8 @@ function parsePokemonRecord(
     })),
     ability: abilityBit,
     nature: pid % 25,
+    form,
+    formName,
     ivs,
     evs,
     stats,
@@ -591,6 +630,7 @@ function parsePokemonRecord(
     happiness: friendship,
     status: getStatusCondition(status),
     isShiny,
+    isEgg,
     gender: determineGender(species, pid),
     },
     details: {
@@ -709,44 +749,45 @@ function parsePokedexProgress(
   }
 
   const strictSeenSpecies: number[] = [];
-  const strictCaughtSpecies: number[] = [];
   const nationalMagic = trainerInfo[layout.offsets.pokedexNationalMagic];
-  const nationalMagicValue =
-    generation.game === "firered" || generation.game === "leafgreen"
-      ? GEN3_NATIONAL_MAGIC.fireRedLeafGreen
-      : GEN3_NATIONAL_MAGIC.rubySapphireEmerald;
+  const isFireRedLeafGreen = generation.game === "firered" || generation.game === "leafgreen";
+  const nationalMagicValue = isFireRedLeafGreen
+    ? GEN3_NATIONAL_MAGIC.fireRedLeafGreen
+    : GEN3_NATIONAL_MAGIC.rubySapphireEmerald;
   const nationalEnabled = nationalMagic === nationalMagicValue;
   const modeByte = trainerInfo[layout.offsets.pokedexMode];
   const mode = nationalEnabled && modeByte === GEN3_DEX_MODE_NATIONAL ? "national" : "regional";
   const isHoennRegionalDex =
     mode === "regional" &&
-    generation.game !== "firered" &&
-    generation.game !== "leafgreen";
+    !isFireRedLeafGreen;
+  const isKantoRegionalDex = mode === "regional" && isFireRedLeafGreen;
 
   for (let nationalDex = 1; nationalDex <= GEN3_NUM_SPECIES; nationalDex++) {
     const seenInPokedex = hasSpeciesFlag(trainerInfo, layout.offsets.pokedexSeen, nationalDex);
     const seenInSaveBlock1 =
       hasSpeciesFlag(saveBlock1, layout.offsets.pokedexSeen1, nationalDex) &&
       hasSpeciesFlag(saveBlock1, layout.offsets.pokedexSeen2, nationalDex);
-    const caughtInPokedex = hasSpeciesFlag(trainerInfo, layout.offsets.pokedexOwned, nationalDex);
     const seen = seenInPokedex && seenInSaveBlock1;
-    const caught = caughtInPokedex && seen;
 
     if (seen) strictSeenSpecies.push(nationalDex);
-    if (caught) strictCaughtSpecies.push(nationalDex);
   }
 
   const rawSeenSpecies = parseSpeciesFlags(trainerInfo, layout.offsets.pokedexSeen, GEN3_NUM_SPECIES);
   const rawCaughtSpecies = parseSpeciesFlags(trainerInfo, layout.offsets.pokedexOwned, GEN3_NUM_SPECIES);
-  const hasStrictFlags = strictSeenSpecies.length > 0 || strictCaughtSpecies.length > 0;
-  const caughtSpecies = hasStrictFlags ? strictCaughtSpecies : rawCaughtSpecies;
-  const seenSpecies = hasStrictFlags
-    ? strictSeenSpecies
-    : Array.from(new Set([...rawSeenSpecies, ...rawCaughtSpecies])).sort((a, b) => a - b);
+  const hasStrictSeenFlags = strictSeenSpecies.length > 0;
+  const caughtSpecies = rawCaughtSpecies;
+  const seenSpecies = Array.from(
+    new Set([
+      ...(hasStrictSeenFlags ? strictSeenSpecies : rawSeenSpecies),
+      ...rawCaughtSpecies,
+    ])
+  ).sort((a, b) => a - b);
 
   const countableSpecies = isHoennRegionalDex
     ? GEN3_HOENN_DEX_NATIONAL_ORDER
-    : Array.from({ length: GEN3_NUM_SPECIES }, (_, index) => index + 1);
+    : isKantoRegionalDex
+      ? GEN3_KANTO_DEX_NATIONAL_ORDER
+      : Array.from({ length: GEN3_NUM_SPECIES }, (_, index) => index + 1);
   const countableSet = new Set<number>(countableSpecies);
   const countableSeenSpecies = seenSpecies.filter((species) => countableSet.has(species));
   const countableCaughtSpecies = caughtSpecies.filter((species) => countableSet.has(species));
@@ -758,8 +799,12 @@ function parsePokedexProgress(
     caughtCount: countableCaughtSpecies.length,
     source: "save",
     mode,
-    regionalDex: isHoennRegionalDex ? "hoenn" : undefined,
-    dexMax: isHoennRegionalDex ? GEN3_HOENN_DEX_COUNT : GEN3_NUM_SPECIES,
+    regionalDex: isHoennRegionalDex ? "hoenn" : isKantoRegionalDex ? "kanto" : undefined,
+    dexMax: isHoennRegionalDex
+      ? GEN3_HOENN_DEX_COUNT
+      : isKantoRegionalDex
+        ? GEN3_KANTO_DEX_COUNT
+        : GEN3_NUM_SPECIES,
   };
 }
 
@@ -844,7 +889,10 @@ function parsePCBoxes(sections: Map<number, Section>, generation: Gen3Generation
 
     const nameOffset = layout.offsets.boxNames + boxIndex * layout.boxNameLength;
     const rawName = pcBuffer.slice(nameOffset, nameOffset + layout.boxNameLength);
-    const name = decodeString(rawName, getGen3CharacterMap()) || `Box ${boxIndex + 1}`;
+    const decodedName = decodeString(rawName, getGen3CharacterMap());
+    const name = !decodedName || decodedName.toUpperCase() === "BOX"
+      ? `Box ${boxIndex + 1}`
+      : decodedName;
 
     boxes.push({
       name,

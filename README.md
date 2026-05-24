@@ -12,7 +12,7 @@ Main support:
 
 - Gen 1 Red/Blue/Yellow: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen1-live.lua`.
 - Gen 2 Gold/Silver/Crystal: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen2-live.lua`.
-- Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen: partial `.sav` parser with party, inventory, badges, Pokédex, and PC boxes; Ruby/Sapphire/Emerald have a first mGBA live adapter pass with `live-adapters/mgba-gen3-live.lua`.
+- Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen: partial `.sav` parser with party, inventory, badges, Pokédex, and PC boxes; all five games have a first mGBA live adapter pass with `live-adapters/mgba-gen3-live.lua`.
 
 Available features:
 
@@ -20,7 +20,7 @@ Available features:
 - party Pokemon with moves, HP, stats, EXP, and held items where the game supports them
 - PC boxes and PC item storage
 - inventory
-- local map/landmark display for Gen 1, Gen 2, and Ruby/Sapphire/Emerald
+- local map/landmark display for Gen 1, Gen 2, Ruby/Sapphire/Emerald, and FireRed/LeafGreen Kanto
 - local Ollama chatbot with current game context
 
 See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the full support matrix.
@@ -76,7 +76,7 @@ The parser normalizes save files into the same data model used by live mode.
 3. Load the correct script:
    - Red/Blue/Yellow: `live-adapters/mgba-gen1-live.lua`
    - Gold/Silver/Crystal: `live-adapters/mgba-gen2-live.lua`
-   - Ruby/Sapphire/Emerald: `live-adapters/mgba-gen3-live.lua`
+   - Ruby/Sapphire/Emerald/FireRed/LeafGreen: `live-adapters/mgba-gen3-live.lua`
 4. In the web app, press **Start Live**.
 
 The Lua script exposes:
@@ -88,6 +88,9 @@ http://127.0.0.1:8080/snapshot
 The UI calls `GET /api/live`, which proxies to mGBA.
 
 If you change a Lua script or a file under `live-adapters/generated/`, reload the script in mGBA.
+
+When live polling is stopped, the dashboard falls back to the uploaded save file. A stale live snapshot must not keep
+overriding a `.sav` you are checking offline.
 
 ## Local Chatbot With Ollama
 
@@ -158,7 +161,7 @@ corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --
 corepack pnpm generate:pokemon-knowledge
 ```
 
-Policy and source pins: [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md) and [docs/source-lockfile.md](docs/source-lockfile.md). Gen 3 Pokédex mode, Hoenn Dex order, and PC storage offsets are source-backed; do not patch them by hand in generated files.
+Policy and source pins: [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md) and [docs/source-lockfile.md](docs/source-lockfile.md). Gen 3 Pokédex mode, Hoenn/Kanto regional Dex order, and PC storage offsets are source-backed; do not patch generated files by hand.
 
 ## Documents
 

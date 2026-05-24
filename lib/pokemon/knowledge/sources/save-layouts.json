@@ -430,6 +430,18 @@
         "boxNames": "0x8344",
         "boxWallpapers": "0x83c2"
       },
+      "liveMemory": {
+        "saveBlock1": "scan",
+        "saveBlock2": "scan",
+        "saveBlock1Size": "0x3d68",
+        "saveBlock2Size": "0x0f24",
+        "pokemonStorageMode": "scan",
+        "pokemonStorageSize": "0x83d0",
+        "ewramStart": "0x02000000",
+        "ewramEnd": "0x02040000",
+        "aslrMoveRange": "0x0080",
+        "resolution": "aslr-runtime-scan"
+      },
       "sectionIds": {
         "trainerInfo": 0,
         "teamItems": 1,

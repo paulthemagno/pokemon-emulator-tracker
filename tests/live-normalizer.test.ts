@@ -91,6 +91,27 @@ test("normalizeLiveSnapshot infers Gen 3 boxed Pokemon levels from experience", 
   assert.equal(data.pcBoxes[0].pokemon[0]?.level, 5);
 });
 
+test("normalizeLiveSnapshot preserves Gen 3 live egg state with underlying species", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 3,
+    game: "firered",
+    player: {},
+    party: [],
+    pcBoxes: [
+      {
+        name: "Box 1",
+        capacity: 30,
+        pokemon: [{ species: 7, speciesName: "Squirtle", nickname: "EGG", isEgg: true }],
+      },
+    ],
+  });
+
+  const egg = data.pcBoxes[0].pokemon[0];
+  assert.equal(egg?.isEgg, true);
+  assert.equal(egg?.species, 7);
+  assert.equal(egg?.speciesName, "Squirtle");
+});
+
 test("normalizeLiveSnapshot accepts badge objects and normalizes trainer metadata", () => {
   const data = normalizeLiveSnapshot({
     generation: 2,
@@ -241,4 +262,25 @@ test("normalizeLiveSnapshot normalizes live Pokedex progress", () => {
   assert.equal(data.pokedex?.seenCount, 3);
   assert.equal(data.pokedex?.caughtCount, 2);
   assert.equal(data.pokedex?.source, "live");
+});
+
+test("normalizeLiveSnapshot keeps Gen 3 FireRed/LeafGreen live Pokedex regional mode as Kanto", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 3,
+    game: "firered",
+    player: {},
+    party: [],
+    pcBoxes: [],
+    pokedex: {
+      seenSpecies: [1, 25, 252],
+      caughtSpecies: [1, 252],
+      seenCount: 3,
+      caughtCount: 2,
+      mode: "regional",
+    },
+  });
+
+  assert.equal(data.pokedex?.mode, "regional");
+  assert.equal(data.pokedex?.regionalDex, "kanto");
+  assert.equal(data.pokedex?.dexMax, 151);
 });

@@ -24,6 +24,7 @@ import { getGen2ItemName } from "../data/items";
 import { getGen2Location } from "../data/locations";
 import { GEN2_INVENTORY_LAYOUTS, type InventoryPocketLayout } from "../knowledge/inventory-layouts";
 import { GEN2_SAVE_LAYOUTS } from "../knowledge/save-layouts";
+import { getGen2UnownFormFromDVs, getUnownFormLabel } from "../forms";
 
 // Gen 2 Memory Offsets (English versions)
 const OFFSETS = {
@@ -83,10 +84,30 @@ const BOX_NAME_LENGTH = 9;
 const BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES;
 const BOX_OFFSETS = GEN2_SAVE_LAYOUTS.crystal.boxOffsets;
 const BOX_RECORD_SIZE = 1 + BOX_CAPACITY + 1 + BOX_CAPACITY * BOX_POKEMON_SIZE + BOX_CAPACITY * 11 + BOX_CAPACITY * 11;
+const GEN2_EGG_SPECIES = 0xfd;
+const UNOWN_SPECIES = 201;
+
+function createGen2EggPokemon(nickname: string, originalTrainer = "", originalTrainerID = 0): Pokemon {
+  return {
+    species: 0,
+    speciesName: "Egg",
+    nickname: nickname || "Egg",
+    level: 0,
+    currentHP: 0,
+    maxHP: 0,
+    experience: 0,
+    moves: [],
+    stats: { hp: 0, attack: 0, defense: 0, speed: 0, specialAttack: 0, specialDefense: 0 },
+    originalTrainer,
+    originalTrainerID,
+    isEgg: true,
+  };
+}
 
 function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
   const species = data[offset];
   if (species === 0 || species === 0xff) return null;
+  if (species === GEN2_EGG_SPECIES) return createGen2EggPokemon("Egg");
 
   const heldItem = data[offset + 1];
   const move1 = data[offset + 2];
@@ -127,6 +148,10 @@ function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
 
   // Determine if shiny (Gen 2 shiny calculation)
   const isShiny = attackIV === 10 && defenseIV === 10 && speedIV === 10 && specialIV === 10;
+  const form = species === UNOWN_SPECIES
+    ? getGen2UnownFormFromDVs(attackIV, defenseIV, speedIV, specialIV)
+    : undefined;
+  const formName = species === UNOWN_SPECIES ? getUnownFormLabel(form) : undefined;
 
   const moves: Move[] = [];
   if (move1) moves.push({ id: move1, name: getMoveName(move1), pp: pp1 & 0x3f, maxPP: 35 });
@@ -174,6 +199,8 @@ function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
     happiness,
     status: getStatusCondition(status),
     isShiny,
+    form,
+    formName,
   };
 }
 
@@ -184,6 +211,9 @@ function parseBoxPokemon(
   originalTrainer: string
 ): Pokemon | null {
   const species = data[offset];
+  if (species === GEN2_EGG_SPECIES) {
+    return createGen2EggPokemon(nickname, originalTrainer, readUint16BE(data, offset + 6));
+  }
   if (species === 0 || species === 0xff || species > 251) return null;
 
   const heldItem = data[offset + 1];
@@ -213,6 +243,10 @@ function parseBoxPokemon(
   const specialIV = ivs & 0x0f;
   const hpIV = ((attackIV & 1) << 3) | ((defenseIV & 1) << 2) | ((speedIV & 1) << 1) | (specialIV & 1);
   const speciesName = getSpeciesName(species);
+  const form = species === UNOWN_SPECIES
+    ? getGen2UnownFormFromDVs(attackIV, defenseIV, speedIV, specialIV)
+    : undefined;
+  const formName = species === UNOWN_SPECIES ? getUnownFormLabel(form) : undefined;
 
   return {
     species,
@@ -246,6 +280,8 @@ function parseBoxPokemon(
     heldItemName: getGen2ItemName(heldItem),
     happiness,
     isShiny: attackIV === 10 && defenseIV === 10 && speedIV === 10 && specialIV === 10,
+    form,
+    formName,
   };
 }
 

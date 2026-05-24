@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Box, Grid3X3 } from "lucide-react";
 import Image from "next/image";
+import { getEggSpriteUrl, getPokemonSpriteUrl } from "@/lib/pokemon/forms";
 
 interface PCBoxesProps {
   boxes: PCBox[];
@@ -21,11 +22,12 @@ function getDisplayBoxName(box: PCBox, index: number): string {
   return rawName;
 }
 
-function getSpriteUrl(species: number): string {
-  if (species <= 0 || species > 386) {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/0.png`;
-  }
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${species}.png`;
+function getPokemonLabel(pokemon: Pokemon): string {
+  return pokemon.isEgg
+    ? pokemon.species > 0
+      ? `Egg (${pokemon.speciesName})`
+      : "Egg"
+    : pokemon.nickname;
 }
 
 function isPokemon(pokemon: Pokemon | null): pokemon is Pokemon {
@@ -225,21 +227,35 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
                 <div
                   key={index}
                   className="aspect-square rounded-lg bg-muted/50 flex items-center justify-center relative group transition-colors hover:bg-muted/80"
-                  title={pokemon ? `${pokemon.nickname} Lv.${pokemon.level}` : "Empty"}
+                  title={pokemon ? pokemon.isEgg ? getPokemonLabel(pokemon) : `${pokemon.nickname} Lv.${pokemon.level}` : "Empty"}
                 >
                   {pokemon ? (
                     <>
-                      <Image
-                        src={getSpriteUrl(pokemon.species)}
-                        alt={pokemon.speciesName}
-                        width={56}
-                        height={56}
-                        className="pixelated"
-                        unoptimized
-                      />
+                      {pokemon.species > 0 && (
+                        <Image
+                          src={getPokemonSpriteUrl(pokemon)}
+                          alt={pokemon.speciesName}
+                          width={56}
+                          height={56}
+                          className={`pixelated transition-transform group-hover:scale-110 ${
+                            pokemon.isEgg ? "translate-x-2 translate-y-2 scale-90 opacity-55" : ""
+                          }`}
+                          unoptimized
+                        />
+                      )}
+                      {pokemon.isEgg && (
+                        <Image
+                          src={getEggSpriteUrl()}
+                          alt="Egg"
+                          width={48}
+                          height={48}
+                          className="pixelated absolute left-1/2 top-1/2 z-10 -translate-x-[62%] -translate-y-[58%] drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]"
+                          unoptimized
+                        />
+                      )}
                       {/* Hover tooltip */}
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                        {pokemon.nickname} Lv.{pokemon.level}
+                        {pokemon.isEgg ? getPokemonLabel(pokemon) : `${pokemon.nickname} Lv.${pokemon.level}`}
                       </div>
                     </>
                   ) : (

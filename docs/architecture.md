@@ -69,6 +69,15 @@ lib/pokemon/data/gen3-hoenn-dex.ts
 That file is extracted from `pret/pokeemerald` `src/pokemon.c` `sHoennToNationalOrder`, not from manually sorted local
 species data.
 
+FireRed/LeafGreen regional Pokédex rendering uses:
+
+```text
+lib/pokemon/data/gen3-kanto-dex.ts
+```
+
+That file follows `pret/pokefirered` `KANTO_DEX_COUNT` and `GetKantoPokedexCount`, where Kanto entries are National
+Dex numbers `1..151`.
+
 Gen 3 Pokédex and PC storage offsets are also kept in `save-layouts.ts`. The PC storage buffer is reconstructed from
 section IDs 5 through 13 at the game chunk stride of `0xF80` bytes per section before reading the aligned boxed Pokémon
 array. The footer still lives at `0xFF4`; do not use the footer offset as the concatenation stride.
@@ -290,9 +299,11 @@ That field is distinct from nearby coordinate/block/header bytes. Use `lib/pokem
 ## Gen 3 save profiles
 
 Gen 3 saves rotate 14 sections inside two save slots. The parser validates the official section signature and checksum,
-then chooses one coherent slot before applying a game profile for Team/Items data. This matters for PC storage because
-boxes are spread across section IDs 5 through 13; mixing section 5 from one save slot with section 6 from another can
-make Box 2 look valid while later boxes collapse into garbage.
+then chooses one coherent slot before applying a game profile for Team/Items data. Complete slots are ordered by the
+save index in the physical last section, matching the documented game-save selection rule; only incomplete/corrupt
+fallbacks use the best available section count/index. This matters for PC storage and Pokédex progress because boxes are
+spread across section IDs 5 through 13, while Pokédex state is mirrored across SaveBlock2 and SaveBlock1. Mixing sections
+or choosing a stale backup can make the data look mostly right while a few entries are missing.
 
 Profiles currently separate:
 
@@ -307,20 +318,23 @@ Emerald and FireRed/LeafGreen money and bag quantities use the save security key
 Gen 3 Pokédex mode is read from `struct Pokedex`, not guessed from observed species. Ruby/Sapphire/Emerald use
 `nationalMagic` at `0x001A`; FireRed/LeafGreen use `0x001B`; all profiles use `mode` at `0x0019`. When National Dex is
 not enabled, RSE saves are rendered against the 202-entry Hoenn Dex order from `pret/pokeemerald`
-`sHoennToNationalOrder`.
+`sHoennToNationalOrder`, while FireRed/LeafGreen saves are rendered against the 151-entry Kanto order from
+`pret/pokefirered` `KANTO_DEX_COUNT` / `GetKantoPokedexCount`.
 
-The RSE Pokédex panel can also switch the display lens between the save's current mode, Hoenn `202`, and National
-`386`. This changes only which species list is displayed; seen/caught state still comes from the parsed save flags.
-FireRed/LeafGreen do not expose a regional-view toggle yet because the Kanto regional order has not been added as a
-source-backed local dataset.
+The Gen 3 Pokédex panel can switch the display lens between the game's regional Dex and National `386`: Hoenn/National
+for Ruby/Sapphire/Emerald and Kanto/National for FireRed/LeafGreen. This changes only which species list is displayed;
+seen/caught state still comes from parsed save or live Pokédex flags.
 
-The parser first follows the game's `GetSetPokedexFlag` consistency check, which requires `SaveBlock2.pokedex.seen`,
-`SaveBlock1.seen1`, and `SaveBlock1.seen2` to agree for seen entries and additionally requires
-`SaveBlock2.pokedex.owned` for caught entries. If those mirror arrays are empty but `SaveBlock2.pokedex` itself has
-owned/seen flags, the parser falls back to those raw `struct Pokedex` flags instead of fabricating entries from party or
-PC boxes. The Pokédex UI must not infer caught/seen entries from party or PC boxes when parser/live data already
-includes a Pokédex payload. Party/PC inference is only a last-resort fallback for sources that provide no Pokédex flags
-at all.
+FireRed/LeafGreen Kanto rendering keeps Mew because `pret/pokefirered` defines `KANTO_DEX_COUNT` as
+`NATIONAL_DEX_MEW`. Mew may be optional for in-game completion/diploma flows, but it remains part of the source-backed
+Kanto Dex list.
+
+The parser first follows the game's `GetSetPokedexFlag` consistency check for seen entries, which requires
+`SaveBlock2.pokedex.seen`, `SaveBlock1.seen1`, and `SaveBlock1.seen2` to agree when the mirrors are populated. Caught
+entries come directly from `SaveBlock2.pokedex.owned`; they are not dropped just because a seen mirror is incomplete.
+If those mirror arrays are empty but `SaveBlock2.pokedex` itself has owned/seen flags, the parser falls back to those raw
+`struct Pokedex` seen flags instead of fabricating entries from party or PC boxes. The Pokédex UI must never infer
+caught/seen entries from party or PC boxes; missing Pokédex payloads are shown as missing source data.
 
 Gen 3 save uploads and Ruby/Sapphire/Emerald live mode use a Hoenn overview image at:
 
@@ -332,11 +346,36 @@ The UI maps Gen 3 `mapGroup` / `mapId` to `lib/pokemon/data/gen3-map-landmarks.t
 `pret/pokeemerald` map-group and region-map source data. It should never reuse Gen 1 Kanto or Gen 2 Pokégear maps for
 Gen 3.
 
+FireRed/LeafGreen use a separate source-derived Kanto overview:
+
+```text
+public/maps/kanto-map-frlg.svg
+lib/pokemon/data/gen3-frlg-map-landmarks.ts
+```
+
+The SVG is generated with `scripts/generate-gen3-frlg-region-map.mjs` from `pret/pokefirered`
+`graphics/region_map/region_map.png` plus `graphics/region_map/kanto.bin`. The output embeds the tileset directly so
+the browser can render it reliably when the SVG is loaded through an `<img>` tag. The landmark file is derived from
+`src/data/region_map/region_map_sections.json`,
+`src/data/region_map/region_map_layout_kanto.h`, and `data/maps/map_groups.json`. Sevii Islands use separate
+region-map layouts and should remain partial until those views are generated too.
+
 Live Gen 3 locations must preserve `mapGroup = 0`. Hoenn outdoor towns and routes are group zero in the pret
 `map_groups.json` source, so normalizers must not coerce that value to `undefined` before region-map lookup.
 For multi-cell Hoenn routes and cities, the marker also uses SaveBlock1 player `pos.x` / `pos.y` and pret layout
 dimensions to mirror `InitMapBasedOnPlayerLocation` in `pret/pokeemerald` `src/region_map.c`; `mapGroup` / `mapId`
 alone is only enough to choose the map section, not the exact cell inside long routes such as Route 104.
+
+Gen 3 PC storage names use `PokemonStorage.boxNames` at `0x8344`. The default game name can decode as plain `BOX`, so
+the UI falls back to `Box N` for that generic value while preserving custom names. Gen 3 egg state comes from the
+`BoxPokemon.isEgg` flag and the encrypted misc substructure `isEgg` bit; the UI renders it as an egg with the underlying
+species shown when the record still exposes one. Gen 2 also supports the special `EGG` species ID from `pret/pokegold`,
+but it does not always expose an underlying hatch species in the same way.
+
+Unown forms are not separate species in save data. Gen 2 derives the letter from the middle two bits of the Attack,
+Defense, Speed, and Special DVs; Gen 3 derives it from the low two bits of each personality-value byte. Parsed saves and
+live snapshots expose `form` / `formName`, and the UI uses PokeAPI's form sprite paths such as `201-b.png` and
+`201-question.png` instead of rendering every Unown as form A.
 
 ## Pokégear map
 

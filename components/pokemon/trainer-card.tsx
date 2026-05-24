@@ -23,6 +23,12 @@ import {
   getGen3MapLandmark,
   getGen3RegionMapPixel,
 } from "@/lib/pokemon/data/gen3-map-landmarks";
+import {
+  GEN3_FRLG_REGION_MAP_HEIGHT,
+  GEN3_FRLG_REGION_MAP_WIDTH,
+  getGen3FRLGMapLandmark,
+  getGen3FRLGRegionMapPixel,
+} from "@/lib/pokemon/data/gen3-frlg-map-landmarks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -132,9 +138,14 @@ const GEN3_BADGE_DESCRIPTORS: BadgeDescriptor[] = [
   { name: "Rain Badge", shortName: "Rain", sprite: "/badges/rain.svg" },
 ];
 
-function getBadgeState(generation: Generation, index: number): BadgeDescriptor {
+function isFireRedLeafGreen(game?: GameVersion) {
+  return game === "firered" || game === "leafgreen";
+}
+
+function getBadgeState(generation: Generation, index: number, game?: GameVersion): BadgeDescriptor {
   const descriptors =
     generation === 1 ? GEN1_BADGE_DESCRIPTORS :
+    generation === 3 && isFireRedLeafGreen(game) ? GEN1_BADGE_DESCRIPTORS :
     generation === 3 ? GEN3_BADGE_DESCRIPTORS :
     GEN2_BADGE_DESCRIPTORS;
   const badge = descriptors[index] ?? descriptors[index % descriptors.length];
@@ -188,10 +199,12 @@ function PlayerMapMarker({
 function MiniMap({
   location,
   generation,
+  game,
   compact = false,
 }: {
   location?: LocationInfo | string;
   generation: Generation;
+  game?: GameVersion;
   compact?: boolean;
 }) {
   const locationName = typeof location === "string" ? location : location?.name;
@@ -199,9 +212,20 @@ function MiniMap({
   const mapId = typeof location === "string" ? undefined : location?.mapId;
   if (generation === 3) {
     const label = getMapLabel(locationName);
-    const landmark = getGen3MapLandmark(mapGroup, mapId);
-    const point = landmark ? getGen3RegionMapPixel(landmark, typeof location === "string" ? undefined : location) : null;
+    const isFRLG = isFireRedLeafGreen(game);
+    const landmark = isFRLG ? getGen3FRLGMapLandmark(mapGroup, mapId) : getGen3MapLandmark(mapGroup, mapId);
+    const point = landmark
+      ? isFRLG
+        ? getGen3FRLGRegionMapPixel(landmark, typeof location === "string" ? undefined : location)
+        : getGen3RegionMapPixel(landmark, typeof location === "string" ? undefined : location)
+      : null;
     const mapLabel = landmark?.name ? landmark.name.replace(/\s+/g, " ") : label;
+    const mapSrc = isFRLG ? "/maps/kanto-map-frlg.svg" : "/maps/hoenn-map-emerald.svg";
+    const mapAlt = isFRLG
+      ? "Kanto region map from Pokemon FireRed and LeafGreen"
+      : "Hoenn region map from Pokemon Emerald";
+    const mapWidth = isFRLG ? GEN3_FRLG_REGION_MAP_WIDTH : GEN3_REGION_MAP_WIDTH;
+    const mapHeight = isFRLG ? GEN3_FRLG_REGION_MAP_HEIGHT : GEN3_REGION_MAP_HEIGHT;
 
     return (
       <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
@@ -215,15 +239,15 @@ function MiniMap({
         <div className={`relative overflow-hidden rounded-md border-[#182410] bg-[#6f9f48] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)] ${compact ? "border-2 p-1.5" : "border-4 p-2"}`}>
           <div className={`relative mx-auto aspect-[240/160] w-full overflow-hidden rounded-sm border-2 border-[#f8f0b8] bg-[#93c66d] ${compact ? "max-w-[360px]" : "max-w-[560px]"}`}>
             <img
-              src="/maps/hoenn-map-emerald.svg"
-              alt="Hoenn region map from Pokemon Emerald"
+              src={mapSrc}
+              alt={mapAlt}
               className="h-full w-full object-contain [image-rendering:pixelated]"
               draggable={false}
             />
             {point && (
               <PlayerMapMarker
-                height={GEN3_REGION_MAP_HEIGHT}
-                width={GEN3_REGION_MAP_WIDTH}
+                height={mapHeight}
+                width={mapWidth}
                 x={point.x}
                 y={point.y}
               />
@@ -310,13 +334,15 @@ function MiniMap({
 export function TrainerMapCard({
   location,
   generation,
+  game,
 }: {
   location?: LocationInfo | string;
   generation: Generation;
+  game?: GameVersion;
 }) {
   if (!location) return null;
 
-  return <MiniMap location={location} generation={generation} compact />;
+  return <MiniMap location={location} generation={generation} game={game} compact />;
 }
 
 export function TrainerCard({ trainer, generation, game, location, compact = false }: TrainerCardProps) {
@@ -381,7 +407,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                   <div className="flex min-w-0 flex-wrap gap-1.5">
                     {Array.from({ length: totalBadges }).map((_, i) => {
                       const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
-                      const badge = getBadgeState(generation, i);
+                      const badge = getBadgeState(generation, i, game);
                       return (
                         <div
                           key={`${generation}-badge-${i}`}
@@ -484,7 +510,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
           <div className="grid grid-cols-[repeat(auto-fit,minmax(70px,1fr))] gap-2">
             {Array.from({ length: totalBadges }).map((_, i) => {
               const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
-              const badge = getBadgeState(generation, i);
+              const badge = getBadgeState(generation, i, game);
               return (
                 <div
                   key={`${generation}-badge-${i}`}
@@ -509,7 +535,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
         </div>
 
         {/* Location */}
-        {locationName && <MiniMap location={location} generation={generation} />}
+        {locationName && <MiniMap location={location} generation={generation} game={game} />}
       </CardContent>
     </Card>
   );

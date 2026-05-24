@@ -1,14 +1,16 @@
--- Pokemon Emulator Tracker live adapter for mGBA + Pokemon Gen 3 (Ruby/Sapphire/Emerald).
+-- Pokemon Emulator Tracker live adapter for mGBA + Pokemon Gen 3 (Ruby/Sapphire/Emerald/FireRed/LeafGreen).
 -- Load in mGBA: Tools -> Scripting... -> Load Script.
 -- Then press "Start Live" in the web UI. The adapter serves http://127.0.0.1:8080/snapshot.
 
 local PORT = 8080
 local HOST = "127.0.0.1"
 local GEN3_NUM_SPECIES = 386
-local HOENN_NATIONAL_MAGIC = 0xDA
+local GEN3_HOENN_DEX_COUNT = 202
+local GEN3_KANTO_DEX_COUNT = 151
+local RSE_NATIONAL_MAGIC = 0xDA
 local DEX_MODE_NATIONAL = 1
 local SNAPSHOT_REFRESH_SECONDS = 0.25
-local ADAPTER_REVISION = "gen3-emerald-live-pointer-refresh-2026-05-24"
+local ADAPTER_REVISION = "gen3-frlg-live-profile-2026-05-24"
 
 local function script_directory()
   local info = debug and debug.getinfo and debug.getinfo(1, "S")
@@ -226,6 +228,8 @@ local function get_game()
   if title:find("EMER") then detectedGame = "emerald"
   elseif title:find("SAPP") or title:find("AXP") then detectedGame = "sapphire"
   elseif title:find("RUBY") or title:find("AXV") then detectedGame = "ruby"
+  elseif title:find("FIRE") or title:find("BPRE") or title:find("BPR") then detectedGame = "firered"
+  elseif title:find("LEAF") or title:find("BPGE") or title:find("BPG") then detectedGame = "leafgreen"
   else detectedGame = "emerald" end
   if previousGame and previousGame ~= detectedGame then
     activeProfile = nil
@@ -241,8 +245,11 @@ end
 
 local function get_profile()
   local game = get_game()
-  if activeProfile and ((game == "emerald" and activeProfile.key == "emerald") or (game ~= "emerald" and activeProfile.key == "ruby_sapphire")) then return activeProfile end
-  if game == "emerald" then activeProfile = profiles.emerald else activeProfile = profiles.ruby_sapphire end
+  local expectedKey = "ruby_sapphire"
+  if game == "emerald" then expectedKey = "emerald" end
+  if game == "firered" or game == "leafgreen" then expectedKey = "fire_red_leaf_green" end
+  if activeProfile and activeProfile.key == expectedKey then return activeProfile end
+  activeProfile = profiles[expectedKey]
   return activeProfile
 end
 
@@ -268,7 +275,8 @@ local function score_saveblock2(base, p)
   if gender == 0 or gender == 1 then score = score + 1 end
   if read8(base + p.playTimeMinutes) < 60 and read8(base + p.playTimeSeconds) < 60 then score = score + 2 end
   local magic = read8(base + p.pokedexNationalMagic)
-  if magic == 0 or magic == HOENN_NATIONAL_MAGIC then score = score + 1 end
+  local nationalMagic = p.nationalMagic or RSE_NATIONAL_MAGIC
+  if magic == 0 or magic == nationalMagic then score = score + 1 end
   return score
 end
 
@@ -403,6 +411,20 @@ local function national_species(internal)
   return generated.internalToNational[internal] or internal
 end
 
+local UNOWN_FORM_LABELS = {
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N",
+  "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "!", "?",
+}
+
+local function gen3_unown_form(pid)
+  local composite =
+    band(rshift(band(pid, 0x03000000), 18), 0xff) +
+    band(rshift(band(pid, 0x00030000), 12), 0xff) +
+    band(rshift(band(pid, 0x00000300), 6), 0xff) +
+    band(pid, 0x00000003)
+  return composite % 28
+end
+
 local function parse_pokemon(address, size, isParty)
   local raw = read_record(address, size)
   local pid = u32(raw, 0x00)
@@ -419,9 +441,19 @@ local function parse_pokemon(address, size, isParty)
   if internal == 0 or internal > 440 then return nil end
   local species = national_species(internal)
   local ivData = u32(decrypted, misc + 4)
+  local isEgg = band(flags, 0x04) ~= 0 or band(rshift(ivData, 30), 0x01) ~= 0
+  local form = nil
+  local formName = nil
+  if species == 201 then
+    form = gen3_unown_form(pid)
+    formName = UNOWN_FORM_LABELS[form + 1]
+  end
   local mon = {
     species = species,
     internalSpecies = internal,
+    isEgg = isEgg,
+    form = form,
+    formName = formName,
     nickname = decode_string(address + 0x08, 10),
     originalTrainer = decode_string(address + 0x14, 7),
     originalTrainerID = band(u32(decrypted, 0x04), 0xffff),
@@ -749,9 +781,29 @@ local function read_pokedex()
     if band(read8(saveBlock2 + p.pokedexSeen + math.floor(bit / 8)), mask) ~= 0 then seen[#seen + 1] = national end
     if band(read8(saveBlock2 + p.pokedexOwned + math.floor(bit / 8)), mask) ~= 0 then caught[#caught + 1] = national end
   end
-  local nationalEnabled = read8(saveBlock2 + p.pokedexNationalMagic) == HOENN_NATIONAL_MAGIC
+  local nationalMagic = p.nationalMagic or RSE_NATIONAL_MAGIC
+  local nationalEnabled = read8(saveBlock2 + p.pokedexNationalMagic) == nationalMagic
   local mode = nationalEnabled and read8(saveBlock2 + p.pokedexMode) == DEX_MODE_NATIONAL and "national" or "regional"
-  return { seenSpecies = seen, caughtSpecies = caught, seenCount = #seen, caughtCount = #caught, mode = mode, source = "live" }
+  local regionalDex = nil
+  local dexMax = GEN3_NUM_SPECIES
+  local game = get_game()
+  if mode == "regional" and (game == "firered" or game == "leafgreen") then
+    regionalDex = "kanto"
+    dexMax = GEN3_KANTO_DEX_COUNT
+  elseif mode == "regional" then
+    regionalDex = "hoenn"
+    dexMax = GEN3_HOENN_DEX_COUNT
+  end
+  return {
+    seenSpecies = seen,
+    caughtSpecies = caught,
+    seenCount = #seen,
+    caughtCount = #caught,
+    mode = mode,
+    regionalDex = regionalDex,
+    dexMax = dexMax,
+    source = "live"
+  }
 end
 
 local function read_badges(saveBlock1, p)
@@ -839,7 +891,7 @@ local function read_pc_boxes()
       if mon then pokemon[#pokemon + 1] = mon end
     end
     local name = decode_string(storage + p.boxNames + box * p.boxNameLength, p.boxNameLength)
-    if name == "" then name = "Box " .. tostring(box + 1) end
+    if name == "" or string.upper(name) == "BOX" then name = "Box " .. tostring(box + 1) end
     boxes[#boxes + 1] = { name = name, capacity = p.pcBoxCapacity, isCurrent = box == currentBox, pokemon = pokemon }
   end
   return boxes

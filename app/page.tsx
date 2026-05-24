@@ -18,12 +18,13 @@ export default function Home() {
   const live = useLiveData(250);
   const [showInfo, setShowInfo] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const hasActiveLiveData = live.isPolling && Boolean(live.data);
   const activeSaveData = useMemo(() => {
-    if (!live.data) return saveData;
+    if (!hasActiveLiveData || !live.data) return saveData;
     return mergeLiveWithSavePcBoxes(live.data, saveData);
-  }, [live.data, saveData]);
-  const activeFilename = live.data ? "Live emulator memory" : filename;
-  const activeUpdated = live.lastUpdated ?? lastUpdated;
+  }, [hasActiveLiveData, live.data, saveData]);
+  const activeFilename = hasActiveLiveData ? "Live emulator memory" : filename;
+  const activeUpdated = hasActiveLiveData ? live.lastUpdated : lastUpdated;
 
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -211,7 +212,7 @@ export default function Home() {
               saveData={activeSaveData}
               filename={activeFilename}
               lastUpdated={activeUpdated}
-              isLive={Boolean(live.data)}
+              isLive={hasActiveLiveData}
             />
           </div>
         )}

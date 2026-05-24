@@ -17,9 +17,20 @@ import {
   getGen3HoennDexNumber,
 } from "../lib/pokemon/data/gen3-hoenn-dex";
 import {
+  GEN3_KANTO_DEX_COUNT,
+  GEN3_KANTO_DEX_NATIONAL_ORDER,
+  getGen3KantoDexNumber,
+} from "../lib/pokemon/data/gen3-kanto-dex";
+import {
   getGen3MapLandmark,
   getGen3RegionMapPixel,
 } from "../lib/pokemon/data/gen3-map-landmarks";
+import {
+  getGen3FRLGMapLandmark,
+  getGen3FRLGRegionMapPixel,
+} from "../lib/pokemon/data/gen3-frlg-map-landmarks";
+import { getGen2UnownFormFromDVs, getGen3UnownFormFromPersonality, getUnownFormLabel } from "../lib/pokemon/forms";
+import { getGen3ItemName } from "../lib/pokemon/data/items";
 
 function pocketOffset(layout: { pockets: Array<{ name: string; offset: number }> }, name: string): number {
   const pocket = layout.pockets.find((entry) => entry.name === name);
@@ -122,6 +133,31 @@ test("knowledge keeps Gen 3 Hoenn Pokedex order from pokeemerald", () => {
   assert.equal(getGen3HoennDexNumber(1), undefined);
 });
 
+test("knowledge keeps Gen 3 FireRed/LeafGreen Kanto Pokedex order from pokefirered", () => {
+  assert.equal(GEN3_KANTO_DEX_COUNT, 151);
+  assert.equal(GEN3_KANTO_DEX_NATIONAL_ORDER.length, 151);
+  assert.deepEqual(GEN3_KANTO_DEX_NATIONAL_ORDER.slice(0, 6), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(GEN3_KANTO_DEX_NATIONAL_ORDER.slice(-3), [149, 150, 151]);
+  assert.equal(getGen3KantoDexNumber(25), 25);
+  assert.equal(getGen3KantoDexNumber(252), undefined);
+});
+
+test("Pokemon form helpers keep Unown forms from source-backed formulas", () => {
+  assert.equal(getUnownFormLabel(getGen2UnownFormFromDVs(2, 10, 10, 10)), "I");
+  assert.equal(getUnownFormLabel(getGen2UnownFormFromDVs(6, 10, 10, 10)), "V");
+  assert.equal(getUnownFormLabel(getGen3UnownFormFromPersonality(0)), "A");
+  assert.equal(getUnownFormLabel(getGen3UnownFormFromPersonality(0x00010202)), "!");
+  assert.equal(getUnownFormLabel(getGen3UnownFormFromPersonality(0x00010203)), "?");
+});
+
+test("Gen 3 item names include FireRed LeafGreen and Emerald key items", () => {
+  assert.equal(getGen3ItemName(361), "Town Map");
+  assert.equal(getGen3ItemName(366), "Teachy TV");
+  assert.equal(getGen3ItemName(368), "Rainbow Pass");
+  assert.equal(getGen3ItemName(375), "Magma Emblem");
+  assert.equal(getGen3ItemName(376), "Old Sea Map");
+});
+
 test("Gen 3 Hoenn map landmarks support indoor maps and source cursor conversion", () => {
   const lilycove = getGen3MapLandmark(0, 5);
   assert.ok(lilycove);
@@ -138,4 +174,16 @@ test("Gen 3 Hoenn map landmarks support indoor maps and source cursor conversion
   assert.equal(route104.name, "ROUTE 104");
   assert.deepEqual(getGen3RegionMapPixel(route104, { x: 12, y: 8 }), { x: 12, y: 76 });
   assert.deepEqual(getGen3RegionMapPixel(route104, { x: 12, y: 54 }), { x: 12, y: 92 });
+});
+
+test("Gen 3 FireRed/LeafGreen Kanto map landmarks use pokefirered region map coordinates", () => {
+  const palletTown = getGen3FRLGMapLandmark(3, 0);
+  assert.ok(palletTown);
+  assert.equal(palletTown.name, "PALLET TOWN");
+  assert.deepEqual(getGen3FRLGRegionMapPixel(palletTown), { x: 68, y: 124 });
+
+  const route2 = getGen3FRLGMapLandmark(3, 20);
+  assert.ok(route2);
+  assert.equal(route2.name, "ROUTE 2");
+  assert.deepEqual(getGen3FRLGRegionMapPixel(route2), { x: 68, y: 84 });
 });
