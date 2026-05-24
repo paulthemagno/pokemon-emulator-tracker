@@ -180,10 +180,27 @@ test("Gen 3 FireRed/LeafGreen Kanto map landmarks use pokefirered region map coo
   const palletTown = getGen3FRLGMapLandmark(3, 0);
   assert.ok(palletTown);
   assert.equal(palletTown.name, "PALLET TOWN");
+  assert.equal(palletTown.mapView, "kanto");
   assert.deepEqual(getGen3FRLGRegionMapPixel(palletTown), { x: 68, y: 124 });
 
   const route2 = getGen3FRLGMapLandmark(3, 20);
   assert.ok(route2);
   assert.equal(route2.name, "ROUTE 2");
   assert.deepEqual(getGen3FRLGRegionMapPixel(route2), { x: 68, y: 84 });
+
+  const oneIsland = getGen3FRLGMapLandmark(3, 12);
+  assert.ok(oneIsland);
+  assert.equal(oneIsland.name, "ONE ISLAND");
+  assert.equal(oneIsland.mapView, "sevii123");
+  assert.deepEqual(getGen3FRLGRegionMapPixel(oneIsland), { x: 44, y: 100 });
+
+  const fourIslandPokemonCenter = getGen3FRLGMapLandmark(35, 1);
+  assert.ok(fourIslandPokemonCenter);
+  assert.equal(fourIslandPokemonCenter.name, "FOUR ISLAND");
+  assert.equal(fourIslandPokemonCenter.mapView, "sevii45");
+
+  const sixIsland = getGen3FRLGMapLandmark(3, 18);
+  assert.ok(sixIsland);
+  assert.equal(sixIsland.name, "SIX ISLAND");
+  assert.equal(sixIsland.mapView, "sevii67");
 });

@@ -24,6 +24,7 @@ import {
   getGen3RegionMapPixel,
 } from "@/lib/pokemon/data/gen3-map-landmarks";
 import {
+  GEN3_FRLG_MAP_ASSETS,
   GEN3_FRLG_REGION_MAP_HEIGHT,
   GEN3_FRLG_REGION_MAP_WIDTH,
   getGen3FRLGMapLandmark,
@@ -220,10 +221,10 @@ function MiniMap({
         : getGen3RegionMapPixel(landmark, typeof location === "string" ? undefined : location)
       : null;
     const mapLabel = landmark?.name ? landmark.name.replace(/\s+/g, " ") : label;
-    const mapSrc = isFRLG ? "/maps/kanto-map-frlg.svg" : "/maps/hoenn-map-emerald.svg";
-    const mapAlt = isFRLG
-      ? "Kanto region map from Pokemon FireRed and LeafGreen"
-      : "Hoenn region map from Pokemon Emerald";
+    const frlgMapAsset = isFRLG && landmark ? GEN3_FRLG_MAP_ASSETS[landmark.mapView] : GEN3_FRLG_MAP_ASSETS.kanto;
+    const mapSrc = isFRLG ? frlgMapAsset.src : "/maps/hoenn-map-emerald.svg";
+    const mapAlt = isFRLG ? frlgMapAsset.alt : "Hoenn region map from Pokemon Emerald";
+    const mapTitle = isFRLG ? `${frlgMapAsset.label} Map` : "Hoenn Map";
     const mapWidth = isFRLG ? GEN3_FRLG_REGION_MAP_WIDTH : GEN3_REGION_MAP_WIDTH;
     const mapHeight = isFRLG ? GEN3_FRLG_REGION_MAP_HEIGHT : GEN3_REGION_MAP_HEIGHT;
 
@@ -231,13 +232,13 @@ function MiniMap({
       <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
         <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
           <div>
-            <p className="text-xs font-semibold uppercase text-[#506033]">Location Map</p>
+            <p className="text-xs font-semibold uppercase text-[#506033]">{mapTitle}</p>
             <p className="text-sm font-bold text-[#182410]">{mapLabel}</p>
           </div>
           <MapPin className="h-4 w-4 text-[#2f6f28]" />
         </div>
         <div className={`relative overflow-hidden rounded-md border-[#182410] bg-[#6f9f48] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)] ${compact ? "border-2 p-1.5" : "border-4 p-2"}`}>
-          <div className={`relative mx-auto aspect-[240/160] w-full overflow-hidden rounded-sm border-2 border-[#f8f0b8] bg-[#93c66d] ${compact ? "max-w-[360px]" : "max-w-[560px]"}`}>
+          <div className={`relative mx-auto aspect-[240/160] w-full overflow-hidden rounded-sm bg-[#93c66d] ${isFRLG ? "" : "border-2 border-[#f8f0b8]"} ${compact ? "max-w-[360px]" : "max-w-[560px]"}`}>
             <img
               src={mapSrc}
               alt={mapAlt}
@@ -264,12 +265,13 @@ function MiniMap({
     const landmark = getGen1MapLandmark(Number.isFinite(numericMapId) ? numericMapId : undefined);
     const point = landmark ? getGen1TownMapPixel(landmark) : null;
     const mapLabel = landmark?.name ?? label;
+    const mapTitle = "Kanto Map";
 
     return (
       <div className={`rounded-lg border border-[#6d7864] bg-[#d7d7c8] text-[#1d241c] ${compact ? "p-2.5" : "p-3"}`}>
         <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
           <div>
-            <p className="text-xs font-semibold uppercase text-[#5c654c]">Location Map</p>
+            <p className="text-xs font-semibold uppercase text-[#5c654c]">{mapTitle}</p>
             <p className="text-sm font-bold text-[#1d241c]">{mapLabel}</p>
           </div>
           <MapPin className="h-4 w-4 text-[#4f5e36]" />
@@ -299,12 +301,13 @@ function MiniMap({
   const landmark = getGen2MapLandmark(mapGroup, mapId, locationName);
   const label = landmark?.name ?? getMapLabel(locationName);
   const mapRegion = landmark?.region === "kanto" ? "kanto" : "johto";
+  const mapTitle = mapRegion === "kanto" ? "Kanto Map" : "Johto Map";
 
   return (
     <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
       <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
         <div>
-          <p className="text-xs font-semibold uppercase text-[#506033]">Location Map</p>
+          <p className="text-xs font-semibold uppercase text-[#506033]">{mapTitle}</p>
           <p className="text-sm font-bold text-[#182410]">{label}</p>
         </div>
         <MapPin className="h-4 w-4 text-[#2f6f28]" />

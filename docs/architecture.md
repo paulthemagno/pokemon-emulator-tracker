@@ -346,19 +346,24 @@ The UI maps Gen 3 `mapGroup` / `mapId` to `lib/pokemon/data/gen3-map-landmarks.t
 `pret/pokeemerald` map-group and region-map source data. It should never reuse Gen 1 Kanto or Gen 2 Pokégear maps for
 Gen 3.
 
-FireRed/LeafGreen use a separate source-derived Kanto overview:
+FireRed/LeafGreen use source-derived Kanto and Sevii region-map overviews:
 
 ```text
 public/maps/kanto-map-frlg.svg
+public/maps/frlg-islands-1-3-map.svg
+public/maps/frlg-islands-4-5-map.svg
+public/maps/frlg-islands-6-7-map.svg
 lib/pokemon/data/gen3-frlg-map-landmarks.ts
 ```
 
-The SVG is generated with `scripts/generate-gen3-frlg-region-map.mjs` from `pret/pokefirered`
-`graphics/region_map/region_map.png` plus `graphics/region_map/kanto.bin`. The output embeds the tileset directly so
-the browser can render it reliably when the SVG is loaded through an `<img>` tag. The landmark file is derived from
-`src/data/region_map/region_map_sections.json`,
-`src/data/region_map/region_map_layout_kanto.h`, and `data/maps/map_groups.json`. Sevii Islands use separate
-region-map layouts and should remain partial until those views are generated too.
+The SVGs are generated with `scripts/generate-gen3-frlg-region-map.mjs` from `pret/pokefirered`
+`graphics/region_map/region_map.png` plus `kanto.bin`, `sevii_123.bin`, `sevii_45.bin`, and `sevii_67.bin`.
+The output embeds the tileset directly so the browser can render it reliably when the SVG is loaded through an `<img>`
+tag. The generator leaves the empty GBA background tile and white side-mask frame tile transparent, because the app
+frame supplies its own map background. The landmark file is generated with `scripts/generate-gen3-frlg-map-landmarks.mjs` from
+`src/data/region_map/region_map_sections.json`, `src/data/region_map/region_map_layout_*.h`,
+`data/maps/map_groups.json`, and `data/maps/*/map.json`. Each landmark carries a `mapView`, so the UI switches from
+Kanto to the matching Sevii map view using source data instead of forcing all FireRed/LeafGreen locations onto Kanto.
 
 Live Gen 3 locations must preserve `mapGroup = 0`. Hoenn outdoor towns and routes are group zero in the pret
 `map_groups.json` source, so normalizers must not coerce that value to `undefined` before region-map lookup.

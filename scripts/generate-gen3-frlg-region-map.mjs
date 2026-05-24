@@ -10,10 +10,11 @@ for (let i = 2; i < process.argv.length; i += 2) {
 const tilesPath = args.get("--tiles");
 const tilemapPath = args.get("--tilemap");
 const outPath = args.get("--out") ?? "public/maps/kanto-map-frlg.svg";
+const sourceLabel = args.get("--source-label") ?? path.basename(tilemapPath ?? "tilemap.bin");
 
 if (!tilesPath || !tilemapPath) {
   console.error(
-    "Usage: node scripts/generate-gen3-frlg-region-map.mjs --tiles /path/to/region_map.png --tilemap /path/to/kanto.bin [--out public/maps/kanto-map-frlg.svg]",
+    "Usage: node scripts/generate-gen3-frlg-region-map.mjs --tiles /path/to/region_map.png --tilemap /path/to/kanto.bin [--out public/maps/kanto-map-frlg.svg] [--source-label kanto.bin]",
   );
   process.exit(1);
 }
@@ -27,6 +28,10 @@ const tilesPerRow = tilesetWidth / tileSize;
 const mapTilesWide = width / tileSize;
 const mapTilesHigh = height / tileSize;
 const expectedEntries = mapTilesWide * mapTilesHigh;
+const transparentEntries = new Set([
+  0x2000, // Empty GBA background tile outside the visible region-map panel.
+  0x200e, // White side-mask tile from the original in-game region-map frame.
+]);
 
 const tilemap = fs.readFileSync(tilemapPath);
 if (tilemap.length !== expectedEntries * 2) {
@@ -36,7 +41,7 @@ if (tilemap.length !== expectedEntries * 2) {
 const tilesDataUri = `data:image/png;base64,${fs.readFileSync(tilesPath).toString("base64")}`;
 const lines = [
   `<?xml version="1.0" encoding="UTF-8"?>`,
-  `<!-- Generated from pret/pokefirered graphics/region_map/region_map.png and graphics/region_map/kanto.bin. -->`,
+  `<!-- Generated from pret/pokefirered graphics/region_map/region_map.png and graphics/region_map/${sourceLabel}. -->`,
   `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges">`,
   `  <defs>`,
   `    <image id="tiles" href="${tilesDataUri}" width="${tilesetWidth}" height="${tilesetHeight}"/>`,
@@ -53,6 +58,8 @@ lines.push(`  </defs>`);
 
 for (let index = 0; index < expectedEntries; index += 1) {
   const entry = tilemap.readUInt16LE(index * 2);
+  if (transparentEntries.has(entry)) continue;
+
   const tile = entry & 0x03ff;
   const hflip = (entry & 0x0400) !== 0;
   const vflip = (entry & 0x0800) !== 0;

@@ -14,7 +14,7 @@ Known examples:
 - Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen live mode uses generated source-backed offsets, but the Lua adapter still needs real mGBA validation across all five games before promotion from partial to supported.
 - Gen 3 Ruby/Sapphire/Emerald Pokédex rendering respects Hoenn regional mode and National mode using `struct Pokedex` bytes and the `pret/pokeemerald` Hoenn order. FireRed/LeafGreen use the `pret/pokefirered` Kanto count/order and can switch between Kanto and National display. Gen 3 still needs broader real-save/live fixture coverage before promotion.
 - Gen 3 Pokemon structures now translate internal species IDs to National Dex IDs, but species gender ratios are still incomplete.
-- Gen 3 uses a Hoenn map asset and source-backed landmark coordinates for Ruby/Sapphire/Emerald, plus a FireRed/LeafGreen Kanto overview map generated from `pret/pokefirered` region-map assets. Sevii map views are not first-class yet.
+- Gen 3 uses a Hoenn map asset and source-backed landmark coordinates for Ruby/Sapphire/Emerald, plus FireRed/LeafGreen Kanto and Sevii overview maps generated from `pret/pokefirered` region-map assets. Edge/event maps still need broader real-save validation.
 - Gen 1 and Gen 3 generated location/encounter/learnset datasets are not first-class local data yet.
 - Gen 1 and Gen 2 PC item storage is parsed, but the UI labels it generically as `PC Storage` rather than with game-specific copy.
 

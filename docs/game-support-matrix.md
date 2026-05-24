@@ -36,7 +36,7 @@ Status labels:
 | Ruby | partial | First mGBA live pass in `live-adapters/mgba-gen3-live.lua`; fixed SaveBlock addresses from `pret/pokeruby`, runtime PC storage scan, encrypted Pokemon record validation. |
 | Sapphire | partial | Shares Ruby/Sapphire live profile and ROM-title detection. |
 | Emerald | partial | First mGBA live pass with runtime SaveBlock/PokemonStorage resolution for Emerald ASLR, then source-backed `pret/pokeemerald` struct offsets. |
-| FireRed | partial | First mGBA live pass using generated `pret/pokefirered` SaveBlock/PokemonStorage offsets and ROM-title detection. Kanto map support is source-backed; Sevii map rendering still needs a dedicated map view. |
+| FireRed | partial | First mGBA live pass using generated `pret/pokefirered` SaveBlock/PokemonStorage offsets and ROM-title detection. Kanto and Sevii map views are source-backed. |
 | LeafGreen | partial | Shares the FireRed/LeafGreen live profile with version-specific labels. |
 
 ## Data Coverage
@@ -47,7 +47,7 @@ Status labels:
 | Moves | Local TypeScript table and PokeAPI descriptions | Add per-game learnsets and move mechanics by generation. |
 | Items | Local TypeScript tables and PokeAPI descriptions | Replace manual Gen 1/2/3 tables with generated files from pret where practical. |
 | Locations | Gen 1 town-map landmarks, generated Gen 2 landmarks, and source-backed Gen 3 Hoenn landmarks | Generate full Gen 3 location/encounter datasets for LLM tools. |
-| Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, Gen 3 Hoenn overview map, and FireRed/LeafGreen Kanto overview map with marker coordinates | Add dedicated Sevii map views before promoting FireRed/LeafGreen. |
+| Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, Gen 3 Hoenn overview map, and FireRed/LeafGreen Kanto/Sevii overview maps with marker coordinates | Continue validating edge/event maps with real saves before promoting FireRed/LeafGreen. |
 | Encounters | Not first-class local data | Generate per-game encounter datasets from pret for LLM tools. |
 | Trainers/gyms | Not first-class local data | Add gym leader/rival/E4 datasets after parser foundations are stable. |
 

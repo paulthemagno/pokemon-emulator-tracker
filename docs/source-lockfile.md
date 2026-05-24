@@ -179,14 +179,19 @@ cities additionally use `SaveBlock1.pos.x` / `pos.y` and `data/layouts/layouts.j
 come from `pret/pokeemerald` `graphics/trainer_card/badges.png` and are exposed as local 16x16 SVG crops; do not
 reuse the Gen 2 badge list for Hoenn games.
 
-Important: `public/maps/kanto-map-frlg.svg` is the 240x160 FireRed/LeafGreen Kanto region map generated with
-`scripts/generate-gen3-frlg-region-map.mjs` from `pret/pokefirered` `graphics/region_map/region_map.png` and
-`graphics/region_map/kanto.bin`. The SVG embeds the source tileset as a data URI and applies the GBA tilemap flags
-locally, so it does not depend on loading `public/maps/kanto-map-frlg-tiles.png` from inside an `<img>` render. The marker lookup in
-`lib/pokemon/data/gen3-frlg-map-landmarks.ts` is generated from `src/data/region_map/region_map_sections.json`,
-`src/data/region_map/region_map_layout_kanto.h`, and `data/maps/map_groups.json`. FireRed/LeafGreen Kanto marker
-coordinates use the Region Map formula from `src/region_map.c`: `pixel = 8 * cursor + 36`. Sevii Islands have
-separate region-map layouts and should not be forced onto the Kanto overview map.
+Important: `public/maps/kanto-map-frlg.svg`, `public/maps/frlg-islands-1-3-map.svg`,
+`public/maps/frlg-islands-4-5-map.svg`, and `public/maps/frlg-islands-6-7-map.svg` are 240x160 FireRed/LeafGreen region maps
+generated with `scripts/generate-gen3-frlg-region-map.mjs` from `pret/pokefirered`
+`graphics/region_map/region_map.png` plus `kanto.bin`, `sevii_123.bin`, `sevii_45.bin`, and `sevii_67.bin`. The SVGs
+embed the source tileset as a data URI and apply the GBA tilemap flags locally, so they do not depend on loading
+`public/maps/kanto-map-frlg-tiles.png` from inside an `<img>` render. The empty GBA background tile entry `0x2000` and
+white side-mask tile entry `0x200E` are left transparent so the web UI frame supplies the background instead of showing
+the game's unused-map/frame bands. The marker lookup in
+`lib/pokemon/data/gen3-frlg-map-landmarks.ts` is generated with `scripts/generate-gen3-frlg-map-landmarks.mjs` from
+`src/data/region_map/region_map_sections.json`, all `src/data/region_map/region_map_layout_*.h` files,
+`data/maps/map_groups.json`, and `data/maps/*/map.json`. FireRed/LeafGreen marker coordinates use the Region Map
+formula from `src/region_map.c`: `pixel = 8 * cursor + 36`, and each landmark carries a source-backed `mapView` so the
+UI can switch between Kanto and the three Sevii views.
 
 Important: Yellow's Gen 1 save-file inventory offsets do not differ from Red/Blue for the supported US layout. The
 generated knowledge still exports a Yellow-specific inventory layout so parsers can keep game selection explicit, but
