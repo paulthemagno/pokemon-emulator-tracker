@@ -33,9 +33,9 @@ Status labels:
 | Gold | supported | Covered by `live-adapters/mgba-gen2-live.lua` profile detection. |
 | Silver | supported | Covered by `live-adapters/mgba-gen2-live.lua` profile detection. |
 | Crystal | supported | Primary maintained live path. |
-| Ruby | planned | Needs GBA WRAM/IWRAM/EWRAM profile and encrypted Pokemon data handling. |
-| Sapphire | planned | Same architecture as Ruby with version offsets. |
-| Emerald | planned | Should use `pret/pokeemerald` symbols, not Ruby/Sapphire offsets. |
+| Ruby | partial | First mGBA live pass in `live-adapters/mgba-gen3-live.lua`; fixed SaveBlock addresses from `pret/pokeruby`, runtime PC storage scan, encrypted Pokemon record validation. |
+| Sapphire | partial | Shares Ruby/Sapphire live profile and ROM-title detection. |
+| Emerald | partial | First mGBA live pass with runtime SaveBlock/PokemonStorage resolution for Emerald ASLR, then source-backed `pret/pokeemerald` struct offsets. |
 | FireRed | planned | Should use `pret/pokefirered` symbols; map and bag data differ from RSE. |
 | LeafGreen | planned | Same engine as FireRed with version-specific labels. |
 
@@ -65,6 +65,7 @@ Current local ground-truth modules:
 | `lib/pokemon/data/gen3-hoenn-dex.ts` | Gen 3 Hoenn Dex order extracted from `pret/pokeemerald` `sHoennToNationalOrder`. |
 | `live-adapters/generated/gen1-live-offsets.lua` | Generated Gen 1 live WRAM profiles loaded by the mGBA adapter. |
 | `live-adapters/generated/gen2-live-offsets.lua` | Generated Gen 2 live WRAM profiles and TM/HM item IDs loaded by the mGBA adapter. |
+| `live-adapters/generated/gen3-live-offsets.lua` | Generated Ruby/Sapphire/Emerald live profiles, inventory pockets, and internal species map loaded by the mGBA adapter. |
 
 ## Promotion Checklist
 

@@ -84,11 +84,12 @@ The source manifest is:
 lib/pokemon/knowledge/sources/save-layouts.json
 ```
 
-The Gen 1 and Gen 2 mGBA live adapters consume generated Lua projections of the same source data:
+The Gen 1, Gen 2, and Hoenn Gen 3 mGBA live adapters consume generated Lua projections of the same source data:
 
 ```text
 live-adapters/generated/gen1-live-offsets.lua
 live-adapters/generated/gen2-live-offsets.lua
+live-adapters/generated/gen3-live-offsets.lua
 ```
 
 Their current source pins and source URLs are listed in:
@@ -321,14 +322,21 @@ PC boxes. The Pokédex UI must not infer caught/seen entries from party or PC bo
 includes a Pokédex payload. Party/PC inference is only a last-resort fallback for sources that provide no Pokédex flags
 at all.
 
-Gen 3 save uploads use a Hoenn overview image at:
+Gen 3 save uploads and Ruby/Sapphire/Emerald live mode use a Hoenn overview image at:
 
 ```text
-public/maps/hoenn-map-emerald.png
+public/maps/hoenn-map-emerald.svg
 ```
 
-The app deliberately does not draw a Gen 3 save-location marker yet because marker coordinates still need a documented
-source extraction. It should never reuse Gen 1 Kanto or Gen 2 Pokégear maps for Gen 3.
+The UI maps Gen 3 `mapGroup` / `mapId` to `lib/pokemon/data/gen3-map-landmarks.ts`, which was extracted from
+`pret/pokeemerald` map-group and region-map source data. It should never reuse Gen 1 Kanto or Gen 2 Pokégear maps for
+Gen 3.
+
+Live Gen 3 locations must preserve `mapGroup = 0`. Hoenn outdoor towns and routes are group zero in the pret
+`map_groups.json` source, so normalizers must not coerce that value to `undefined` before region-map lookup.
+For multi-cell Hoenn routes and cities, the marker also uses SaveBlock1 player `pos.x` / `pos.y` and pret layout
+dimensions to mirror `InitMapBasedOnPlayerLocation` in `pret/pokeemerald` `src/region_map.c`; `mapGroup` / `mapId`
+alone is only enough to choose the map section, not the exact cell inside long routes such as Route 104.
 
 ## Pokégear map
 

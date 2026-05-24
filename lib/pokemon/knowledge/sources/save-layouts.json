@@ -270,6 +270,7 @@
         "playTimeHours": "0x000e",
         "playTimeMinutes": "0x0010",
         "playTimeSeconds": "0x0011",
+        "playTimeVBlanks": "0x0012",
         "pokedexMode": "0x0019",
         "pokedexNationalMagic": "0x001a",
         "location": "0x0004",
@@ -291,6 +292,28 @@
         "boxData": "0x0004",
         "boxNames": "0x8344",
         "boxWallpapers": "0x83c2"
+      },
+      "liveMemory": {
+        "saveBlock1": "0x02025734",
+        "saveBlock2": "0x02024ea4",
+        "saveBlock1Size": "0x3ac0",
+        "saveBlock2Size": "0x0f2c",
+        "pokemonStorageMode": "scan",
+        "pokemonStorageCandidates": [
+          "0x020300a0",
+          "0x0202fec0",
+          "0x0202ff10",
+          "0x0202f5b0",
+          "0x02030870",
+          "0x0202ec50",
+          "0x02025d8c",
+          "0x02025d88",
+          "0x02025d90"
+        ],
+        "pokemonStorageSize": "0x83d0",
+        "ewramStart": "0x02000000",
+        "ewramEnd": "0x02040000",
+        "resolution": "fixed-saveblocks-plus-storage-scan"
       },
       "sectionIds": {
         "trainerInfo": 0,
@@ -318,6 +341,7 @@
         "playTimeHours": "0x000e",
         "playTimeMinutes": "0x0010",
         "playTimeSeconds": "0x0011",
+        "playTimeVBlanks": "0x0012",
         "encryptionKey": "0x00ac",
         "pokedexMode": "0x0019",
         "pokedexNationalMagic": "0x001a",
@@ -340,6 +364,21 @@
         "boxData": "0x0004",
         "boxNames": "0x8344",
         "boxWallpapers": "0x83c2"
+      },
+      "liveMemory": {
+        "saveBlock1": "scan",
+        "saveBlock2": "scan",
+        "saveBlock1Ptr": "0x03005d8c",
+        "saveBlock2Ptr": "0x03005d90",
+        "pokemonStoragePtr": "0x03005d94",
+        "saveBlock1Size": "0x3d88",
+        "saveBlock2Size": "0x0f2c",
+        "pokemonStorageMode": "scan",
+        "pokemonStorageSize": "0x83d0",
+        "ewramStart": "0x02000000",
+        "ewramEnd": "0x02040000",
+        "aslrMoveRange": "0x0080",
+        "resolution": "aslr-runtime-scan"
       },
       "sectionIds": {
         "trainerInfo": 0,
@@ -367,6 +406,7 @@
         "playTimeHours": "0x000e",
         "playTimeMinutes": "0x0010",
         "playTimeSeconds": "0x0011",
+        "playTimeVBlanks": "0x0012",
         "encryptionKey": "0x0f20",
         "pokedexMode": "0x0019",
         "pokedexNationalMagic": "0x001b",

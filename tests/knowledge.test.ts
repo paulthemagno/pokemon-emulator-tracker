@@ -132,4 +132,10 @@ test("Gen 3 Hoenn map landmarks support indoor maps and source cursor conversion
   assert.ok(lilycovePokemonCenter);
   assert.equal(lilycovePokemonCenter.name, "LILYCOVE CITY");
   assert.deepEqual(getGen3RegionMapPixel(lilycovePokemonCenter), { x: 156, y: 44 });
+
+  const route104 = getGen3MapLandmark(0, 19);
+  assert.ok(route104);
+  assert.equal(route104.name, "ROUTE 104");
+  assert.deepEqual(getGen3RegionMapPixel(route104, { x: 12, y: 8 }), { x: 12, y: 76 });
+  assert.deepEqual(getGen3RegionMapPixel(route104, { x: 12, y: 54 }), { x: 12, y: 92 });
 });

@@ -72,6 +72,7 @@ export interface Gen3SaveLayout {
     playTimeHours: number;
     playTimeMinutes: number;
     playTimeSeconds: number;
+    playTimeVBlanks?: number;
     encryptionKey?: number;
     pokedexMode: number;
     pokedexNationalMagic: number;
@@ -384,6 +385,7 @@ export const GEN3_SAVE_LAYOUTS = {
       playTimeHours: 0x000e,
       playTimeMinutes: 0x0010,
       playTimeSeconds: 0x0011,
+      playTimeVBlanks: 0x0012,
       pokedexMode: 0x0019,
       pokedexNationalMagic: 0x001a,
       location: 0x0004,
@@ -432,6 +434,7 @@ export const GEN3_SAVE_LAYOUTS = {
       playTimeHours: 0x000e,
       playTimeMinutes: 0x0010,
       playTimeSeconds: 0x0011,
+      playTimeVBlanks: 0x0012,
       encryptionKey: 0x00ac,
       pokedexMode: 0x0019,
       pokedexNationalMagic: 0x001a,
@@ -481,6 +484,7 @@ export const GEN3_SAVE_LAYOUTS = {
       playTimeHours: 0x000e,
       playTimeMinutes: 0x0010,
       playTimeSeconds: 0x0011,
+      playTimeVBlanks: 0x0012,
       encryptionKey: 0x0f20,
       pokedexMode: 0x0019,
       pokedexNationalMagic: 0x001b,

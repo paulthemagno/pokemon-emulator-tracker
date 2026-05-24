@@ -12,7 +12,7 @@ Main support:
 
 - Gen 1 Red/Blue/Yellow: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen1-live.lua`.
 - Gen 2 Gold/Silver/Crystal: `.sav` parsing and mGBA live mode with `live-adapters/mgba-gen2-live.lua`.
-- Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen: partial `.sav` parser with party, inventory, badges, Pokédex, and PC boxes; no live mode yet.
+- Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen: partial `.sav` parser with party, inventory, badges, Pokédex, and PC boxes; Ruby/Sapphire/Emerald have a first mGBA live adapter pass with `live-adapters/mgba-gen3-live.lua`.
 
 Available features:
 
@@ -20,7 +20,7 @@ Available features:
 - party Pokemon with moves, HP, stats, EXP, and held items where the game supports them
 - PC boxes and PC item storage
 - inventory
-- local map/landmark display for Gen 1 and Gen 2; Gen 3 save uploads show the matching Hoenn overview map without a marker until source-backed coordinates are added
+- local map/landmark display for Gen 1, Gen 2, and Ruby/Sapphire/Emerald
 - local Ollama chatbot with current game context
 
 See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the full support matrix.
@@ -76,6 +76,7 @@ The parser normalizes save files into the same data model used by live mode.
 3. Load the correct script:
    - Red/Blue/Yellow: `live-adapters/mgba-gen1-live.lua`
    - Gold/Silver/Crystal: `live-adapters/mgba-gen2-live.lua`
+   - Ruby/Sapphire/Emerald: `live-adapters/mgba-gen3-live.lua`
 4. In the web app, press **Start Live**.
 
 The Lua script exposes:
@@ -141,6 +142,7 @@ Generated outputs:
 lib/pokemon/knowledge/
 live-adapters/generated/gen1-live-offsets.lua
 live-adapters/generated/gen2-live-offsets.lua
+live-adapters/generated/gen3-live-offsets.lua
 ```
 
 Regenerate:

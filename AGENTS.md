@@ -27,7 +27,7 @@ Current first-class support:
 
 - Gen 1 Red/Blue/Yellow save parsing and mGBA live mode
 - Gen 2 Gold/Silver/Crystal save parsing and mGBA live mode
-- partial Gen 3 save parsing
+- partial Gen 3 save parsing and Ruby/Sapphire/Emerald mGBA live mode
 
 ## Run And Verify
 
@@ -67,14 +67,17 @@ Main files:
 ```text
 live-adapters/mgba-gen1-live.lua
 live-adapters/mgba-gen2-live.lua
+live-adapters/mgba-gen3-live.lua
 live-adapters/generated/gen1-live-offsets.lua
 live-adapters/generated/gen2-live-offsets.lua
+live-adapters/generated/gen3-live-offsets.lua
 ```
 
 Load the right script from mGBA `Tools -> Scripting...`:
 
 - Red/Blue/Yellow: `live-adapters/mgba-gen1-live.lua`
 - Gold/Silver/Crystal: `live-adapters/mgba-gen2-live.lua`
+- Ruby/Sapphire/Emerald: `live-adapters/mgba-gen3-live.lua`
 
 The Lua scripts serve JSON on `127.0.0.1:8080`. The UI calls:
 

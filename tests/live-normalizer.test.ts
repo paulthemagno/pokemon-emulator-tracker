@@ -61,6 +61,36 @@ test("normalizeLiveSnapshot treats Current Box fallback as current", () => {
   assert.equal(data.pcBoxes[0].name, "Box 1");
 });
 
+test("normalizeLiveSnapshot preserves empty live PC box payloads as empty", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 3,
+    game: "ruby",
+    player: {},
+    party: [],
+    pcBoxes: [],
+  });
+
+  assert.equal(data.pcBoxes.length, 0);
+});
+
+test("normalizeLiveSnapshot infers Gen 3 boxed Pokemon levels from experience", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 3,
+    game: "ruby",
+    player: {},
+    party: [],
+    pcBoxes: [
+      {
+        name: "Box 1",
+        capacity: 30,
+        pokemon: [{ species: 1, nickname: "BULBASAUR", experience: 135 }],
+      },
+    ],
+  });
+
+  assert.equal(data.pcBoxes[0].pokemon[0]?.level, 5);
+});
+
 test("normalizeLiveSnapshot accepts badge objects and normalizes trainer metadata", () => {
   const data = normalizeLiveSnapshot({
     generation: 2,
@@ -176,6 +206,21 @@ test("normalizeLiveSnapshot maps Gen 1 indoor maps to town map landmarks", () =>
   });
 
   assert.equal(data.location.name, "Viridian City");
+});
+
+test("normalizeLiveSnapshot preserves Gen 3 outdoor map group zero for Hoenn markers", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 3,
+    game: "ruby",
+    player: {},
+    party: [],
+    pcBoxes: [],
+    location: { mapGroup: 0, mapId: 9, name: "Live" },
+  });
+
+  assert.equal(data.location.mapGroup, 0);
+  assert.equal(data.location.mapId, 9);
+  assert.equal(data.location.name, "LITTLEROOT TOWN");
 });
 
 test("normalizeLiveSnapshot normalizes live Pokedex progress", () => {

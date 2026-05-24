@@ -16,6 +16,56 @@ export type Gen3MapLandmark = {
   height: number;
 };
 
+export type Gen3MapPosition = {
+  x?: number;
+  y?: number;
+};
+
+// Layout dimensions for Hoenn outdoor map sections whose region-map area spans
+// more than one cursor cell. Values come from pret/pokeemerald
+// data/layouts/layouts.json at the same commit as the map-section extraction.
+const GEN3_OUTDOOR_LAYOUT_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  "0-1": { width: 40, height: 60 },
+  "0-2": { width: 40, height: 20 },
+  "0-3": { width: 40, height: 60 },
+  "0-5": { width: 80, height: 40 },
+  "0-6": { width: 80, height: 40 },
+  "0-8": { width: 40, height: 80 },
+  "0-17": { width: 50, height: 20 },
+  "0-18": { width: 80, height: 22 },
+  "0-19": { width: 40, height: 80 },
+  "0-20": { width: 40, height: 80 },
+  "0-21": { width: 80, height: 20 },
+  "0-22": { width: 60, height: 20 },
+  "0-23": { width: 60, height: 20 },
+  "0-24": { width: 40, height: 63 },
+  "0-25": { width: 40, height: 100 },
+  "0-26": { width: 40, height: 140 },
+  "0-27": { width: 40, height: 60 },
+  "0-28": { width: 100, height: 20 },
+  "0-29": { width: 40, height: 80 },
+  "0-30": { width: 40, height: 80 },
+  "0-31": { width: 100, height: 20 },
+  "0-32": { width: 60, height: 20 },
+  "0-33": { width: 80, height: 20 },
+  "0-34": { width: 40, height: 140 },
+  "0-35": { width: 40, height: 100 },
+  "0-36": { width: 80, height: 20 },
+  "0-37": { width: 40, height: 40 },
+  "0-38": { width: 140, height: 20 },
+  "0-39": { width: 80, height: 80 },
+  "0-40": { width: 80, height: 40 },
+  "0-41": { width: 80, height: 80 },
+  "0-42": { width: 80, height: 80 },
+  "0-43": { width: 120, height: 40 },
+  "0-44": { width: 80, height: 40 },
+  "0-45": { width: 80, height: 40 },
+  "0-46": { width: 60, height: 40 },
+  "0-47": { width: 80, height: 40 },
+  "0-48": { width: 80, height: 40 },
+  "0-49": { width: 80, height: 40 },
+};
+
 export const GEN3_MAP_LANDMARKS: Record<string, Gen3MapLandmark> = {
   "0-0": {mapName:"PetalburgCity",sectionId:"MAPSEC_PETALBURG_CITY",name:"PETALBURG CITY",x:1,y:9,width:1,height:1},
   "0-1": {mapName:"SlateportCity",sectionId:"MAPSEC_SLATEPORT_CITY",name:"SLATEPORT CITY",x:8,y:10,width:1,height:2},
@@ -442,10 +492,55 @@ export function getGen3MapLandmark(mapGroup?: number, mapId?: number): Gen3MapLa
   return GEN3_MAP_LANDMARKS[String(mapGroup) + "-" + String(mapId)] ?? null;
 }
 
-export function getGen3RegionMapPixel(landmark: Gen3MapLandmark): { x: number; y: number } {
+function clampCell(value: number, max: number) {
+  return Math.max(0, Math.min(max - 1, value));
+}
+
+function getGen3RegionMapCell(landmark: Gen3MapLandmark, position?: Gen3MapPosition): { x: number; y: number } {
+  const mapKey = Object.entries(GEN3_MAP_LANDMARKS).find(([, value]) => value === landmark)?.[0];
+  const dimensions = mapKey ? GEN3_OUTDOOR_LAYOUT_DIMENSIONS[mapKey] : undefined;
+  let x = 0;
+  let y = 0;
+
+  if (dimensions && Number.isFinite(position?.x) && Number.isFinite(position?.y)) {
+    const xScale = Math.max(1, Math.floor(dimensions.width / landmark.width));
+    const yScale = Math.max(1, Math.floor(dimensions.height / landmark.height));
+    x = clampCell(Math.floor(Number(position?.x) / xScale), landmark.width);
+    y = clampCell(Math.floor(Number(position?.y) / yScale), landmark.height);
+  }
+
+  // Mirrors the section-specific adjustments in pokeemerald/src/region_map.c
+  // InitMapBasedOnPlayerLocation.
+  if (landmark.sectionId === "MAPSEC_ROUTE_114" && y !== 0) {
+    x = 0;
+  } else if (landmark.sectionId === "MAPSEC_ROUTE_121" && Number.isFinite(position?.x)) {
+    const xOnMap = Number(position?.x);
+    x = 0;
+    if (xOnMap > 14) x++;
+    if (xOnMap > 28) x++;
+    if (xOnMap > 54) x++;
+    x = clampCell(x, landmark.width);
+  } else if (landmark.sectionId === "MAPSEC_ROUTE_126" && Number.isFinite(position?.x) && Number.isFinite(position?.y)) {
+    const xOnMap = Number(position?.x);
+    const yOnMap = Number(position?.y);
+    x = 0;
+    if (xOnMap > 32) x++;
+    if (xOnMap > 51) x++;
+    y = 0;
+    if (yOnMap > 37) y++;
+    if (yOnMap > 56) y++;
+    x = clampCell(x, landmark.width);
+    y = clampCell(y, landmark.height);
+  }
+
+  return { x, y };
+}
+
+export function getGen3RegionMapPixel(landmark: Gen3MapLandmark, position?: Gen3MapPosition): { x: number; y: number } {
   // Matches CreateRegionMapPlayerIcon in pokeemerald/src/region_map.c for the full map.
+  const cell = getGen3RegionMapCell(landmark, position);
   return {
-    x: (landmark.x + GEN3_MAP_CURSOR_X_MIN) * 8 + 4,
-    y: (landmark.y + GEN3_MAP_CURSOR_Y_MIN) * 8 + 4,
+    x: (landmark.x + cell.x + GEN3_MAP_CURSOR_X_MIN) * 8 + 4,
+    y: (landmark.y + cell.y + GEN3_MAP_CURSOR_Y_MIN) * 8 + 4,
   };
 }

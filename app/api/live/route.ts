@@ -15,10 +15,11 @@ let lastSuccess:
   | null = null;
 let lastFailureAt = 0;
 let inFlight: Promise<Record<string, any>> | null = null;
+const LIVE_SOURCE_TIMEOUT_MS = 1500;
 
 async function fetchJson(url: string) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 800);
+  const timeout = setTimeout(() => controller.abort(), LIVE_SOURCE_TIMEOUT_MS);
   const response = await fetch(url, {
     cache: "no-store",
     signal: controller.signal,

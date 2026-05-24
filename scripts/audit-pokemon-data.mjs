@@ -61,6 +61,7 @@ const requiredKnowledgeFiles = [
   "lib/pokemon/knowledge/save-layouts.ts",
   "live-adapters/generated/gen1-live-offsets.lua",
   "live-adapters/generated/gen2-live-offsets.lua",
+  "live-adapters/generated/gen3-live-offsets.lua",
   "lib/pokemon/knowledge/index.ts",
   "lib/pokemon/knowledge/sources/provenance.json",
   "lib/pokemon/knowledge/sources/inventory-layouts.json",

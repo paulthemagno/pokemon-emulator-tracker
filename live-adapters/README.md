@@ -14,6 +14,37 @@ Run `pokemon-memory-reader` in BizHawk as described in its repository. This app 
 
 Press **Start Live** in the UI once the Lua server is running.
 
+## mGBA Gen 3 (Ruby/Sapphire/Emerald)
+
+Load `mgba-gen3-live.lua` in mGBA:
+
+1. Open Pokemon Ruby, Sapphire, or Emerald in mGBA.
+2. Open `Tools -> Scripting...`.
+3. Load `live-adapters/mgba-gen3-live.lua`.
+4. Keep the script running and press **Start Live** in the app.
+
+The adapter serves `GET /snapshot` on `127.0.0.1:8080` and exposes trainer info, badges, play time, party, PC boxes, bag pockets, PC item storage, Pokedex flags, current Hoenn `mapGroup` / `mapId`, and SaveBlock1 player `pos.x` / `pos.y` for source-matched region-map marker placement.
+
+The offset profile is loaded from `live-adapters/generated/gen3-live-offsets.lua`, generated from `lib/pokemon/knowledge/sources/save-layouts.json`, `inventory-layouts.json`, and `species-id-maps.json`.
+
+The script polls the local socket on a short wall-clock throttle and builds snapshots lazily when a client request arrives. Runtime SaveBlock and PokemonStorage scans are incremental, so the adapter does not sweep all EWRAM in one frame while the emulator is running. Ruby/Sapphire PC storage uses generated priority candidates plus structural validation, rather than a full runtime EWRAM sweep. The candidates are validated against the official `struct PokemonStorage` layout: `currentBox`, `boxes`, `boxNames`, and wallpaper bytes. Candidates with only empty or invalid records are rejected instead of being forced. GBA live reads prefer mGBA absolute bus reads and only fall back to the WRAM memory domain, because the exposed WRAM domain can vary across mGBA builds.
+
+If you switch between Ruby/Sapphire and Emerald while the Lua script is still loaded, the adapter re-reads the ROM title and clears cached runtime addresses before building the next snapshot.
+
+For Gen 3 PC storage debugging, use:
+
+```text
+GET http://127.0.0.1:8080/debug/storage
+```
+
+It returns the best runtime `PokemonStorage` candidates, their decoded box names, and sampled boxed Pokemon records.
+
+Ruby/Sapphire use fixed SaveBlock1 and SaveBlock2 addresses documented in `pret/pokeruby` `include/global.h`. Emerald uses the ASLR saveblock model documented in `pret/pokeemerald` `src/load_save.c`: the Lua adapter reads `gSaveBlock1Ptr`, `gSaveBlock2Ptr`, and `gPokemonStoragePtr` from the runtime pointer table for every snapshot, then applies the source-backed struct offsets. Do not replace this with Ruby/Sapphire fixed addresses or cache Emerald pointed SaveBlock addresses across snapshots.
+
+Gen 3 boxed and party Pokemon use the canonical encrypted `BoxPokemon` layout: 80-byte boxed records, 100-byte party records, XOR-decrypted secure substructures, `personality % 24` substructure order, checksum validation, and internal-species-to-National-Dex mapping from the generated species map.
+
+Gen 3 trainer names, Pokemon nicknames, OT names, and box names use the Gen 3 character table shared with the save parser. Keep the Lua table aligned with `lib/pokemon/utils.ts`.
+
 ## mGBA Gen 2 (Gold/Silver/Crystal)
 
 Load `mgba-gen2-live.lua` in mGBA:

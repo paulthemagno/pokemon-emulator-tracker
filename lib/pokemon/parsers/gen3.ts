@@ -873,10 +873,14 @@ function parseLocation(sections: Map<number, Section>, game: string): SaveData["
 
   const mapGroup = view.getUint8(layout.offsets.locationMapGroup);
   const mapNum = view.getUint8(layout.offsets.locationMapNum);
+  const x = view.getInt16(0x0000, true);
+  const y = view.getInt16(0x0002, true);
   const isFRLG = game === "firered" || game === "leafgreen";
   return {
     mapId: mapNum,
     mapGroup,
+    x,
+    y,
     name: getGen3LocationName(mapNum, isFRLG),
     areaType: "unknown",
   };

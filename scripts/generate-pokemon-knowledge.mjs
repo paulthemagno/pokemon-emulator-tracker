@@ -156,7 +156,7 @@ function renderSaveLayouts(source) {
   const gen2 = Object.fromEntries(Object.entries(source.gen2).map(([key, layout]) => [key, withLayoutSourceReferences(layout)]));
   const gen3 = Object.fromEntries(Object.entries(source.gen3 ?? {}).map(([key, layout]) => [key, withGen3LayoutSourceReferences(layout)]));
 
-  return `${header}import { POKEMON_KNOWLEDGE_SOURCES, type PokemonKnowledgeSource } from "./provenance";\n\nexport interface Gen1SaveLayout {\n  generation: 1;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerName: number;\n    rivalName: number;\n    money: number;\n    badges: number;\n    currentMap: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    trainerId: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    currentBoxNumber: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen2SaveLayout {\n  generation: 2;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerGender: number;\n    playerName: number;\n    trainerId: number;\n    money: number;\n    badgesJohto: number;\n    badgesKanto: number;\n    playTime: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    currentMapGroup: number;\n    currentMap: number;\n    currentMapX: number;\n    currentMapY: number;\n    currentBoxNumber: number;\n    boxNames: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen3SaveLayout {\n  generation: 3;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  offsets: {\n    trainerName: number;\n    trainerGender: number;\n    trainerId: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    encryptionKey?: number;\n    pokedexMode: number;\n    pokedexNationalMagic: number;\n    location: number;\n    locationMapGroup: number;\n    locationMapNum: number;\n    partyCount: number;\n    party: number;\n    money: number;\n    coins: number;\n    registeredItem: number;\n    pcItems: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    pokedexSeen1: number;\n    pokedexSeen2: number;\n    flags: number;\n    badgeFlagStart: number;\n    boxCurrent: number;\n    boxData: number;\n    boxNames: number;\n    boxWallpapers: number;\n  };\n  sectionIds: {\n    trainerInfo: number;\n    teamItems: number;\n    gameState: number;\n    pcBufferStart: number;\n    pcBufferEnd: number;\n  };\n  partyCountSize: 1 | 4;\n  quantityMask: "none" | "security-key-low16";\n  pcBoxCount: number;\n  pcBoxCapacity: number;\n  pcPokemonSize: number;\n  partyPokemonSize: number;\n  boxNameLength: number;\n}\n\nexport const GEN1_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen1, 0, "Record<string, Gen1SaveLayout>")};\n\nexport const GEN2_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen2, 0, "Record<string, Gen2SaveLayout>")};\n\nexport const GEN3_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen3, 0, "Record<string, Gen3SaveLayout>")};\n`;
+  return `${header}import { POKEMON_KNOWLEDGE_SOURCES, type PokemonKnowledgeSource } from "./provenance";\n\nexport interface Gen1SaveLayout {\n  generation: 1;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerName: number;\n    rivalName: number;\n    money: number;\n    badges: number;\n    currentMap: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    trainerId: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    currentBoxNumber: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen2SaveLayout {\n  generation: 2;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerGender: number;\n    playerName: number;\n    trainerId: number;\n    money: number;\n    badgesJohto: number;\n    badgesKanto: number;\n    playTime: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    currentMapGroup: number;\n    currentMap: number;\n    currentMapX: number;\n    currentMapY: number;\n    currentBoxNumber: number;\n    boxNames: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen3SaveLayout {\n  generation: 3;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  offsets: {\n    trainerName: number;\n    trainerGender: number;\n    trainerId: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    playTimeVBlanks?: number;\n    encryptionKey?: number;\n    pokedexMode: number;\n    pokedexNationalMagic: number;\n    location: number;\n    locationMapGroup: number;\n    locationMapNum: number;\n    partyCount: number;\n    party: number;\n    money: number;\n    coins: number;\n    registeredItem: number;\n    pcItems: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    pokedexSeen1: number;\n    pokedexSeen2: number;\n    flags: number;\n    badgeFlagStart: number;\n    boxCurrent: number;\n    boxData: number;\n    boxNames: number;\n    boxWallpapers: number;\n  };\n  sectionIds: {\n    trainerInfo: number;\n    teamItems: number;\n    gameState: number;\n    pcBufferStart: number;\n    pcBufferEnd: number;\n  };\n  partyCountSize: 1 | 4;\n  quantityMask: "none" | "security-key-low16";\n  pcBoxCount: number;\n  pcBoxCapacity: number;\n  pcPokemonSize: number;\n  partyPokemonSize: number;\n  boxNameLength: number;\n}\n\nexport const GEN1_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen1, 0, "Record<string, Gen1SaveLayout>")};\n\nexport const GEN2_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen2, 0, "Record<string, Gen2SaveLayout>")};\n\nexport const GEN3_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen3, 0, "Record<string, Gen3SaveLayout>")};\n`;
 }
 
 function luaValue(value) {
@@ -302,6 +302,39 @@ function renderGen1LiveOffsetsLua(saveLayouts) {
   return `-- Generated by scripts/generate-pokemon-knowledge.mjs.\n-- Source manifests: lib/pokemon/knowledge/sources/*.json.\n-- Do not edit this file by hand; update source manifests and rerun the generator.\n\nreturn {\n  profiles = {\n    red_blue = {\n${luaProfile(saveLayouts.gen1.redBlue, { key: "red_blue", game: "red", moneyFormat: "bcd24" })}\n    },\n    yellow = {\n${luaProfile(saveLayouts.gen1.yellow, { key: "yellow", game: "yellow", moneyFormat: "bcd24" })}\n    },\n  },\n}\n`;
 }
 
+function renderGen3LiveOffsetsLua(saveLayouts, inventoryLayouts, speciesIdMaps) {
+  const luaPocket = (pocket) => {
+    const entries = {
+      name: pocket.name,
+      offset: pocket.offset,
+      count: pocket.count,
+      quantityMask: pocket.quantityMask ?? "none",
+    };
+    return `    {\n${Object.entries(entries).map(([key, value]) => `      ${key} = ${luaValue(value)},`).join("\n")}\n    },`;
+  };
+  const luaProfile = (layout, inventoryLayout, extra) => {
+    const entries = {
+      ...extra,
+      ...layout.offsets,
+      ...layout.liveMemory,
+      partyCountSize: layout.partyCountSize,
+      quantityMask: layout.quantityMask,
+      pcBoxCount: layout.pcBoxCount,
+      pcBoxCapacity: layout.pcBoxCapacity,
+      pcPokemonSize: layout.pcPokemonSize,
+      partyPokemonSize: layout.partyPokemonSize,
+      boxNameLength: layout.boxNameLength,
+    };
+    return `    {\n${Object.entries(entries).map(([key, value]) => `      ${key} = ${luaValue(value)},`).join("\n")}\n      pockets = {\n${inventoryLayout.pockets.map(luaPocket).join("\n")}\n      },\n    }`;
+  };
+  const speciesMap = speciesIdMaps.gen3.emerald;
+  const speciesEntries = speciesMap.entries
+    .map((entry) => `    [${entry.internal}] = ${entry.national},`)
+    .join("\n");
+
+  return `-- Generated by scripts/generate-pokemon-knowledge.mjs.\n-- Source manifests: lib/pokemon/knowledge/sources/*.json.\n-- Do not edit this file by hand; update source manifests and rerun the generator.\n\nreturn {\n  oldUnownInternalStart = ${luaValue(speciesMap.oldUnownInternalStart)},\n  oldUnownInternalEnd = ${luaValue(speciesMap.oldUnownInternalEnd)},\n  oldUnownNational = ${luaValue(speciesMap.oldUnownNational)},\n  internalToNational = {\n${speciesEntries}\n  },\n  profiles = {\n    ruby_sapphire = ${luaProfile(saveLayouts.gen3.rubySapphire, inventoryLayouts.gen3.rubySapphire, { key: "ruby_sapphire", game: "ruby" })},\n    emerald = ${luaProfile(saveLayouts.gen3.emerald, inventoryLayouts.gen3.emerald, { key: "emerald", game: "emerald" })},\n  },\n}\n`;
+}
+
 const [provenance, inventoryLayouts, itemIdRanges, saveLayouts, speciesIdMaps] = await Promise.all([
   readJson("provenance.json"),
   readJson("inventory-layouts.json"),
@@ -325,6 +358,10 @@ await fs.writeFile(
 await fs.writeFile(
   path.join(root, "live-adapters/generated/gen2-live-offsets.lua"),
   renderGen2LiveOffsetsLua(saveLayouts, inventoryLayouts)
+);
+await fs.writeFile(
+  path.join(root, "live-adapters/generated/gen3-live-offsets.lua"),
+  renderGen3LiveOffsetsLua(saveLayouts, inventoryLayouts, speciesIdMaps)
 );
 
 console.log("Generated Pokemon knowledge modules.");

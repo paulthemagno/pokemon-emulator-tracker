@@ -200,14 +200,14 @@ function MiniMap({
   if (generation === 3) {
     const label = getMapLabel(locationName);
     const landmark = getGen3MapLandmark(mapGroup, mapId);
-    const point = landmark ? getGen3RegionMapPixel(landmark) : null;
+    const point = landmark ? getGen3RegionMapPixel(landmark, typeof location === "string" ? undefined : location) : null;
     const mapLabel = landmark?.name ? landmark.name.replace(/\s+/g, " ") : label;
 
     return (
       <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
         <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
           <div>
-            <p className="text-xs font-semibold uppercase text-[#506033]">Hoenn Map</p>
+            <p className="text-xs font-semibold uppercase text-[#506033]">Location Map</p>
             <p className="text-sm font-bold text-[#182410]">{mapLabel}</p>
           </div>
           <MapPin className="h-4 w-4 text-[#2f6f28]" />
@@ -245,7 +245,7 @@ function MiniMap({
       <div className={`rounded-lg border border-[#6d7864] bg-[#d7d7c8] text-[#1d241c] ${compact ? "p-2.5" : "p-3"}`}>
         <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
           <div>
-            <p className="text-xs font-semibold uppercase text-[#5c654c]">Kanto Location</p>
+            <p className="text-xs font-semibold uppercase text-[#5c654c]">Location Map</p>
             <p className="text-sm font-bold text-[#1d241c]">{mapLabel}</p>
           </div>
           <MapPin className="h-4 w-4 text-[#4f5e36]" />
@@ -280,7 +280,7 @@ function MiniMap({
     <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
       <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
         <div>
-          <p className="text-xs font-semibold uppercase text-[#506033]">Pokégear Map</p>
+          <p className="text-xs font-semibold uppercase text-[#506033]">Location Map</p>
           <p className="text-sm font-bold text-[#182410]">{label}</p>
         </div>
         <MapPin className="h-4 w-4 text-[#2f6f28]" />
@@ -384,7 +384,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                       const badge = getBadgeState(generation, i);
                       return (
                         <div
-                          key={badge.name}
+                          key={`${generation}-badge-${i}`}
                           className={`w-11 text-center ${earned ? "" : "opacity-45 grayscale"}`}
                           title={badge.name}
                         >
@@ -487,7 +487,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
               const badge = getBadgeState(generation, i);
               return (
                 <div
-                  key={badge.name}
+                  key={`${generation}-badge-${i}`}
                   className={`relative flex h-[74px] items-center justify-center overflow-hidden ${
                     earned ? "" : "opacity-45 grayscale"
                   }`}
