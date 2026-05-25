@@ -1,6 +1,6 @@
 "use client";
 
-import { Pokemon, TYPE_COLORS } from "@/lib/pokemon/types";
+import { Pokemon } from "@/lib/pokemon/types";
 import { getSpeciesById } from "@/lib/pokemon/data/species";
 import { getMoveById } from "@/lib/pokemon/data/moves";
 import { getExpWindow } from "@/lib/pokemon/experience";
@@ -14,6 +14,7 @@ import { ItemIcon } from "./item-icon";
 import { ItemInfoTooltip } from "./item-info-tooltip";
 import { MoveInfoTooltip } from "./move-info-tooltip";
 import { getEggSpriteUrl, getPokemonSpriteUrl } from "@/lib/pokemon/forms";
+import { getTypeColor, TypeBadge } from "./type-badge";
 
 interface PokemonCardProps {
   pokemon: Pokemon;
@@ -79,19 +80,6 @@ function getHappinessColor(happiness: number): string {
   return "bg-red-500";
 }
 
-function getTypeStyle(type: string): React.CSSProperties {
-  const color = getTypeColor(type);
-  return {
-    backgroundColor: `${color}22`,
-    borderColor: `${color}66`,
-    color,
-  };
-}
-
-function getTypeColor(type: string): string {
-  return TYPE_COLORS[type] ?? TYPE_COLORS["???"];
-}
-
 function getCardBackground(primaryType: string, secondaryType?: string): React.CSSProperties {
   const primary = getTypeColor(primaryType);
   const secondary = getTypeColor(secondaryType ?? primaryType);
@@ -99,9 +87,24 @@ function getCardBackground(primaryType: string, secondaryType?: string): React.C
   return {
     borderColor: `${primary}55`,
     background:
-      `radial-gradient(circle at 16% 8%, ${primary}33 0, transparent 34%), ` +
-      `radial-gradient(circle at 86% 0%, ${secondary}22 0, transparent 30%), ` +
+      `radial-gradient(circle at 18% 8%, ${primary}30 0, transparent 30%), ` +
+      `radial-gradient(circle at 84% 2%, ${secondary}26 0, transparent 28%), ` +
+      `linear-gradient(135deg, ${primary}12 0%, transparent 34%, ${secondary}10 100%), ` +
       "linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%)",
+    boxShadow: `inset 0 1px 0 ${primary}18`,
+  };
+}
+
+function getTypeAuraStyle(primaryType: string, secondaryType?: string): React.CSSProperties {
+  const primary = getTypeColor(primaryType);
+  const secondary = getTypeColor(secondaryType ?? primaryType);
+
+  return {
+    background:
+      `radial-gradient(circle at 24% 35%, ${primary}38 0, transparent 24%), ` +
+      `radial-gradient(circle at 78% 18%, ${secondary}28 0, transparent 28%), ` +
+      `linear-gradient(115deg, transparent 0%, ${primary}12 36%, transparent 64%, ${secondary}10 100%)`,
+    opacity: 0.9,
   };
 }
 
@@ -240,8 +243,18 @@ export function PokemonCard({
       <CardContent className="p-0">
         {/* Header with sprite and basic info */}
         <div className="relative flex items-start gap-3 overflow-hidden border-b border-border/50 p-3">
+          <div className="pointer-events-none absolute inset-0" style={getTypeAuraStyle(primaryType, secondaryType)} />
           <div
-            className="absolute inset-x-0 top-0 h-1"
+            className="pointer-events-none absolute inset-0 opacity-[0.08]"
+            style={{
+              backgroundImage:
+                `linear-gradient(90deg, ${primaryTypeColor} 1px, transparent 1px), ` +
+                `linear-gradient(0deg, ${primaryTypeColor} 1px, transparent 1px)`,
+              backgroundSize: "18px 18px",
+            }}
+          />
+          <div
+            className="absolute inset-x-0 top-0 z-10 h-1"
             style={{
               background: secondaryType
                 ? `linear-gradient(90deg, ${primaryTypeColor}, ${getTypeColor(secondaryType)})`
@@ -249,15 +262,18 @@ export function PokemonCard({
             }}
           />
           {isFainted && (
-            <div className="absolute inset-x-0 top-1 h-1 bg-red-500/80" />
+            <div className="absolute inset-x-0 top-1 z-10 h-1 bg-red-500/80" />
           )}
           {/* Sprite */}
-          <div className="relative flex-shrink-0">
+          <div className="relative z-10 flex-shrink-0">
             <div
-              className="relative h-16 w-16 overflow-hidden rounded-lg border p-1 shadow-inner"
+              className="relative h-16 w-16 overflow-hidden rounded-lg border p-1 shadow-inner backdrop-blur-[1px]"
               style={{
-                backgroundColor: `${primaryTypeColor}18`,
-                borderColor: `${primaryTypeColor}44`,
+                background:
+                  `radial-gradient(circle at 30% 20%, rgba(255,255,255,0.22), transparent 26%), ` +
+                  `linear-gradient(145deg, ${primaryTypeColor}24, rgba(0,0,0,0.12))`,
+                borderColor: `${primaryTypeColor}66`,
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), 0 0 24px ${primaryTypeColor}18`,
               }}
             >
               {pokemon.species > 0 && (
@@ -305,7 +321,7 @@ export function PokemonCard({
           </div>
 
           {/* Name and Level */}
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-2">
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="truncate text-xl font-black tracking-normal text-foreground">
@@ -332,14 +348,7 @@ export function PokemonCard({
                 Lv. {pokemon.level}
               </Badge>
               {pokemonTypes.map((type) => (
-                <Badge
-                  key={type}
-                  variant="outline"
-                  className="rounded-md border px-2.5 py-0.5 text-sm font-semibold capitalize"
-                  style={getTypeStyle(type)}
-                >
-                  {type}
-                </Badge>
+                <TypeBadge key={type} type={type} />
               ))}
               {statusText && (
                 <Badge className={cn("rounded-md px-2.5 py-1 text-xs", getStatusColor(statusText))}>
@@ -445,12 +454,7 @@ export function PokemonCard({
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <div className="truncate text-sm font-bold text-foreground">{moveName}</div>
-                              <span
-                                className="mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-medium capitalize"
-                                style={getTypeStyle(moveType ?? "???")}
-                              >
-                                {moveType ?? "move"}
-                              </span>
+                              <TypeBadge className="mt-1" size="xs" type={moveType ?? "???"} />
                             </div>
                             <span className="shrink-0 font-mono text-xs text-muted-foreground">
                               {currentPP}/{maxPP}
