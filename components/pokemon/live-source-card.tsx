@@ -13,6 +13,7 @@ interface LiveSourceCardProps {
   lastUpdated: number | null;
   onStart: () => void;
   onStop: () => void;
+  embedded?: boolean;
 }
 
 function formatTime(timestamp: number | null) {
@@ -27,26 +28,57 @@ export function LiveSourceCard({
   lastUpdated,
   onStart,
   onStop,
+  embedded = false,
 }: LiveSourceCardProps) {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Radio className="h-5 w-5 text-primary" />
-            Live Source
-          </CardTitle>
-          <Badge variant="outline" className="gap-1.5">
-            <Circle
-              className={`h-2.5 w-2.5 fill-current ${
-                isConnected ? "text-emerald-500" : "text-muted-foreground"
-              }`}
-            />
-            {isConnected ? "Connected" : isPolling ? "Searching" : "Idle"}
-          </Badge>
+  const content = (
+    <>
+      {!embedded && (
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Radio className="h-5 w-5 text-primary" />
+              Live Source
+            </CardTitle>
+            <Badge variant="outline" className="gap-1.5">
+              <Circle
+                className={`h-2.5 w-2.5 fill-current ${
+                  isConnected ? "text-emerald-500" : "text-muted-foreground"
+                }`}
+              />
+              {isConnected ? "Connected" : isPolling ? "Searching" : "Idle"}
+            </Badge>
+          </div>
+        </CardHeader>
+      )}
+      <CardContent className={embedded ? "space-y-4 p-0" : "space-y-4"}>
+        {embedded && (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-foreground">Live Source</p>
+            <Badge variant="outline" className="gap-1.5">
+              <Circle
+                className={`h-2.5 w-2.5 fill-current ${
+                  isConnected ? "text-emerald-500" : "text-muted-foreground"
+                }`}
+              />
+              {isConnected ? "Connected" : isPolling ? "Searching" : "Idle"}
+            </Badge>
+          </div>
+        )}
+        <div className="rounded-lg border border-border/70 bg-muted/35 p-3 text-sm text-muted-foreground">
+          <p>
+            Live mode needs this app running on the same machine as mGBA. Load the matching script from
+            {" "}
+            <code className="mx-1 rounded bg-background/70 px-1 py-0.5">Tools -&gt; Scripting...</code>
+            {" "}
+            then press Start Live.
+          </p>
+          <div className="mt-2 grid gap-1 text-xs sm:grid-cols-3">
+            <p><span className="font-semibold text-foreground">Gen 1:</span> <code>mgba-gen1-live.lua</code></p>
+            <p><span className="font-semibold text-foreground">Gen 2:</span> <code>mgba-gen2-live.lua</code></p>
+            <p><span className="font-semibold text-foreground">Gen 3:</span> <code>mgba-gen3-live.lua</code></p>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="text-xs text-muted-foreground">Endpoint</p>
@@ -75,6 +107,16 @@ export function LiveSourceCard({
           </Button>
         </div>
       </CardContent>
+    </>
+  );
+
+  if (embedded) {
+    return <div>{content}</div>;
+  }
+
+  return (
+    <Card>
+      {content}
     </Card>
   );
 }

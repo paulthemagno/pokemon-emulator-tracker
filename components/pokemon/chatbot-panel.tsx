@@ -526,7 +526,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
         {/* Status */}
         {!providerReady && (
           <div className="border-b bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
-            ⚠️ Ollama not connected. Start Ollama at http://127.0.0.1:11434
+            Ollama is not connected. Run the app locally, start Ollama at http://127.0.0.1:11434, and load a save or live session.
           </div>
         )}
 
@@ -536,16 +536,16 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             <div className="space-y-4 pr-4">
             {conversation.messages.length === 0 && streamingMessage === '' && (
               <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
-                <p className="mb-2 text-lg">👋 Hi! I'm your Pokemon assistant.</p>
-                <p>Ask me anything about your game.</p>
+                <p className="mb-2 text-lg">Pokemon assistant</p>
+                <p>Ask about the loaded save or live session: party, items, badges, Pokédex, PC boxes, and location.</p>
                 {conversation.gameContext && (
                   <p className="mt-4 text-xs text-gray-400">
-                    👤 {conversation.gameContext.trainerName} • 📍{' '}
+                    {conversation.gameContext.trainerName} •{' '}
                     {conversation.gameContext.location}
                   </p>
                 )}
                 <p className="mt-6 text-xs text-gray-400">
-                  💡 Commands: /reset, /clear, /help
+                  Commands: /reset, /clear, /help
                 </p>
               </div>
             )}

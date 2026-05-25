@@ -5,11 +5,12 @@ import { FileUpload } from "@/components/pokemon/file-upload";
 import { Dashboard } from "@/components/pokemon/dashboard";
 import { LiveSourceCard } from "@/components/pokemon/live-source-card";
 import { ChatbotPanel } from "@/components/pokemon/chatbot-panel";
+import { SupportedGamesStrip } from "@/components/pokemon/supported-games-strip";
 import { useSaveData } from "@/hooks/use-save-data";
 import { useLiveData } from "@/hooks/use-live-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Gamepad2, Info, MessageSquare } from "lucide-react";
+import { X, Bot, FileArchive, Gamepad2, Info, MessageSquare, Radio } from "lucide-react";
 import { mergeLiveWithSavePcBoxes } from "@/lib/pokemon/pc-box-merge";
 
 export default function Home() {
@@ -106,13 +107,23 @@ export default function Home() {
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-2">
                 <h3 className="font-medium text-foreground">How to Use</h3>
-                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Open your emulator (mGBA, VBA, etc.) and load your Pokemon game</li>
-                  <li>Save your game in the emulator</li>
-                  <li>Find your .sav or .srm file (usually in the same folder as your ROM)</li>
-                  <li>Drop the save file here to view your stats</li>
-                  <li>Re-upload the file anytime to see updated data</li>
-                </ol>
+                <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+                  <div className="rounded-lg border border-border/60 bg-card/50 p-3">
+                    <p className="mb-1 font-semibold text-foreground">1. Upload a save</p>
+                    <p>Drop a `.sav` or `.srm` file to inspect trainer, party, Pokédex, PC boxes, inventory, badges, and map progress.</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-card/50 p-3">
+                    <p className="mb-1 font-semibold text-foreground">2. Optional live mode</p>
+                    <p>Run the app locally, load the matching mGBA Lua adapter, then press Start Live for memory updates.</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-card/50 p-3">
+                    <p className="mb-1 font-semibold text-foreground">3. Optional Chat AI</p>
+                    <p>Start Ollama locally and ask questions about the loaded save or live session.</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Hosted Vercel builds can parse uploaded saves. Live mGBA and Ollama need a local app because they connect to localhost.
+                </p>
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Badge variant="outline" className="text-xs">Red/Blue/Yellow</Badge>
                   <Badge variant="outline" className="text-xs">Gold/Silver/Crystal</Badge>
@@ -144,35 +155,95 @@ export default function Home() {
 
         {/* No Data State - Show Upload */}
         {!activeSaveData && (
-          <div className="max-w-xl mx-auto py-12">
+          <div className="mx-auto max-w-5xl py-12">
             <div className="text-center mb-8">
               <Gamepad2 className="h-16 w-16 mx-auto text-primary mb-4" />
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                Track Your Pokemon Run
+                Track your Pokemon saves and live emulator runs
               </h2>
               <p className="text-muted-foreground">
-                Upload a save file or connect mGBA live memory to inspect party, Pokédex, PC boxes, inventory, and map progress.
+                Upload save files for many games, or run the app locally with an mGBA Lua adapter for live memory updates.
               </p>
             </div>
-            <FileUpload
-              onFileSelect={handleFileSelect}
-              isLoading={isLoading}
-              currentFile={filename}
-            />
+            <div className="mb-6 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-xl border border-border/70 bg-card/60 p-4">
+                <FileArchive className="mb-3 h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">Static save analysis</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Works on local and hosted builds. Upload <code>.sav</code> / <code>.srm</code> files to inspect progress.
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-card/60 p-4">
+                <Radio className="mb-3 h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">mGBA live</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Local only. Load <code>mgba-gen1</code>, <code>mgba-gen2</code>, or <code>mgba-gen3</code> Lua and press Start Live.
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-card/60 p-4">
+                <Bot className="mb-3 h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">Chat AI</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Local Ollama assistant that answers with the current save/live context.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
+              <section className="rounded-2xl border border-primary/25 bg-card/70 p-5 shadow-sm backdrop-blur">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="rounded-lg bg-primary/15 p-2 text-primary">
+                    <FileArchive className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Mode 1</p>
+                    <h3 className="text-xl font-bold text-foreground">Analyze a static save file</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Best for the hosted demo or quick checks. Drag a save file here and the app parses it once.
+                    </p>
+                  </div>
+                </div>
+                <FileUpload
+                  onFileSelect={handleFileSelect}
+                  isLoading={isLoading}
+                  currentFile={filename}
+                  hideHint
+                />
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Accepted: <code>.sav</code>, <code>.srm</code>, <code>.sa1</code>, <code>.sa2</code>, <code>.sn1</code>, <code>.sn2</code>.
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-emerald-500/25 bg-card/70 p-5 shadow-sm backdrop-blur">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="rounded-lg bg-emerald-500/15 p-2 text-emerald-400">
+                    <Radio className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">Mode 2</p>
+                    <h3 className="text-xl font-bold text-foreground">Connect live mGBA memory</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Local only. Run this app on your machine, load the Lua script in mGBA, then start live polling.
+                    </p>
+                  </div>
+                </div>
+                <LiveSourceCard
+                  isConnected={live.isConnected}
+                  isPolling={live.isPolling}
+                  source={live.source}
+                  error={live.error}
+                  lastUpdated={live.lastUpdated}
+                  onStart={live.start}
+                  onStop={live.stop}
+                  embedded
+                />
+              </section>
+            </div>
             <div className="mt-6">
-              <LiveSourceCard
-                isConnected={live.isConnected}
-                isPolling={live.isPolling}
-                source={live.source}
-                error={live.error}
-                lastUpdated={live.lastUpdated}
-                onStart={live.start}
-                onStop={live.stop}
-              />
+              <SupportedGamesStrip />
             </div>
             <div className="mt-8 text-center">
               <p className="text-xs text-muted-foreground">
-                Supports Generation 1-3 Pokemon games
+                Supports Gen 1-3 saves. Live mode and Chat AI require local services.
               </p>
             </div>
           </div>
