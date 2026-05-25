@@ -25,6 +25,8 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | `pretPokegold` | pret | https://github.com/pret/pokegold | Gold/Silver Gen 2 save and live offset profiles | `09d2148d6d26b20840fb4997916321666ca1e953` |
 | `hoennMapImage` | media | https://github.com/pret/pokeemerald/tree/master/graphics/pokenav/region_map | Gen 3 Hoenn overview map asset for save uploads, rendered from `map.png` tileset plus `map.bin` tilemap | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
 | `hoennBadgeSprites` | media | https://github.com/pret/pokeemerald/blob/master/graphics/trainer_card/badges.png | Gen 3 trainer card badge sprites split into local 16x16 files | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
+| `pokemonHomeTypeIcons` | media | https://archives.bulbagarden.net/wiki/Category:Type_icons | Local type icons in `public/type-icons/`, using the Pokémon HOME type icon sprite files archived as game sprites | URL only |
+| `pokemonGameCovers` | media | https://archives.bulbagarden.net/wiki/Category:Game_covers | Local game cover images in `public/game-covers/` for the current-game UI tile | URL only |
 
 ## Pinning Rules
 

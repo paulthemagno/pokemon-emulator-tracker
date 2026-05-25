@@ -15,10 +15,10 @@ import {
 } from "@/lib/pokemon/data/gen3-kanto-dex";
 import { TYPE_COLORS } from "@/lib/pokemon/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Search, BookOpen, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { TypeBadge } from "./type-badge";
 
 type DexFilter = "all" | "seen" | "caught" | "missing";
 type DexViewMode = "hoenn" | "kanto" | "national";
@@ -336,18 +336,7 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {entry.types.map((type) => (
-                        <Badge
-                          key={`${entry.id}-${type}`}
-                          variant="outline"
-                          className="rounded-md border px-1.5 py-0 text-[10px] capitalize"
-                          style={{
-                            borderColor: `${TYPE_COLORS[type] ?? TYPE_COLORS["???"]}66`,
-                            color: TYPE_COLORS[type] ?? TYPE_COLORS["???"],
-                            backgroundColor: `${TYPE_COLORS[type] ?? TYPE_COLORS["???"]}15`,
-                          }}
-                        >
-                          {type}
-                        </Badge>
+                        <TypeBadge key={`${entry.id}-${type}`} size="xs" type={type} />
                       ))}
                     </div>
                   </div>

@@ -32,13 +32,13 @@ import {
 } from "@/lib/pokemon/data/gen3-frlg-map-landmarks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 import {
   User,
   Coins,
   Clock,
   Award,
   MapPin,
-  Gamepad2,
 } from "lucide-react";
 
 interface TrainerCardProps {
@@ -77,6 +77,58 @@ function getGameDisplayName(generation: Generation, game?: GameVersion): string 
     leafgreen: "Pokemon LeafGreen",
   };
   return game ? gameNames[game] || `Pokemon ${game}` : `Generation ${generation}`;
+}
+
+const GAME_COVERS: Record<string, string> = {
+  red: "/game-covers/red.png",
+  blue: "/game-covers/blue.png",
+  yellow: "/game-covers/yellow.png",
+  gold: "/game-covers/gold.png",
+  silver: "/game-covers/silver.png",
+  crystal: "/game-covers/crystal.png",
+  ruby: "/game-covers/ruby.png",
+  sapphire: "/game-covers/sapphire.png",
+  emerald: "/game-covers/emerald.jpg",
+  firered: "/game-covers/firered.png",
+  leafgreen: "/game-covers/leafgreen.png",
+};
+
+function GameVersionTile({
+  generation,
+  game,
+  compact = false,
+}: {
+  generation: Generation;
+  game?: GameVersion;
+  compact?: boolean;
+}) {
+  const label = getGameDisplayName(generation, game);
+  const cover = game ? GAME_COVERS[game] : undefined;
+
+  return (
+    <div className={`flex items-center gap-3 rounded-lg bg-muted/50 ${compact ? "px-3 py-2" : "p-3"}`}>
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
+        {cover ? (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+            height={128}
+            src={cover}
+            width={128}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs font-black text-muted-foreground">
+            G{generation}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Game</p>
+        <p className="truncate text-sm font-semibold text-foreground">{label}</p>
+      </div>
+    </div>
+  );
 }
 
 function getGenBadgeColor(gen: number): string {
@@ -387,10 +439,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                 )}
               </div>
 
-              <div className="flex min-h-[54px] items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                <Gamepad2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="text-sm font-semibold">{getGameDisplayName(generation, game)}</span>
-              </div>
+              <GameVersionTile compact generation={generation} game={game} />
 
               <div className="grid min-h-[54px] grid-cols-2 gap-2">
                 <div className="rounded-lg bg-muted/50 px-3 py-2">
@@ -471,10 +520,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
         </div>
 
         {/* Game Info */}
-        <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3">
-          <Gamepad2 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{getGameDisplayName(generation, game)}</span>
-        </div>
+        <GameVersionTile generation={generation} game={game} />
 
         {/* Stats Grid */}
         <div className="grid gap-3 sm:grid-cols-2">

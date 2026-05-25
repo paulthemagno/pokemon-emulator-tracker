@@ -9,6 +9,7 @@ interface FileUploadProps {
   isLoading?: boolean;
   currentFile?: string | null;
   compact?: boolean;
+  hideHint?: boolean;
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export function FileUpload({
   isLoading = false,
   currentFile,
   compact = false,
+  hideHint = false,
   className,
 }: FileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -139,13 +141,15 @@ export function FileUpload({
                 ? "Drop new file to update"
                 : "Drop your save file here"}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {currentFile ? (
-              <span className="font-mono text-primary">{currentFile}</span>
-            ) : (
-              "Supports .sav, .srm files (Gen 1-3)"
-            )}
-          </p>
+          {!hideHint && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {currentFile ? (
+                <span className="font-mono text-primary">{currentFile}</span>
+              ) : (
+                "Gen 1-3: .sav, .srm, .sa1, .sa2, .sn1, .sn2"
+              )}
+            </p>
+          )}
         </div>
       </div>
 
