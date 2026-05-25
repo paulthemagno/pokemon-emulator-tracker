@@ -7,7 +7,7 @@ The app includes a local Ollama-backed chatbot that receives the current game st
 Start Ollama and pull a model:
 
 ```bash
-ollama pull mistral
+ollama pull gemma4:latest
 ollama serve
 ```
 
@@ -25,7 +25,7 @@ Optional environment variables:
 
 ```text
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
-OLLAMA_MODEL=mistral
+OLLAMA_MODEL=gemma4:latest
 OLLAMA_MAX_TOKENS=2048
 OLLAMA_TEMPERATURE=0.7
 OLLAMA_ENABLE_TOOLS=true

@@ -17,6 +17,12 @@ node_modules
 tsconfig.tsbuildinfo
 *.log
 
+# Codex app local state
+.codex/
+
+# pnpm local store/cache
+.pnpm-store/
+
 # Emulator/local game data
 *.sav
 *.srm

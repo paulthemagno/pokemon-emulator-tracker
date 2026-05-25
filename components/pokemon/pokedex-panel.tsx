@@ -3,6 +3,16 @@
 import { useMemo, useState } from "react";
 import { SaveData } from "@/lib/pokemon/types";
 import { SPECIES } from "@/lib/pokemon/data/species";
+import {
+  GEN3_HOENN_DEX_COUNT,
+  GEN3_HOENN_DEX_NATIONAL_ORDER,
+  getGen3HoennDexNumber,
+} from "@/lib/pokemon/data/gen3-hoenn-dex";
+import {
+  GEN3_KANTO_DEX_COUNT,
+  GEN3_KANTO_DEX_NATIONAL_ORDER,
+  getGen3KantoDexNumber,
+} from "@/lib/pokemon/data/gen3-kanto-dex";
 import { TYPE_COLORS } from "@/lib/pokemon/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +20,8 @@ import { Search, BookOpen, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
-type DexFilter = "all" | "owned" | "missing";
+type DexFilter = "all" | "seen" | "caught" | "missing";
+type DexViewMode = "hoenn" | "kanto" | "national";
 
 interface PokedexPanelProps {
   saveData: SaveData;
@@ -20,6 +31,88 @@ function getDexMax(generation: 1 | 2 | 3): number {
   if (generation === 1) return 151;
   if (generation === 2) return 251;
   return 386;
+}
+
+function isRseGame(saveData: SaveData): boolean {
+  return saveData.game === "ruby" || saveData.game === "sapphire" || saveData.game === "emerald";
+}
+
+function isFrlgGame(saveData: SaveData): boolean {
+  return saveData.game === "firered" || saveData.game === "leafgreen";
+}
+
+function getSaveDexViewMode(saveData: SaveData): DexViewMode {
+  if (saveData.pokedex?.regionalDex === "hoenn") return "hoenn";
+  if (saveData.pokedex?.regionalDex === "kanto") return "kanto";
+  if (isRseGame(saveData) && saveData.pokedex?.mode !== "national") return "hoenn";
+  if (isFrlgGame(saveData) && saveData.pokedex?.mode !== "national") return "kanto";
+  return "national";
+}
+
+function getResolvedDexViewMode(saveData: SaveData, viewModeOverride: DexViewMode | null): DexViewMode {
+  if (saveData.generation !== 3) return getSaveDexViewMode(saveData);
+  return viewModeOverride ?? getSaveDexViewMode(saveData);
+}
+
+function getDexSpeciesIds(saveData: SaveData, viewMode: DexViewMode): number[] {
+  const resolvedViewMode = getResolvedDexViewMode(saveData, viewMode);
+  if (
+    saveData.generation === 3 &&
+    resolvedViewMode === "hoenn"
+  ) {
+    return [...GEN3_HOENN_DEX_NATIONAL_ORDER];
+  }
+  if (
+    saveData.generation === 3 &&
+    resolvedViewMode === "kanto"
+  ) {
+    return [...GEN3_KANTO_DEX_NATIONAL_ORDER];
+  }
+
+  const max =
+    saveData.generation === 3 && resolvedViewMode === "national"
+      ? 386
+      : saveData.pokedex?.dexMax ?? getDexMax(saveData.generation);
+  return Array.from({ length: max }, (_, index) => index + 1);
+}
+
+function getDisplayDexNumber(saveData: SaveData, viewMode: DexViewMode, nationalDex: number): number {
+  const resolvedViewMode = getResolvedDexViewMode(saveData, viewMode);
+  if (
+    saveData.generation === 3 &&
+    resolvedViewMode === "hoenn"
+  ) {
+    return getGen3HoennDexNumber(nationalDex) ?? nationalDex;
+  }
+  if (
+    saveData.generation === 3 &&
+    resolvedViewMode === "kanto"
+  ) {
+    return getGen3KantoDexNumber(nationalDex) ?? nationalDex;
+  }
+  return nationalDex;
+}
+
+function getDexViewOptions(saveData: SaveData): Array<[DexViewMode, string]> {
+  if (isRseGame(saveData)) {
+    return [
+      ["hoenn", `Hoenn (${GEN3_HOENN_DEX_COUNT})`],
+      ["national", "National (386)"],
+    ];
+  }
+  if (isFrlgGame(saveData)) {
+    return [
+      ["kanto", `Kanto (${GEN3_KANTO_DEX_COUNT})`],
+      ["national", "National (386)"],
+    ];
+  }
+  return [];
+}
+
+function getDexViewLabel(viewMode: DexViewMode): string {
+  if (viewMode === "hoenn") return "Hoenn Dex";
+  if (viewMode === "kanto") return "Kanto Dex";
+  return "National Dex";
 }
 
 function getSpriteUrl(species: number): string {
@@ -32,69 +125,63 @@ function getSpriteUrl(species: number): string {
 export function PokedexPanel({ saveData }: PokedexPanelProps) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<DexFilter>("all");
+  const [viewModeOverride, setViewModeOverride] = useState<DexViewMode | null>(null);
+  const resolvedViewMode = getResolvedDexViewMode(saveData, viewModeOverride);
+  const dexViewOptions = getDexViewOptions(saveData);
+  const canChooseGen3DexView = saveData.generation === 3 && dexViewOptions.length > 0;
 
-  const dexMax = useMemo(() => getDexMax(saveData.generation), [saveData.generation]);
-
-  const inferredOwnedSet = useMemo(() => {
-    const owned = new Set<number>();
-
-    for (const pokemon of saveData.party) {
-      if (pokemon?.species > 0 && pokemon.species <= dexMax) {
-        owned.add(pokemon.species);
-      }
-    }
-
-    for (const box of saveData.pcBoxes) {
-      for (const pokemon of box.pokemon) {
-        if (pokemon && pokemon.species > 0 && pokemon.species <= dexMax) {
-          owned.add(pokemon.species);
-        }
-      }
-    }
-
-    return owned;
-  }, [saveData.party, saveData.pcBoxes, dexMax]);
+  const dexSpeciesIds = useMemo(() => getDexSpeciesIds(saveData, resolvedViewMode), [saveData, resolvedViewMode]);
+  const dexSpeciesSet = useMemo(() => new Set(dexSpeciesIds), [dexSpeciesIds]);
+  const dexMax = dexSpeciesIds.length;
 
   const seenSetFromGame = useMemo(() => {
     return new Set(
-      (saveData.pokedex?.seenSpecies ?? []).filter((species) => species > 0 && species <= dexMax)
+      (saveData.pokedex?.seenSpecies ?? []).filter((species) => dexSpeciesSet.has(species))
     );
-  }, [saveData.pokedex?.seenSpecies, dexMax]);
+  }, [saveData.pokedex?.seenSpecies, dexSpeciesSet]);
 
   const caughtSetFromGame = useMemo(() => {
     return new Set(
-      (saveData.pokedex?.caughtSpecies ?? []).filter((species) => species > 0 && species <= dexMax)
+      (saveData.pokedex?.caughtSpecies ?? []).filter((species) => dexSpeciesSet.has(species))
     );
-  }, [saveData.pokedex?.caughtSpecies, dexMax]);
+  }, [saveData.pokedex?.caughtSpecies, dexSpeciesSet]);
 
-  const hasGamePokedex = caughtSetFromGame.size > 0 || seenSetFromGame.size > 0;
-  const ownedSet = hasGamePokedex ? caughtSetFromGame : inferredOwnedSet;
-  const seenSet = hasGamePokedex ? seenSetFromGame : ownedSet;
+  const hasGamePokedex = Boolean(saveData.pokedex);
+  const caughtSet = caughtSetFromGame;
+  const seenSet = seenSetFromGame;
 
   const speciesInDex = useMemo(
-    () => SPECIES.filter((entry) => entry.id >= 1 && entry.id <= dexMax),
-    [dexMax]
+    () => dexSpeciesIds
+      .map((id) => SPECIES.find((entry) => entry.id === id))
+      .filter((entry): entry is (typeof SPECIES)[number] => Boolean(entry)),
+    [dexSpeciesIds]
   );
 
   const filteredSpecies = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     return speciesInDex.filter((entry) => {
-      const isOwned = ownedSet.has(entry.id);
-      if (filter === "owned" && !isOwned) return false;
-      if (filter === "missing" && isOwned) return false;
+      const isSeen = seenSet.has(entry.id);
+      const isCaught = caughtSet.has(entry.id);
+      if (filter === "seen" && !isSeen) return false;
+      if (filter === "caught" && !isCaught) return false;
+      if (filter === "missing" && isCaught) return false;
 
       if (!normalizedQuery) return true;
 
-      const idMatch = entry.id.toString().includes(normalizedQuery);
+      const displayDexNumber = getDisplayDexNumber(saveData, resolvedViewMode, entry.id);
+      const idMatch =
+        entry.id.toString().includes(normalizedQuery) ||
+        displayDexNumber.toString().includes(normalizedQuery);
       const nameMatch = entry.name.toLowerCase().includes(normalizedQuery);
       const typeMatch = entry.types.some((type) => type.toLowerCase().includes(normalizedQuery));
       return idMatch || nameMatch || typeMatch;
     });
-  }, [speciesInDex, ownedSet, filter, query]);
+  }, [speciesInDex, caughtSet, seenSet, filter, query, saveData, resolvedViewMode]);
 
-  const ownedCount = ownedSet.size;
-  const completion = Math.round((ownedCount / dexMax) * 100);
+  const caughtCount = caughtSet.size;
+  const seenCount = seenSet.size;
+  const completion = Math.round((caughtCount / dexMax) * 100);
 
   return (
     <Card className="overflow-hidden border-border/80 bg-card/80">
@@ -112,14 +199,38 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
           <div className="text-right">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Completion</p>
             <p className="text-xl font-black text-foreground">
-              {ownedCount}/{dexMax}
+              {caughtCount}/{dexMax}
             </p>
             <p className="text-xs text-muted-foreground">{completion}%</p>
+            <p className="text-xs text-muted-foreground">Seen {seenCount}</p>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {canChooseGen3DexView && (
+          <div className="flex flex-wrap gap-2">
+            {dexViewOptions.map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewModeOverride(mode)}
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-xs font-semibold transition",
+                  resolvedViewMode === mode
+                    ? "border-primary/60 bg-primary/15 text-foreground"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="self-center text-xs text-muted-foreground">
+              Showing {getDexViewLabel(resolvedViewMode)} with in-game seen/caught flags.
+            </span>
+          </div>
+        )}
+
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -145,15 +256,27 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
           </button>
           <button
             type="button"
-            onClick={() => setFilter("owned")}
+            onClick={() => setFilter("seen")}
             className={cn(
               "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-              filter === "owned"
+              filter === "seen"
+                ? "border-sky-500/60 bg-sky-500/15 text-sky-200"
+                : "border-border bg-background text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Seen ({seenCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("caught")}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+              filter === "caught"
                 ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
                 : "border-border bg-background text-muted-foreground hover:text-foreground"
             )}
           >
-            Owned ({ownedCount})
+            Caught ({caughtCount})
           </button>
           <button
             type="button"
@@ -165,14 +288,14 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
                 : "border-border bg-background text-muted-foreground hover:text-foreground"
             )}
           >
-            Missing ({Math.max(0, dexMax - ownedCount)})
+            Missing ({Math.max(0, dexMax - caughtCount)})
           </button>
         </div>
 
         <div className="max-h-[460px] overflow-y-auto rounded-lg border border-border/70">
           <div className="grid gap-1 p-1">
             {filteredSpecies.map((entry) => {
-              const owned = ownedSet.has(entry.id);
+              const caught = caughtSet.has(entry.id);
               const seen = seenSet.has(entry.id);
               const primaryType = entry.types[0] ?? "???";
               const accent = TYPE_COLORS[primaryType] ?? TYPE_COLORS["???"];
@@ -182,7 +305,7 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
                   key={entry.id}
                   className={cn(
                     "flex items-center gap-3 rounded-md border px-2.5 py-2",
-                    owned
+                    caught
                       ? "border-emerald-500/30 bg-emerald-500/10"
                       : "border-border/60 bg-background/60"
                   )}
@@ -195,7 +318,7 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
                       fill
                       className={cn(
                         "pixelated object-contain",
-                        owned ? "" : seen ? "opacity-80 grayscale" : "opacity-45 grayscale"
+                        caught ? "" : seen ? "opacity-80 grayscale" : "opacity-45 grayscale"
                       )}
                       draggable={false}
                       unoptimized
@@ -204,7 +327,9 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">#{entry.id.toString().padStart(3, "0")}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        #{getDisplayDexNumber(saveData, resolvedViewMode, entry.id).toString().padStart(3, "0")}
+                      </span>
                       <span className="truncate text-sm font-bold text-foreground">
                         {entry.name}
                       </span>
@@ -228,7 +353,7 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
                   </div>
 
                   <div className="shrink-0">
-                    {owned ? (
+                    {caught ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-label="Caught" />
                     ) : seen ? (
                       <Eye className="h-4 w-4 text-sky-400" aria-label="Seen" />
@@ -243,7 +368,7 @@ export function PokedexPanel({ saveData }: PokedexPanelProps) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Source: {hasGamePokedex ? "in-game Pokedex flags (seen/caught)" : "fallback inferred from current party and PC boxes"}.
+          Source: {hasGamePokedex ? "in-game Pokedex flags (seen/caught)" : "no Pokedex flags provided by this source"}.
         </p>
       </CardContent>
     </Card>

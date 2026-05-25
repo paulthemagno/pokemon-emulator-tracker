@@ -63,6 +63,9 @@ export interface Pokemon {
   nature?: number;
   natureName?: string;
   isShiny?: boolean;
+  isEgg?: boolean;
+  form?: number;
+  formName?: string;
   gender?: "male" | "female" | "unknown";
   // Status
   status?: StatusCondition;
@@ -112,6 +115,24 @@ export interface PCBox {
   pokemon: (Pokemon | null)[];
   capacity: number;
   isCurrent?: boolean;
+  diagnostics?: {
+    validSlots: number;
+    emptySlots: number;
+    noSpeciesSlots: number;
+    checksumFailedSlots: number;
+    invalidSpeciesSlots: number;
+    shortSlots: number;
+    sectionIds?: number[];
+    sampleSlots?: Array<{
+      slot: number;
+      status: "valid" | "no-species" | "checksum" | "invalid-species" | "short";
+      internalSpecies?: number;
+      nationalSpecies?: number;
+      personality?: number;
+      storedChecksum?: number;
+      computedChecksum?: number;
+    }>;
+  };
 }
 
 export interface InventoryItem {
@@ -135,7 +156,10 @@ export interface SaveData {
     caughtSpecies: number[];
     seenCount: number;
     caughtCount: number;
-    source?: "save" | "live" | "inferred";
+    source?: "save" | "live";
+    mode?: "regional" | "national";
+    regionalDex?: "hoenn" | "kanto";
+    dexMax?: number;
   };
   party: Pokemon[];
   pcBoxes: PCBox[];

@@ -26,7 +26,7 @@ function fallbackBox(index: number, isCurrent = false): PCBox {
 }
 
 function mergeLivePcBoxes(previous: SaveData, next: SaveData): PCBox[] {
-  if (!hasItems(next.pcBoxes)) return previous.pcBoxes;
+  if (!hasItems(next.pcBoxes)) return next.generation === 3 ? [] : previous.pcBoxes;
   if (!areCompatibleLiveSnapshots(previous, next)) return next.pcBoxes;
 
   const maxBoxes = Math.max(previous.pcBoxes.length, next.pcBoxes.length);
@@ -85,16 +85,12 @@ function isTrainerSnapshotPlausible(previous: SaveData | null, next: SaveData) {
     (nextTrainer.playTime.seconds ?? 0);
 
   if (nextSeconds + 5 < prevSeconds) return false;
-  if (nextSeconds - prevSeconds > 60) return false;
 
   return true;
 }
 
 function hasNonPlaceholderLocation(next: SaveData) {
   const locationName = next.location?.name?.trim() ?? "";
-  const mapId = Number(next.location?.mapId ?? 0);
-  const mapGroup = Number(next.location?.mapGroup ?? 0);
-  if (mapId <= 0 && mapGroup <= 0) return false;
   if (locationName.length === 0 || locationName === "Location syncing") return false;
   if (locationName === "Map 0-0") return false;
   return true;
@@ -102,6 +98,7 @@ function hasNonPlaceholderLocation(next: SaveData) {
 
 export function mergeLiveData(previous: SaveData | null, next: SaveData): SaveData {
   if (!previous) return next;
+  if (!areCompatibleLiveSnapshots(previous, next)) return next;
 
   const useNextTrainer = isTrainerSnapshotPlausible(previous, next);
 

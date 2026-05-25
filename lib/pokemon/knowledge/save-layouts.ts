@@ -61,6 +61,57 @@ export interface Gen2SaveLayout {
   liveWramOffsets: Record<string, number>;
 }
 
+export interface Gen3SaveLayout {
+  generation: 3;
+  gameProfile: string;
+  source: PokemonKnowledgeSource;
+  offsets: {
+    trainerName: number;
+    trainerGender: number;
+    trainerId: number;
+    playTimeHours: number;
+    playTimeMinutes: number;
+    playTimeSeconds: number;
+    playTimeVBlanks?: number;
+    encryptionKey?: number;
+    pokedexMode: number;
+    pokedexNationalMagic: number;
+    location: number;
+    locationMapGroup: number;
+    locationMapNum: number;
+    partyCount: number;
+    party: number;
+    money: number;
+    coins: number;
+    registeredItem: number;
+    pcItems: number;
+    pokedexOwned: number;
+    pokedexSeen: number;
+    pokedexSeen1: number;
+    pokedexSeen2: number;
+    flags: number;
+    badgeFlagStart: number;
+    boxCurrent: number;
+    boxData: number;
+    boxNames: number;
+    boxWallpapers: number;
+  };
+  sectionIds: {
+    trainerInfo: number;
+    teamItems: number;
+    gameState: number;
+    pcBufferStart: number;
+    pcBufferEnd: number;
+  };
+  partyCountSize: 1 | 4;
+  quantityMask: "none" | "security-key-low16";
+  pcBoxCount: number;
+  pcBoxCapacity: number;
+  pcPokemonSize: number;
+  partyPokemonSize: number;
+  boxNameLength: number;
+}
+
 export const GEN1_SAVE_LAYOUTS = {
   redBlue: {
     generation: 1,
@@ -321,3 +372,155 @@ export const GEN2_SAVE_LAYOUTS = {
     },
   },
 } satisfies Record<string, Gen2SaveLayout>;
+
+export const GEN3_SAVE_LAYOUTS = {
+  rubySapphire: {
+    generation: 3,
+    gameProfile: "ruby-sapphire-en",
+    source: POKEMON_KNOWLEDGE_SOURCES.pretPokeruby,
+    offsets: {
+      trainerName: 0x0000,
+      trainerGender: 0x0008,
+      trainerId: 0x000a,
+      playTimeHours: 0x000e,
+      playTimeMinutes: 0x0010,
+      playTimeSeconds: 0x0011,
+      playTimeVBlanks: 0x0012,
+      pokedexMode: 0x0019,
+      pokedexNationalMagic: 0x001a,
+      location: 0x0004,
+      locationMapGroup: 0x0004,
+      locationMapNum: 0x0005,
+      partyCount: 0x0234,
+      party: 0x0238,
+      money: 0x0490,
+      coins: 0x0494,
+      registeredItem: 0x0496,
+      pcItems: 0x0498,
+      pokedexOwned: 0x0028,
+      pokedexSeen: 0x005c,
+      pokedexSeen1: 0x0938,
+      pokedexSeen2: 0x3a8c,
+      flags: 0x1220,
+      badgeFlagStart: 0x0807,
+      boxCurrent: 0x0000,
+      boxData: 0x0004,
+      boxNames: 0x8344,
+      boxWallpapers: 0x83c2,
+    },
+    sectionIds: {
+      trainerInfo: 0,
+      teamItems: 1,
+      gameState: 2,
+      pcBufferStart: 5,
+      pcBufferEnd: 13,
+    },
+    partyCountSize: 1,
+    quantityMask: "none",
+    pcBoxCount: 14,
+    pcBoxCapacity: 30,
+    pcPokemonSize: 80,
+    partyPokemonSize: 100,
+    boxNameLength: 9,
+  },
+  emerald: {
+    generation: 3,
+    gameProfile: "emerald-en",
+    source: POKEMON_KNOWLEDGE_SOURCES.pretPokeemerald,
+    offsets: {
+      trainerName: 0x0000,
+      trainerGender: 0x0008,
+      trainerId: 0x000a,
+      playTimeHours: 0x000e,
+      playTimeMinutes: 0x0010,
+      playTimeSeconds: 0x0011,
+      playTimeVBlanks: 0x0012,
+      encryptionKey: 0x00ac,
+      pokedexMode: 0x0019,
+      pokedexNationalMagic: 0x001a,
+      location: 0x0004,
+      locationMapGroup: 0x0004,
+      locationMapNum: 0x0005,
+      partyCount: 0x0234,
+      party: 0x0238,
+      money: 0x0490,
+      coins: 0x0494,
+      registeredItem: 0x0496,
+      pcItems: 0x0498,
+      pokedexOwned: 0x0028,
+      pokedexSeen: 0x005c,
+      pokedexSeen1: 0x0988,
+      pokedexSeen2: 0x3b24,
+      flags: 0x1270,
+      badgeFlagStart: 0x0867,
+      boxCurrent: 0x0000,
+      boxData: 0x0004,
+      boxNames: 0x8344,
+      boxWallpapers: 0x83c2,
+    },
+    sectionIds: {
+      trainerInfo: 0,
+      teamItems: 1,
+      gameState: 2,
+      pcBufferStart: 5,
+      pcBufferEnd: 13,
+    },
+    partyCountSize: 1,
+    quantityMask: "security-key-low16",
+    pcBoxCount: 14,
+    pcBoxCapacity: 30,
+    pcPokemonSize: 80,
+    partyPokemonSize: 100,
+    boxNameLength: 9,
+  },
+  fireRedLeafGreen: {
+    generation: 3,
+    gameProfile: "firered-leafgreen-en",
+    source: POKEMON_KNOWLEDGE_SOURCES.pretPokefirered,
+    offsets: {
+      trainerName: 0x0000,
+      trainerGender: 0x0008,
+      trainerId: 0x000a,
+      playTimeHours: 0x000e,
+      playTimeMinutes: 0x0010,
+      playTimeSeconds: 0x0011,
+      playTimeVBlanks: 0x0012,
+      encryptionKey: 0x0f20,
+      pokedexMode: 0x0019,
+      pokedexNationalMagic: 0x001b,
+      location: 0x0004,
+      locationMapGroup: 0x0004,
+      locationMapNum: 0x0005,
+      partyCount: 0x0034,
+      party: 0x0038,
+      money: 0x0290,
+      coins: 0x0294,
+      registeredItem: 0x0296,
+      pcItems: 0x0298,
+      pokedexOwned: 0x0028,
+      pokedexSeen: 0x005c,
+      pokedexSeen1: 0x05f8,
+      pokedexSeen2: 0x3a18,
+      flags: 0x0ee0,
+      badgeFlagStart: 0x0820,
+      boxCurrent: 0x0000,
+      boxData: 0x0004,
+      boxNames: 0x8344,
+      boxWallpapers: 0x83c2,
+    },
+    sectionIds: {
+      trainerInfo: 0,
+      teamItems: 1,
+      gameState: 2,
+      pcBufferStart: 5,
+      pcBufferEnd: 13,
+    },
+    partyCountSize: 1,
+    quantityMask: "security-key-low16",
+    pcBoxCount: 14,
+    pcBoxCapacity: 30,
+    pcPokemonSize: 80,
+    partyPokemonSize: 100,
+    boxNameLength: 9,
+  },
+} satisfies Record<string, Gen3SaveLayout>;

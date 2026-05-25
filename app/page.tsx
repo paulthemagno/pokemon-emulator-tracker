@@ -18,12 +18,13 @@ export default function Home() {
   const live = useLiveData(250);
   const [showInfo, setShowInfo] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const hasActiveLiveData = live.isPolling && Boolean(live.data);
   const activeSaveData = useMemo(() => {
-    if (!live.data) return saveData;
+    if (!hasActiveLiveData || !live.data) return saveData;
     return mergeLiveWithSavePcBoxes(live.data, saveData);
-  }, [live.data, saveData]);
-  const activeFilename = live.data ? "Live emulator memory" : filename;
-  const activeUpdated = live.lastUpdated ?? lastUpdated;
+  }, [hasActiveLiveData, live.data, saveData]);
+  const activeFilename = hasActiveLiveData ? "Live emulator memory" : filename;
+  const activeUpdated = hasActiveLiveData ? live.lastUpdated : lastUpdated;
 
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -37,13 +38,27 @@ export default function Home() {
   }, [clearData, live]);
 
   return (
-    <main className="min-h-screen">
+    <main className="relative min-h-screen overflow-hidden bg-background">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 bg-no-repeat opacity-20"
+        style={{
+          backgroundImage: "url('/pokemon-emulator-tracker-wallpaper.png')",
+          backgroundPosition: "top center",
+          backgroundSize: "min(900px, 92vw) auto",
+        }}
+      />
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Gamepad2 className="h-6 w-6 text-primary" />
+              <img
+                src="/logo.png"
+                alt="Pokemon Emulator Tracker logo"
+                className="h-10 w-10 rounded-md [image-rendering:pixelated]"
+                draggable={false}
+              />
               <div>
                 <h1 className="font-bold text-lg text-foreground">Pokemon Emulator Tracker</h1>
                 <p className="text-xs text-muted-foreground">Live emulator and save progress dashboard</p>
@@ -86,7 +101,7 @@ export default function Home() {
 
       {/* Info Banner */}
       {showInfo && (
-        <div className="bg-primary/10 border-b border-primary/20">
+        <div className="relative z-10 bg-primary/10 border-b border-primary/20">
           <div className="mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-2">
@@ -119,7 +134,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
         {/* Error Display */}
         {error && (
           <div className="mb-6 rounded-lg bg-destructive/10 border border-destructive/20 p-4">
@@ -197,7 +212,7 @@ export default function Home() {
               saveData={activeSaveData}
               filename={activeFilename}
               lastUpdated={activeUpdated}
-              isLive={Boolean(live.data)}
+              isLive={hasActiveLiveData}
             />
           </div>
         )}
@@ -212,7 +227,7 @@ export default function Home() {
       />
 
       {/* Footer */}
-      <footer className="border-t border-border mt-12">
+      <footer className="relative z-10 border-t border-border mt-12">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <p>Pokemon Emulator Tracker - Track game progress from saves and live emulator memory</p>

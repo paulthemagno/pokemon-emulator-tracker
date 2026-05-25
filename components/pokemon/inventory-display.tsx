@@ -5,7 +5,7 @@ import { InventoryItem, InventorySection } from "@/lib/pokemon/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Backpack, Key, CircleDot, Disc, Cherry } from "lucide-react";
+import { Backpack, Key, CircleDot, Disc, Cherry, BoxIcon } from "lucide-react";
 import { ItemIcon } from "./item-icon";
 import { ItemInfoTooltip } from "./item-info-tooltip";
 
@@ -16,6 +16,7 @@ interface InventoryDisplayProps {
 }
 
 const POCKET_ICONS: Record<string, React.ReactNode> = {
+  "PC Items": <BoxIcon className="h-4 w-4" />,
   Items: <Backpack className="h-4 w-4" />,
   "Key Items": <Key className="h-4 w-4" />,
   "Poke Balls": <CircleDot className="h-4 w-4" />,

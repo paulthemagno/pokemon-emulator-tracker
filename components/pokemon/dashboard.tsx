@@ -60,7 +60,7 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
     0
   );
   const dexCount = saveData.pokedex?.caughtCount ?? 0;
-  const dexMax = saveData.generation === 1 ? 151 : saveData.generation === 2 ? 251 : 386;
+  const dexMax = saveData.pokedex?.dexMax ?? (saveData.generation === 1 ? 151 : saveData.generation === 2 ? 251 : 386);
 
   return (
     <div className="space-y-6">
@@ -93,7 +93,7 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
             game={saveData.game}
             compact
           />
-          <TrainerMapCard location={saveData.location} generation={saveData.generation} />
+          <TrainerMapCard location={saveData.location} generation={saveData.generation} game={saveData.game} />
         </div>
       </DashboardSection>
 

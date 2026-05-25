@@ -55,6 +55,14 @@ function live(pcBoxes: PCBox[]): SaveData {
   };
 }
 
+function gen3Live(pcBoxes: PCBox[]): SaveData {
+  return {
+    ...live(pcBoxes),
+    generation: 3,
+    game: "ruby",
+  };
+}
+
 test("live polling keeps previously seen Gen 1 boxes when only current WRAM box is readable", () => {
   const previous = live([
     box(1, [pokemon(25)], true),
@@ -74,4 +82,108 @@ test("live polling keeps previously seen Gen 1 boxes when only current WRAM box 
   assert.equal(merged.pcBoxes[1].pokemon[0]?.species, 150);
   assert.equal(merged.pcBoxes[1].isCurrent, true);
   assert.equal(merged.pcBoxes[1].name, "Box 2");
+});
+
+test("live polling accepts Hoenn Petalburg City at map group zero and map id zero", () => {
+  const previous = live([]);
+  const next: SaveData = {
+    ...live([]),
+    generation: 3,
+    game: "ruby",
+    location: { mapGroup: 0, mapId: 0, name: "PETALBURG CITY", x: 12, y: 8 },
+  };
+
+  const merged = mergeLiveData(previous, next);
+
+  assert.equal(merged.location.mapGroup, 0);
+  assert.equal(merged.location.mapId, 0);
+  assert.equal(merged.location.name, "PETALBURG CITY");
+});
+
+test("live polling drops stale Gen 3 PC boxes when the adapter cannot resolve storage", () => {
+  const previous = gen3Live([
+    box(1, [pokemon(1)], false),
+    box(2, [pokemon(4)], false),
+  ]);
+  const next = gen3Live([]);
+
+  const merged = mergeLiveData(previous, next);
+
+  assert.equal(merged.pcBoxes.length, 0);
+});
+
+test("live polling accepts forward play-time jumps from a refreshed live source", () => {
+  const previous = gen3Live([]);
+  const next = {
+    ...gen3Live([]),
+    trainer: {
+      ...previous.trainer,
+      playTime: { hours: 2, minutes: 15, seconds: 30 },
+    },
+  };
+
+  const merged = mergeLiveData(previous, next);
+
+  assert.deepEqual(merged.trainer.playTime, { hours: 2, minutes: 15, seconds: 30 });
+});
+
+test("live polling resets stale state when switching Gen 3 games", () => {
+  const previous = {
+    ...gen3Live([box(1, [pokemon(1)], true)]),
+    game: "ruby" as const,
+    trainer: {
+      ...gen3Live([]).trainer,
+      name: "RUBY",
+      money: 1234,
+    },
+    party: [pokemon(25)],
+  };
+  const next = {
+    ...gen3Live([]),
+    game: "emerald" as const,
+    trainer: {
+      ...gen3Live([]).trainer,
+      name: "EMER",
+      money: 99,
+    },
+    inventory: [],
+  };
+
+  const merged = mergeLiveData(previous, next);
+
+  assert.equal(merged.game, "emerald");
+  assert.equal(merged.trainer.name, "EMER");
+  assert.equal(merged.trainer.money, 99);
+  assert.deepEqual(merged.party, []);
+  assert.deepEqual(merged.pcBoxes, []);
+});
+
+test("live polling resets stale state when switching incompatible games", () => {
+  const previous = {
+    ...live([box(1, [pokemon(25)], true)]),
+    generation: 2 as const,
+    game: "crystal" as const,
+    trainer: {
+      ...live([]).trainer,
+      name: "KRIS",
+    },
+    party: [pokemon(152)],
+  };
+  const next = {
+    ...live([]),
+    generation: 3 as const,
+    game: "emerald" as const,
+    trainer: {
+      ...live([]).trainer,
+      name: "EMER",
+    },
+  };
+
+  const merged = mergeLiveData(previous, next);
+
+  assert.equal(merged.generation, 3);
+  assert.equal(merged.game, "emerald");
+  assert.equal(merged.trainer.name, "EMER");
+  assert.deepEqual(merged.party, []);
+  assert.deepEqual(merged.pcBoxes, []);
 });

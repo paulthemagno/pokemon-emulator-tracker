@@ -220,7 +220,7 @@
     "rubySapphire": {
       "generation": 3,
       "gameProfile": "ruby-sapphire-en",
-      "sourceKey": "gen3SaveReference",
+      "sourceKey": "pretPokeruby",
       "pockets": [
         {
           "name": "PC Items",
@@ -269,7 +269,7 @@
     "emerald": {
       "generation": 3,
       "gameProfile": "emerald-en",
-      "sourceKey": "gen3SaveReference",
+      "sourceKey": "pretPokeemerald",
       "pockets": [
         {
           "name": "PC Items",
@@ -318,7 +318,7 @@
     "fireRedLeafGreen": {
       "generation": 3,
       "gameProfile": "firered-leafgreen-en",
-      "sourceKey": "gen3SaveReference",
+      "sourceKey": "pretPokefirered",
       "pockets": [
         {
           "name": "PC Items",

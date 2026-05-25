@@ -8,11 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { Sparkles, Egg, Heart } from "lucide-react";
+import { Sparkles, Heart, Skull } from "lucide-react";
 import Image from "next/image";
 import { ItemIcon } from "./item-icon";
 import { ItemInfoTooltip } from "./item-info-tooltip";
 import { MoveInfoTooltip } from "./move-info-tooltip";
+import { getEggSpriteUrl, getPokemonSpriteUrl } from "@/lib/pokemon/forms";
 
 interface PokemonCardProps {
   pokemon: Pokemon;
@@ -30,14 +31,6 @@ function getHpColor(current: number, max: number): string {
   if (percentage > 50) return "bg-green-500";
   if (percentage > 20) return "bg-yellow-500";
   return "bg-red-500";
-}
-
-function getSpriteUrl(species: number): string {
-  // Use PokeAPI sprites
-  if (species <= 0 || species > 386) {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/0.png`;
-  }
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${species}.png`;
 }
 
 function getStatusText(status: Pokemon["status"] | number): string | null {
@@ -123,11 +116,22 @@ export function PokemonCard({
   const currentHP = pokemon.currentHP ?? (pokemon as any).currentHp ?? 0;
   const maxHP = pokemon.maxHP ?? (pokemon as any).maxHp ?? 0;
   const hpPercentage = maxHP > 0 ? (currentHP / maxHP) * 100 : 100;
+  const isFainted = !pokemon.isEgg && maxHP > 0 && currentHP <= 0;
   const heldItemName = pokemon.heldItemName ?? (pokemon as any).heldItem?.name;
   const speciesData = getSpeciesById(pokemon.species);
   const pokemonTypes = pokemon.types?.length ? pokemon.types : speciesData.types;
   const primaryType = pokemonTypes[0] ?? "???";
   const secondaryType = pokemonTypes[1];
+  const displayName = pokemon.isEgg
+    ? pokemon.species > 0
+      ? `Egg (${pokemon.speciesName})`
+      : "Egg"
+    : pokemon.nickname;
+  const subtitle = pokemon.isEgg && pokemon.species > 0
+    ? `Will hatch into ${pokemon.speciesName}`
+    : pokemon.nickname !== pokemon.speciesName
+      ? pokemon.speciesName
+      : null;
   const primaryTypeColor = getTypeColor(primaryType);
   const expWindow = getExpWindow(pokemon.level, pokemon.experience, speciesData.growthRate);
   const currentLevelExp = expWindow.current;
@@ -156,26 +160,60 @@ export function PokemonCard({
     return (
       <div
         className={cn(
-          "flex items-center gap-3 rounded-lg bg-muted/50 p-2 hover:bg-muted/80 transition-colors",
+          "relative flex items-center gap-3 rounded-lg bg-muted/50 p-2 transition-colors hover:bg-muted/80",
+          isFainted && "border border-red-500/60 bg-red-950/20 shadow-[inset_3px_0_0_rgba(239,68,68,0.75)]",
           className
         )}
       >
         <div className="relative h-10 w-10 flex-shrink-0">
-          <Image
-            src={getSpriteUrl(pokemon.species)}
-            alt={pokemon.speciesName}
-            fill
-            className="pixelated object-contain"
-            unoptimized
-          />
+          {pokemon.species > 0 && (
+            <Image
+              src={getPokemonSpriteUrl(pokemon)}
+              alt={pokemon.speciesName}
+              fill
+              className={cn(
+                "pixelated object-contain",
+                pokemon.isEgg && "translate-x-1 translate-y-1 scale-90 opacity-55",
+                isFainted && "grayscale"
+              )}
+              unoptimized
+            />
+          )}
+          {pokemon.isEgg && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Image
+                src={getEggSpriteUrl()}
+                alt="Egg"
+                width={34}
+                height={34}
+                className="pixelated -translate-x-1 -translate-y-1 drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]"
+                unoptimized
+              />
+            </div>
+          )}
+          {isFainted && (
+            <div className="absolute -inset-1 rounded-lg border border-red-400/70 shadow-[0_0_18px_rgba(239,68,68,0.35)]" />
+          )}
+          {isFainted && (
+            <div className="absolute -right-1 -top-1 rounded-full border border-background bg-red-500 p-0.5 text-white shadow">
+              <Skull className="h-3.5 w-3.5" />
+            </div>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <span className="text-sm font-medium truncate">{pokemon.nickname}</span>
+            <span className="text-sm font-medium truncate">{displayName}</span>
             {pokemon.isShiny && <Sparkles className="h-3 w-3 text-amber-400" />}
+            {isFainted && (
+              <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-red-300">
+                FNT
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs text-muted-foreground">Lv.{pokemon.level}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {pokemon.isEgg ? subtitle ?? "Egg" : `Lv.${pokemon.level}`}
+            </span>
             {maxHP > 0 && (
               <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-20">
                 <div
@@ -194,6 +232,7 @@ export function PokemonCard({
     <Card
       className={cn(
         "group overflow-hidden border-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl",
+        isFainted && "border-red-500/75 shadow-[0_0_0_1px_rgba(239,68,68,0.28),0_20px_60px_rgba(127,29,29,0.18)]",
         className
       )}
       style={getCardBackground(primaryType, secondaryType)}
@@ -209,6 +248,9 @@ export function PokemonCard({
                 : primaryTypeColor,
             }}
           />
+          {isFainted && (
+            <div className="absolute inset-x-0 top-1 h-1 bg-red-500/80" />
+          )}
           {/* Sprite */}
           <div className="relative flex-shrink-0">
             <div
@@ -218,13 +260,39 @@ export function PokemonCard({
                 borderColor: `${primaryTypeColor}44`,
               }}
             >
-              <Image
-                src={getSpriteUrl(pokemon.species)}
-                alt={pokemon.speciesName}
-                fill
-                className="pixelated object-contain p-0.5 drop-shadow-[0_10px_18px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-110"
-                unoptimized
-              />
+              {pokemon.species > 0 && (
+                <Image
+                  src={getPokemonSpriteUrl(pokemon)}
+                  alt={pokemon.speciesName}
+                  fill
+                  className={cn(
+                    "pixelated object-contain p-0.5 drop-shadow-[0_10px_18px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-110",
+                    pokemon.isEgg && "translate-x-2 translate-y-2 scale-90 opacity-55",
+                    isFainted && "grayscale"
+                  )}
+                  unoptimized
+                />
+              )}
+              {pokemon.isEgg && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Image
+                    src={getEggSpriteUrl()}
+                    alt="Egg"
+                    width={48}
+                    height={48}
+                    className="pixelated -translate-x-1 -translate-y-1 drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]"
+                    unoptimized
+                  />
+                </div>
+              )}
+              {isFainted && (
+                <div className="absolute -inset-1 rounded-xl border border-red-400/80 shadow-[0_0_20px_rgba(239,68,68,0.35)]" />
+              )}
+              {isFainted && (
+                <div className="absolute -right-1.5 -top-1.5 rounded-full border-2 border-background bg-red-500 p-1 text-white shadow-lg">
+                  <Skull className="h-4 w-4" />
+                </div>
+              )}
             </div>
             {index !== undefined && (
               <div
@@ -241,17 +309,19 @@ export function PokemonCard({
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="truncate text-xl font-black tracking-normal text-foreground">
-                  {pokemon.nickname}
+                  {displayName}
                 </h3>
                 {pokemon.isShiny && (
                   <Sparkles className="h-4 w-4 flex-shrink-0 text-amber-400" />
                 )}
-                {(pokemon as any).isEgg && (
-                  <Egg className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                {isFainted && (
+                  <Badge className="rounded-md border border-red-400/50 bg-red-500/15 px-2 py-0.5 text-[11px] font-black uppercase text-red-300">
+                    Fainted
+                  </Badge>
                 )}
               </div>
-              {pokemon.nickname !== pokemon.speciesName && (
-                <p className="truncate text-sm text-muted-foreground">{pokemon.speciesName}</p>
+              {subtitle && (
+                <p className="truncate text-sm text-muted-foreground">{subtitle}</p>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">

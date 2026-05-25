@@ -15,6 +15,8 @@ local BOX_NAMES_TOTAL_LENGTH = BOX_NAME_LENGTH * NUM_BOXES
 local BOX_RECORD_SIZE = 1 + BOX_CAPACITY + 1 + (BOX_CAPACITY * BOX_MON_SIZE) + (BOX_CAPACITY * NAME_SIZE * 2)
 local POKEDEX_FLAGS_FROM_PARTY_COUNT = 0x1C2
 local GEN2_NUM_SPECIES = 251
+local UNOWN_SPECIES = 201
+local GEN2_EGG_SPECIES = 0xfd
 local POKEDEX_FLAG_BYTES = math.floor((GEN2_NUM_SPECIES + 7) / 8)
 local CURRENT_BOX_OFFSET = 0x2D10
 local BOX_SCAN_START = 0x2400
@@ -27,6 +29,10 @@ local SRAM_BANK_SIZE = 0x2000
 local SRAM_WINDOW = 0xA000
 local GEN2_MACHINE_ITEM_IDS = nil
 local OFFSET_PROFILES = nil
+local UNOWN_FORM_LABELS = {
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N",
+  "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+}
 
 local GB_CHARS = {
   [0x7f] = " ", [0x80] = "A", [0x81] = "B", [0x82] = "C", [0x83] = "D",
@@ -79,6 +85,21 @@ local function log(message)
     if ok then return end
   end
   pcall(print, message)
+end
+
+local function gen2_unown_form(ivs)
+  local attack = math.floor(ivs / 0x1000) % 0x10
+  local defense = math.floor(ivs / 0x100) % 0x10
+  local speed = math.floor(ivs / 0x10) % 0x10
+  local special = ivs % 0x10
+  local composite =
+    ((math.floor(attack / 2) % 4) * 64) +
+    ((math.floor(defense / 2) % 4) * 16) +
+    ((math.floor(speed / 2) % 4) * 4) +
+    (math.floor(special / 2) % 4)
+  local form = math.floor(composite / 10)
+  if form > 25 then form = 25 end
+  return form
 end
 
 local function call_if_exists(target, method, value)
@@ -600,11 +621,30 @@ read_party = function()
   for slot = 0, count - 1 do
     local address = offsets.partyMon1 + (slot * PARTY_MON_SIZE)
     local species = read8(address)
-    if species > 0 and species < 252 then
+    if species == GEN2_EGG_SPECIES then
       local nickname = read_name(offsets.partyNicknames + (slot * NAME_SIZE))
+      table.insert(party, {
+        speciesID = 0,
+        speciesName = "Egg",
+        nickname = nickname ~= "" and nickname or "Egg",
+        isEgg = true,
+        level = 0,
+        moves = {},
+      })
+    elseif species > 0 and species < 252 then
+      local nickname = read_name(offsets.partyNicknames + (slot * NAME_SIZE))
+      local ivs = read16be(address + 0x15)
+      local form = nil
+      local formName = nil
+      if species == UNOWN_SPECIES then
+        form = gen2_unown_form(ivs)
+        formName = UNOWN_FORM_LABELS[form + 1]
+      end
       table.insert(party, {
         speciesID = species,
         nickname = nickname ~= "" and nickname or ("Pokemon " .. tostring(species)),
+        form = form,
+        formName = formName,
         heldItem = read8(address + 0x01),
         level = read8(address + 0x1F),
         status = read8(address + 0x20),
@@ -848,12 +888,33 @@ end
 
 local function read_box_pokemon_at_offset(address, nickname, originalTrainer)
   local species = read_sram_offset8(address)
+  if species == GEN2_EGG_SPECIES then
+    return {
+      speciesID = 0,
+      speciesName = "Egg",
+      nickname = nickname ~= "" and nickname or "Egg",
+      originalTrainer = originalTrainer,
+      originalTrainerID = read_sram_offset16be(address + 0x06),
+      isEgg = true,
+      level = 0,
+      moves = {},
+    }
+  end
   if species <= 0 or species == 0xff or species > 251 then return nil end
+  local ivs = read_sram_offset16be(address + 0x15)
+  local form = nil
+  local formName = nil
+  if species == UNOWN_SPECIES then
+    form = gen2_unown_form(ivs)
+    formName = UNOWN_FORM_LABELS[form + 1]
+  end
 
   return {
     speciesID = species,
     nickname = nickname ~= "" and nickname or ("Pokemon " .. tostring(species)),
     originalTrainer = originalTrainer,
+    form = form,
+    formName = formName,
     heldItem = read_sram_offset8(address + 0x01),
     moves = {
       { id = read_sram_offset8(address + 0x02), pp = read_sram_offset8(address + 0x17) % 64 },
@@ -880,7 +941,7 @@ local function parse_pc_box_record(offset, name)
 
   for slot = 0, count - 1 do
     local species = read_sram_offset8(offset + 1 + slot)
-    if species <= 0 or species == 0xff or species > 251 then return nil end
+    if species ~= GEN2_EGG_SPECIES and (species <= 0 or species == 0xff or species > 251) then return nil end
 
     local nickname = read_sram_offset_name(nicknamesOffset + (slot * NAME_SIZE))
     local originalTrainer = read_sram_offset_name(otNamesOffset + (slot * NAME_SIZE))
@@ -961,7 +1022,7 @@ function read_current_pc_box()
 
   for slot = 0, count - 1 do
     local species = read_sram_offset8(CURRENT_BOX_OFFSET + 1 + slot)
-    if species > 0 and species < 252 then
+    if species == GEN2_EGG_SPECIES or (species > 0 and species < 252) then
       local pokemonDataOffset = CURRENT_BOX_OFFSET + 1 + BOX_CAPACITY + 1
       local otNamesOffset = pokemonDataOffset + (BOX_CAPACITY * BOX_MON_SIZE)
       local nicknamesOffset = otNamesOffset + (BOX_CAPACITY * NAME_SIZE)

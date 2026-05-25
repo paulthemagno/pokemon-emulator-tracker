@@ -39,7 +39,7 @@ type OllamaChatResponse = {
 export class OllamaProvider implements ChatProvider {
   name = 'Ollama (Local)';
   private endpoint: string = 'http://127.0.0.1:11434';
-  private modelName: string = 'mistral';
+  private modelName: string = 'gemma4:latest';
   private maxTokens: number = 2048;
   private temperature: number = 0.7;
   private ready: boolean = false;

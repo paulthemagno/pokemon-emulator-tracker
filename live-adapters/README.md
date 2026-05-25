@@ -14,6 +14,37 @@ Run `pokemon-memory-reader` in BizHawk as described in its repository. This app 
 
 Press **Start Live** in the UI once the Lua server is running.
 
+## mGBA Gen 3 (Ruby/Sapphire/Emerald/FireRed/LeafGreen)
+
+Load `mgba-gen3-live.lua` in mGBA:
+
+1. Open Pokemon Ruby, Sapphire, Emerald, FireRed, or LeafGreen in mGBA.
+2. Open `Tools -> Scripting...`.
+3. Load `live-adapters/mgba-gen3-live.lua`.
+4. Keep the script running and press **Start Live** in the app.
+
+The adapter serves `GET /snapshot` on `127.0.0.1:8080` and exposes trainer info, badges, play time, party, PC boxes, bag pockets, PC item storage, Pokedex flags, regional/National Pokedex mode, current `mapGroup` / `mapId`, and SaveBlock1 player `pos.x` / `pos.y` for source-matched region-map marker placement.
+
+The offset profile is loaded from `live-adapters/generated/gen3-live-offsets.lua`, generated from `lib/pokemon/knowledge/sources/save-layouts.json`, `inventory-layouts.json`, and `species-id-maps.json`.
+
+The script polls the local socket on a short wall-clock throttle and builds snapshots lazily when a client request arrives. Runtime SaveBlock and PokemonStorage scans are incremental, so the adapter does not sweep all EWRAM in one frame while the emulator is running. Ruby/Sapphire PC storage uses generated priority candidates plus structural validation, rather than a full runtime EWRAM sweep. The candidates are validated against the official `struct PokemonStorage` layout: `currentBox`, `boxes`, `boxNames`, and wallpaper bytes. Candidates with only empty or invalid records are rejected instead of being forced. GBA live reads prefer mGBA absolute bus reads and only fall back to the WRAM memory domain, because the exposed WRAM domain can vary across mGBA builds.
+
+If you switch between Ruby/Sapphire, Emerald, FireRed, and LeafGreen while the Lua script is still loaded, the adapter re-reads the ROM title and clears cached runtime addresses before building the next snapshot.
+
+For Gen 3 PC storage debugging, use:
+
+```text
+GET http://127.0.0.1:8080/debug/storage
+```
+
+It returns the best runtime `PokemonStorage` candidates, their decoded box names, and sampled boxed Pokemon records.
+
+Ruby/Sapphire use fixed SaveBlock1 and SaveBlock2 addresses documented in `pret/pokeruby` `include/global.h`. Emerald uses the ASLR saveblock model documented in `pret/pokeemerald` `src/load_save.c`: the Lua adapter reads `gSaveBlock1Ptr`, `gSaveBlock2Ptr`, and `gPokemonStoragePtr` from the runtime pointer table for every snapshot, then applies the source-backed struct offsets. FireRed/LeafGreen use the same ASLR move range and moving pointer model documented in `pret/pokefirered` `src/load_save.c`, with struct offsets from `include/global.h`, PC storage geometry from `include/pokemon_storage_system.h`, and 43 valid map groups from `data/maps/map_groups.json`. Do not replace these with guessed fixed addresses or cache pointed ASLR SaveBlock addresses across snapshots.
+
+Gen 3 boxed and party Pokemon use the canonical encrypted `BoxPokemon` layout: 80-byte boxed records, 100-byte party records, XOR-decrypted secure substructures, `personality % 24` substructure order, checksum validation, internal-species-to-National-Dex mapping from the generated species map, the source-backed egg flags from the BoxPokemon flag byte plus encrypted misc substructure, and Unown form calculation from the personality value. Boxed Pokemon include a zero-based `slotIndex` in the live payload so the UI can preserve empty slots in the 6x5 PC grid instead of compacting stored Pokemon.
+
+Gen 3 trainer names, Pokemon nicknames, OT names, and box names use the Gen 3 character table shared with the save parser. Keep the Lua table aligned with `lib/pokemon/utils.ts`.
+
 ## mGBA Gen 2 (Gold/Silver/Crystal)
 
 Load `mgba-gen2-live.lua` in mGBA:
@@ -39,6 +70,8 @@ The file includes the full live snapshot plus raw money bytes so you can inspect
 
 The app polls once per second by default. HP, levels, party composition, held items, bag contents, and PC boxes update when emulator memory changes.
 
+Gen 3 live party data is read from active `gPlayerParty` RAM before falling back to `SaveBlock1.playerParty`. This matters for healing and party-menu edits because the game updates the active party immediately and serializes the SaveBlock copy later. To reduce mGBA audio jitter, the Gen 3 adapter keeps party/player/location on the fast snapshot path and refreshes heavier bag, Pokedex, and PC box sections through a short cache.
+
 Gold/Silver and Crystal use different WRAM layouts for live memory. The adapter detects the ROM title and selects a matching offset profile for player, party, bag, badges, map, and Pokedex reads; PC box SRAM records stay shared across Gen 2. The Gold/Silver live profile follows the public Data Crystal RAM map for trainer data, bag, map coordinates, party, and Pokedex flags.
 
 The WRAM profiles and Gen 2 TM/HM item ID sequence are loaded from `live-adapters/generated/gen2-live-offsets.lua`. Regenerate that file with `corepack pnpm generate:pokemon-knowledge` after changing `lib/pokemon/knowledge/sources/save-layouts.json` or inventory source manifests.
@@ -56,6 +89,7 @@ The mGBA adapter currently exposes:
 - party species, nickname, HP, stats, EXP, status, held item, happiness, moves
 - PC box species, nicknames, original trainer, EXP, held items, happiness, moves
 - PC box names are read from live WRAM when available, with a generic fallback if the scan fails; uploaded Gen 2 save files can also show stored box names.
+- Gen 2 eggs use the special `EGG` species ID, and Unown form labels are derived from the DVs.
 - bag pockets: Items, Key Items, Poke Balls, TMs/HMs
 - PC item storage from SRAM as a separate `PC Storage` inventory section
 - live map group / map id / local X/Y

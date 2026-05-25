@@ -17,6 +17,19 @@ import {
   getGen1MapLandmark,
   getGen1TownMapPixel,
 } from "@/lib/pokemon/data/gen1-map-landmarks";
+import {
+  GEN3_REGION_MAP_HEIGHT,
+  GEN3_REGION_MAP_WIDTH,
+  getGen3MapLandmark,
+  getGen3RegionMapPixel,
+} from "@/lib/pokemon/data/gen3-map-landmarks";
+import {
+  GEN3_FRLG_MAP_ASSETS,
+  GEN3_FRLG_REGION_MAP_HEIGHT,
+  GEN3_FRLG_REGION_MAP_WIDTH,
+  getGen3FRLGMapLandmark,
+  getGen3FRLGRegionMapPixel,
+} from "@/lib/pokemon/data/gen3-frlg-map-landmarks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -115,8 +128,27 @@ const GEN2_BADGE_DESCRIPTORS: BadgeDescriptor[] = [
   { name: "Earth Badge", shortName: "Earth", sprite: "/badges/earth.png" },
 ];
 
-function getBadgeState(generation: Generation, index: number): BadgeDescriptor {
-  const descriptors = generation === 1 ? GEN1_BADGE_DESCRIPTORS : GEN2_BADGE_DESCRIPTORS;
+const GEN3_BADGE_DESCRIPTORS: BadgeDescriptor[] = [
+  { name: "Stone Badge", shortName: "Stone", sprite: "/badges/stone.svg" },
+  { name: "Knuckle Badge", shortName: "Knuckle", sprite: "/badges/knuckle.svg" },
+  { name: "Dynamo Badge", shortName: "Dynamo", sprite: "/badges/dynamo.svg" },
+  { name: "Heat Badge", shortName: "Heat", sprite: "/badges/heat.svg" },
+  { name: "Balance Badge", shortName: "Balance", sprite: "/badges/balance.svg" },
+  { name: "Feather Badge", shortName: "Feather", sprite: "/badges/feather.svg" },
+  { name: "Mind Badge", shortName: "Mind", sprite: "/badges/mind.svg" },
+  { name: "Rain Badge", shortName: "Rain", sprite: "/badges/rain.svg" },
+];
+
+function isFireRedLeafGreen(game?: GameVersion) {
+  return game === "firered" || game === "leafgreen";
+}
+
+function getBadgeState(generation: Generation, index: number, game?: GameVersion): BadgeDescriptor {
+  const descriptors =
+    generation === 1 ? GEN1_BADGE_DESCRIPTORS :
+    generation === 3 && isFireRedLeafGreen(game) ? GEN1_BADGE_DESCRIPTORS :
+    generation === 3 ? GEN3_BADGE_DESCRIPTORS :
+    GEN2_BADGE_DESCRIPTORS;
   const badge = descriptors[index] ?? descriptors[index % descriptors.length];
   return badge;
 }
@@ -168,35 +200,81 @@ function PlayerMapMarker({
 function MiniMap({
   location,
   generation,
+  game,
   compact = false,
 }: {
   location?: LocationInfo | string;
   generation: Generation;
+  game?: GameVersion;
   compact?: boolean;
 }) {
   const locationName = typeof location === "string" ? location : location?.name;
   const mapGroup = typeof location === "string" ? undefined : location?.mapGroup;
   const mapId = typeof location === "string" ? undefined : location?.mapId;
+  if (generation === 3) {
+    const label = getMapLabel(locationName);
+    const isFRLG = isFireRedLeafGreen(game);
+    const landmark = isFRLG ? getGen3FRLGMapLandmark(mapGroup, mapId) : getGen3MapLandmark(mapGroup, mapId);
+    const point = landmark
+      ? isFRLG
+        ? getGen3FRLGRegionMapPixel(landmark, typeof location === "string" ? undefined : location)
+        : getGen3RegionMapPixel(landmark, typeof location === "string" ? undefined : location)
+      : null;
+    const mapLabel = landmark?.name ? landmark.name.replace(/\s+/g, " ") : label;
+    const frlgMapAsset = isFRLG && landmark ? GEN3_FRLG_MAP_ASSETS[landmark.mapView] : GEN3_FRLG_MAP_ASSETS.kanto;
+    const mapSrc = isFRLG ? frlgMapAsset.src : "/maps/hoenn-map-emerald.svg";
+    const mapAlt = isFRLG ? frlgMapAsset.alt : "Hoenn region map from Pokemon Emerald";
+    const mapTitle = isFRLG ? `${frlgMapAsset.label} Map` : "Hoenn Map";
+    const mapWidth = isFRLG ? GEN3_FRLG_REGION_MAP_WIDTH : GEN3_REGION_MAP_WIDTH;
+    const mapHeight = isFRLG ? GEN3_FRLG_REGION_MAP_HEIGHT : GEN3_REGION_MAP_HEIGHT;
+
+    return (
+      <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
+        <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
+          <div>
+            <p className="text-xs font-semibold uppercase text-[#506033]">{mapTitle}</p>
+            <p className="text-sm font-bold text-[#182410]">{mapLabel}</p>
+          </div>
+          <MapPin className="h-4 w-4 text-[#2f6f28]" />
+        </div>
+        <div className={`relative overflow-hidden rounded-md border-[#182410] bg-[#6f9f48] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)] ${compact ? "border-2 p-1.5" : "border-4 p-2"}`}>
+          <div className={`relative mx-auto aspect-[240/160] w-full overflow-hidden rounded-sm bg-[#93c66d] ${isFRLG ? "" : "border-2 border-[#f8f0b8]"} ${compact ? "max-w-[360px]" : "max-w-[560px]"}`}>
+            <img
+              src={mapSrc}
+              alt={mapAlt}
+              className="h-full w-full object-contain [image-rendering:pixelated]"
+              draggable={false}
+            />
+            {point && (
+              <PlayerMapMarker
+                height={mapHeight}
+                width={mapWidth}
+                x={point.x}
+                y={point.y}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (generation === 1) {
     const label = getMapLabel(locationName);
     const numericMapId = Number(mapId);
     const landmark = getGen1MapLandmark(Number.isFinite(numericMapId) ? numericMapId : undefined);
     const point = landmark ? getGen1TownMapPixel(landmark) : null;
     const mapLabel = landmark?.name ?? label;
+    const mapTitle = "Kanto Map";
 
     return (
       <div className={`rounded-lg border border-[#6d7864] bg-[#d7d7c8] text-[#1d241c] ${compact ? "p-2.5" : "p-3"}`}>
         <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
           <div>
-            <p className="text-xs font-semibold uppercase text-[#5c654c]">Kanto Location</p>
+            <p className="text-xs font-semibold uppercase text-[#5c654c]">{mapTitle}</p>
             <p className="text-sm font-bold text-[#1d241c]">{mapLabel}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-sm border border-[#8c9478] bg-[#eeeecc] px-2 py-0.5 text-[10px] font-bold uppercase text-[#5c654c]">
-              Map {Number.isFinite(Number(mapId)) ? `M${mapId}` : "M?"}
-            </span>
-            <MapPin className="h-4 w-4 text-[#4f5e36]" />
-          </div>
+          <MapPin className="h-4 w-4 text-[#4f5e36]" />
         </div>
         <div className={`relative overflow-hidden rounded-md border-[#182410] bg-[#6f9f48] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)] ${compact ? "border-2 p-1.5" : "border-4 p-2"}`}>
           <div className="relative mx-auto aspect-[160/144] w-full max-w-[420px] overflow-hidden rounded-sm border-2 border-[#eeeecc] bg-[#c9dc99]">
@@ -215,9 +293,6 @@ function MiniMap({
               />
             )}
           </div>
-          <p className="mt-1.5 text-[10px] font-semibold uppercase text-[#4f5e36]">
-            Town Map {landmark ? `X${landmark.x} / Y${landmark.y}` : "position pending"}
-          </p>
         </div>
       </div>
     );
@@ -226,20 +301,16 @@ function MiniMap({
   const landmark = getGen2MapLandmark(mapGroup, mapId, locationName);
   const label = landmark?.name ?? getMapLabel(locationName);
   const mapRegion = landmark?.region === "kanto" ? "kanto" : "johto";
+  const mapTitle = mapRegion === "kanto" ? "Kanto Map" : "Johto Map";
 
   return (
     <div className={`rounded-lg border border-[#617b38] bg-[#d7e7b6] text-[#182410] ${compact ? "p-2.5" : "p-3"}`}>
       <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-2"}`}>
         <div>
-          <p className="text-xs font-semibold uppercase text-[#506033]">Pokégear Map</p>
+          <p className="text-xs font-semibold uppercase text-[#506033]">{mapTitle}</p>
           <p className="text-sm font-bold text-[#182410]">{label}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-sm border border-[#7d8f46] bg-[#eef8bf] px-2 py-0.5 text-[10px] font-bold uppercase text-[#506033]">
-            Debug {mapGroup ? `G${mapGroup}` : "G?"} / {mapId ? `M${mapId}` : "M?"}
-          </span>
-          <MapPin className="h-4 w-4 text-[#2f6f28]" />
-        </div>
+        <MapPin className="h-4 w-4 text-[#2f6f28]" />
       </div>
       <div className={`relative overflow-hidden rounded-md border-[#182410] bg-[#6f9f48] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.35)] ${compact ? "border-2 p-1.5" : "border-4 p-2"}`}>
         <div className={`relative mx-auto aspect-[160/144] w-full overflow-hidden rounded-sm border-2 border-[#f8f0b8] bg-[#93c66d] ${compact ? "max-w-[400px]" : "max-w-[720px]"}`}>
@@ -266,13 +337,15 @@ function MiniMap({
 export function TrainerMapCard({
   location,
   generation,
+  game,
 }: {
   location?: LocationInfo | string;
   generation: Generation;
+  game?: GameVersion;
 }) {
   if (!location) return null;
 
-  return <MiniMap location={location} generation={generation} compact />;
+  return <MiniMap location={location} generation={generation} game={game} compact />;
 }
 
 export function TrainerCard({ trainer, generation, game, location, compact = false }: TrainerCardProps) {
@@ -337,10 +410,10 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                   <div className="flex min-w-0 flex-wrap gap-1.5">
                     {Array.from({ length: totalBadges }).map((_, i) => {
                       const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
-                      const badge = getBadgeState(generation, i);
+                      const badge = getBadgeState(generation, i, game);
                       return (
                         <div
-                          key={badge.name}
+                          key={`${generation}-badge-${i}`}
                           className={`w-11 text-center ${earned ? "" : "opacity-45 grayscale"}`}
                           title={badge.name}
                         >
@@ -440,12 +513,12 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
           <div className="grid grid-cols-[repeat(auto-fit,minmax(70px,1fr))] gap-2">
             {Array.from({ length: totalBadges }).map((_, i) => {
               const earned = Array.isArray(trainer.badges) ? Boolean(trainer.badges[i]) : i < trainer.badgeCount;
-              const badge = getBadgeState(generation, i);
+              const badge = getBadgeState(generation, i, game);
               return (
                 <div
-                  key={badge.name}
-                  className={`relative flex h-[74px] items-center justify-center overflow-hidden rounded-lg border bg-background/60 ${
-                    earned ? "border-amber-300/40" : "border-muted-foreground/10 opacity-45 grayscale"
+                  key={`${generation}-badge-${i}`}
+                  className={`relative flex h-[74px] items-center justify-center overflow-hidden ${
+                    earned ? "" : "opacity-45 grayscale"
                   }`}
                   title={badge.name}
                 >
@@ -465,7 +538,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
         </div>
 
         {/* Location */}
-        {locationName && <MiniMap location={location} generation={generation} />}
+        {locationName && <MiniMap location={location} generation={generation} game={game} />}
       </CardContent>
     </Card>
   );
