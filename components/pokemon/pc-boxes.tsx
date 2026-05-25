@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Box, Grid3X3 } from "lucide-react";
 import Image from "next/image";
 import { getEggSpriteUrl, getPokemonSpriteUrl } from "@/lib/pokemon/forms";
+import { cn } from "@/lib/utils";
 
 interface PCBoxesProps {
   boxes: PCBox[];
@@ -32,6 +33,12 @@ function getPokemonLabel(pokemon: Pokemon): string {
 
 function isPokemon(pokemon: Pokemon | null): pokemon is Pokemon {
   return pokemon !== null;
+}
+
+function isFainted(pokemon: Pokemon): boolean {
+  const currentHP = pokemon.currentHP ?? (pokemon as any).currentHp ?? 0;
+  const maxHP = pokemon.maxHP ?? (pokemon as any).maxHp ?? 0;
+  return !pokemon.isEgg && maxHP > 0 && currentHP <= 0;
 }
 
 function formatSlotSample(sample: SlotSample): string {
@@ -223,11 +230,15 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
           <div className="grid grid-cols-[repeat(auto-fit,minmax(70px,1fr))] gap-2.5">
             {Array.from({ length: currentBox.capacity }).map((_, index) => {
               const pokemon = currentBox.pokemon[index];
+              const fainted = pokemon ? isFainted(pokemon) : false;
               return (
                 <div
                   key={index}
-                  className="aspect-square rounded-lg bg-muted/50 flex items-center justify-center relative group transition-colors hover:bg-muted/80"
-                  title={pokemon ? pokemon.isEgg ? getPokemonLabel(pokemon) : `${pokemon.nickname} Lv.${pokemon.level}` : "Empty"}
+                  className={cn(
+                    "group relative flex aspect-square items-center justify-center rounded-lg bg-muted/50 transition-colors hover:bg-muted/80",
+                    fainted && "border border-red-500/70 bg-red-950/20 shadow-[inset_0_-3px_0_rgba(239,68,68,0.75)]"
+                  )}
+                  title={pokemon ? pokemon.isEgg ? getPokemonLabel(pokemon) : `${pokemon.nickname} Lv.${pokemon.level}${fainted ? " - Fainted" : ""}` : "Empty"}
                 >
                   {pokemon ? (
                     <>
@@ -237,9 +248,11 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
                           alt={pokemon.speciesName}
                           width={56}
                           height={56}
-                          className={`pixelated transition-transform group-hover:scale-110 ${
-                            pokemon.isEgg ? "translate-x-2 translate-y-2 scale-90 opacity-55" : ""
-                          }`}
+                          className={cn(
+                            "pixelated transition-transform group-hover:scale-110",
+                            pokemon.isEgg && "translate-x-2 translate-y-2 scale-90 opacity-55",
+                            fainted && "grayscale"
+                          )}
                           unoptimized
                         />
                       )}
@@ -253,9 +266,14 @@ export function PCBoxes({ boxes, className }: PCBoxesProps) {
                           unoptimized
                         />
                       )}
+                      {fainted && (
+                        <div className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-black uppercase leading-none text-white shadow">
+                          FNT
+                        </div>
+                      )}
                       {/* Hover tooltip */}
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                        {pokemon.isEgg ? getPokemonLabel(pokemon) : `${pokemon.nickname} Lv.${pokemon.level}`}
+                        {pokemon.isEgg ? getPokemonLabel(pokemon) : `${pokemon.nickname} Lv.${pokemon.level}${fainted ? " - Fainted" : ""}`}
                       </div>
                     </>
                   ) : (
