@@ -329,6 +329,7 @@ local read_pokedex
 local read_party
 local read_bag
 local read_location
+local read_event_bytes
 
 local function build_snapshot()
   ensure_sram_ready()
@@ -363,6 +364,7 @@ local function build_snapshot()
     status = status,
     player = read_player(),
     pokedex = read_pokedex(),
+    eventsRaw = read_event_bytes(),
     party = read_party(),
     pcBoxes = pcData.pcBoxes,
     bag = read_bag(),
@@ -698,6 +700,18 @@ read_pokedex = function()
     caughtCount = #caughtSpecies,
     seenCount = #seenSpecies,
     source = "live",
+  }
+end
+
+read_event_bytes = function()
+  local offsets = get_offset_profile()
+  local bytes = {}
+  local count = math.floor(((offsets.eventFlagCount or 0) + 7) / 8)
+  for i = 0, count - 1 do
+    bytes[#bytes + 1] = read8(offsets.eventFlags + i)
+  end
+  return {
+    bytes = bytes,
   }
 end
 

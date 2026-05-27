@@ -762,6 +762,18 @@ local function read_pokedex()
   }
 end
 
+local function read_event_bytes()
+  local offsets = get_offset_profile()
+  local bytes = {}
+  local count = math.floor(((offsets.eventFlagCount or 0) + 7) / 8)
+  for i = 0, count - 1 do
+    bytes[#bytes + 1] = read8(offsets.eventFlags + i)
+  end
+  return {
+    bytes = bytes,
+  }
+end
+
 local function read_bag()
   local offsets = get_offset_profile()
   return {
@@ -864,6 +876,7 @@ local function build_snapshot()
     },
     player = read_player(),
     pokedex = read_pokedex(),
+    eventsRaw = read_event_bytes(),
     party = read_party(),
     pcBoxes = pcBoxes,
     bag = read_bag(),

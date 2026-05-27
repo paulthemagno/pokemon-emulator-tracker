@@ -6,11 +6,12 @@ import { TrainerCard, TrainerMapCard } from "@/components/pokemon/trainer-card";
 import { PartyDisplay } from "./party-display";
 import { PCBoxes } from "./pc-boxes";
 import { InventoryDisplay } from "./inventory-display";
+import { EventsPanel } from "./events-panel";
 import { PokedexPanel } from "./pokedex-panel";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Boxes, ChevronDown, Clock, Package, Users } from "lucide-react";
+import { BookOpen, Boxes, ChevronDown, Clock, ListChecks, Package, Users } from "lucide-react";
 
 interface DashboardProps {
   saveData: SaveData;
@@ -61,6 +62,7 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
   );
   const dexCount = saveData.pokedex?.caughtCount ?? 0;
   const dexMax = saveData.pokedex?.dexMax ?? (saveData.generation === 1 ? 151 : saveData.generation === 2 ? 251 : 386);
+  const importantEvents = saveData.events ? `${saveData.events.importantCompletedCount}/${saveData.events.importantTotalCount}` : "0/0";
 
   return (
     <div className="space-y-6">
@@ -123,6 +125,11 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
               Inventory
               <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{inventoryCount}</span>
             </TabsTrigger>
+            <TabsTrigger value="events" className="h-9 gap-2 px-3">
+              <ListChecks className="h-4 w-4" />
+              Events
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{importantEvents}</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="party" className="mt-0">
@@ -136,6 +143,9 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
           </TabsContent>
           <TabsContent value="inventory" className="mt-0">
             <InventoryDisplay items={saveData.inventory} generation={saveData.generation} />
+          </TabsContent>
+          <TabsContent value="events" className="mt-0">
+            <EventsPanel events={saveData.events} />
           </TabsContent>
         </Tabs>
       </DashboardSection>

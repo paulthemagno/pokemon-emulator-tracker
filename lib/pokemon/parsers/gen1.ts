@@ -23,6 +23,8 @@ import { getMoveName } from "../data/moves";
 import { getGen1ItemName } from "../data/items";
 import { getGen1MapLandmark } from "../data/gen1-map-landmarks";
 import { getGen1Location } from "../data/locations";
+import { parseEventProgress } from "../events";
+import { GEN1_EVENT_FLAGS } from "../knowledge/event-flags";
 import { GEN1_INVENTORY_LAYOUT, GEN1_YELLOW_INVENTORY_LAYOUT } from "../knowledge/inventory-layouts";
 import { GEN1_SAVE_LAYOUTS, type Gen1SaveLayout } from "../knowledge/save-layouts";
 
@@ -500,6 +502,11 @@ function parsePokedexProgress(data: Uint8Array, layout: Gen1SaveLayout): SaveDat
   };
 }
 
+function parseGameEvents(data: Uint8Array, game: GameVersion): SaveData["events"] {
+  const layout = game === "yellow" ? GEN1_EVENT_FLAGS.yellow : GEN1_EVENT_FLAGS.redBlue;
+  return parseEventProgress(data, layout, "save");
+}
+
 export function parseGen1Save(data: Uint8Array, filename = ""): SaveData {
   const game = detectGameVersion(filename);
   const layout = getGen1SaveLayout(game);
@@ -512,6 +519,7 @@ export function parseGen1Save(data: Uint8Array, filename = ""): SaveData {
     party: parseParty(data, layout),
     pcBoxes: parsePCBoxes(data, layout),
     inventory: parseInventory(data, game),
+    events: parseGameEvents(data, game),
     location: parseLocation(data, layout),
     valid: true,
     rawSize: data.length,

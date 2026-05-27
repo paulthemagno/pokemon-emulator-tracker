@@ -814,6 +814,20 @@ local function read_pokedex()
   }
 end
 
+local function read_event_bytes()
+  local p = get_profile()
+  local blocks = resolve_blocks()
+  local saveBlock1 = blocks.saveBlock1 or 0
+  local bytes = {}
+  local count = math.floor(((p.eventFlagCount or 0) + 7) / 8)
+  for i = 0, count - 1 do
+    bytes[#bytes + 1] = read8(saveBlock1 + p.flags + i)
+  end
+  return {
+    bytes = bytes,
+  }
+end
+
 local function read_badges(saveBlock1, p)
   local badges = {}
   for i = 0, 7 do
@@ -997,6 +1011,7 @@ local function build_snapshot()
     },
     player = read_player(),
     pokedex = heavy.pokedex,
+    eventsRaw = read_event_bytes(),
     party = read_party(),
     pcBoxes = heavy.pcBoxes,
     bag = heavy.bag,

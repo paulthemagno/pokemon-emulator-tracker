@@ -91,6 +91,7 @@ The source manifest is:
 
 ```text
 lib/pokemon/knowledge/sources/save-layouts.json
+lib/pokemon/knowledge/sources/event-flags.json
 ```
 
 The Gen 1, Gen 2, and Hoenn Gen 3 mGBA live adapters consume generated Lua projections of the same source data:
@@ -117,7 +118,12 @@ If local pret checkouts are available, refresh extracted Gen 1/2 source values f
 
 ```bash
 corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
+corepack pnpm extract:pokemon-events -- --from-github
+corepack pnpm extract:pokemon-event-contexts -- --from-github
+corepack pnpm generate:pokemon-event-guides
 ```
+
+Event flag progress is intentionally split into key events and all save flags. Key events are the story/access subset; all save flags includes technical engine state. Every UI flag gets a readable caption and step list when source evidence supports one. Source-code occurrences are collected in `lib/pokemon/knowledge/sources/event-contexts.json` by `scripts/extract-pokemon-event-contexts.mjs`; `scripts/generate-pokemon-event-guides.mjs` reduces that heavy context plus profile-level online walkthrough sources into compact `event-guides.json`, which the knowledge generator emits as `lib/pokemon/knowledge/event-guides.ts`. Verified-guide descriptions, sequence hints, prerequisite notes, and alternative branches are still hand-curated in `lib/pokemon/data/event-guidance.ts` and must cite the pinned script that sets or checks the flag. The UI does not show "ready now" until a real prerequisite graph is audited from source and guide evidence. Use `agents/pokemon-event-research-agent/SKILL.md` for event-specific audits.
 
 Run the lightweight audit with:
 

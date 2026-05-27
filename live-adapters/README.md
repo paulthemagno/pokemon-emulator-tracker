@@ -23,7 +23,7 @@ Load `mgba-gen3-live.lua` in mGBA:
 3. Load `live-adapters/mgba-gen3-live.lua`.
 4. Keep the script running and press **Start Live** in the app.
 
-The adapter serves `GET /snapshot` on `127.0.0.1:8080` and exposes trainer info, badges, play time, party, PC boxes, bag pockets, PC item storage, Pokedex flags, regional/National Pokedex mode, current `mapGroup` / `mapId`, and SaveBlock1 player `pos.x` / `pos.y` for source-matched region-map marker placement.
+The adapter serves `GET /snapshot` on `127.0.0.1:8080` and exposes trainer info, badges, play time, party, PC boxes, bag pockets, PC item storage, Pokedex flags, story/event flag bytes, regional/National Pokedex mode, current `mapGroup` / `mapId`, and SaveBlock1 player `pos.x` / `pos.y` for source-matched region-map marker placement.
 
 The offset profile is loaded from `live-adapters/generated/gen3-live-offsets.lua`, generated from `lib/pokemon/knowledge/sources/save-layouts.json`, `inventory-layouts.json`, and `species-id-maps.json`.
 
@@ -74,7 +74,7 @@ Gen 3 live party data is read from active `gPlayerParty` RAM before falling back
 
 Gold/Silver and Crystal use different WRAM layouts for live memory. The adapter detects the ROM title and selects a matching offset profile for player, party, bag, badges, map, and Pokedex reads; PC box SRAM records stay shared across Gen 2. The Gold/Silver live profile follows the public Data Crystal RAM map for trainer data, bag, map coordinates, party, and Pokedex flags.
 
-The WRAM profiles and Gen 2 TM/HM item ID sequence are loaded from `live-adapters/generated/gen2-live-offsets.lua`. Regenerate that file with `corepack pnpm generate:pokemon-knowledge` after changing `lib/pokemon/knowledge/sources/save-layouts.json` or inventory source manifests.
+The WRAM profiles, event flag offsets, and Gen 2 TM/HM item ID sequence are loaded from `live-adapters/generated/gen2-live-offsets.lua`. Regenerate that file with `corepack pnpm generate:pokemon-knowledge` after changing `lib/pokemon/knowledge/sources/save-layouts.json`, `event-flags.json`, or inventory source manifests.
 
 Crystal money is read as a 3-byte big-endian value from `0xD84E-0xD850` in live mode.
 
@@ -134,7 +134,7 @@ Load `mgba-gen1-live.lua` in mGBA:
 3. Load `live-adapters/mgba-gen1-live.lua`.
 4. Keep the script running and press **Start Live** in the app.
 
-The Gen 1 adapter serves `GET /snapshot` on `127.0.0.1:8080` and exposes trainer info, badges, play time, party, PC boxes, bag items, PC item storage, Pokedex flags, and current map id.
+The Gen 1 adapter serves `GET /snapshot` on `127.0.0.1:8080` and exposes trainer info, badges, play time, party, PC boxes, bag items, PC item storage, Pokedex flags, story/event flag bytes, and current map id.
 PC boxes are read from the documented Gen 1 SRAM save layout: bank 2 stores boxes 1-6 at `0x4000..0x55EA`, and bank 3 stores boxes 7-12 at `0x6000..0x75EA`. The adapter first tries mGBA's linear SRAM memory domain. If that domain only exposes an erased/windowed view, it briefly selects the matching MBC1 SRAM bank through the `$A000` bus window, reads the box, then restores normal ROM-banking mode.
 Current-box state is exposed through `isCurrent`; box names stay plain (`Box 1`, `Box 2`, etc.) because Gen 1 does not store custom box names.
 Snapshots are cached and refreshed about every 250 ms from the frame callback, matching the Gen 2 adapter behavior closely enough for the web UI's live polling.

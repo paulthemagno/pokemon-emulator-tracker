@@ -22,6 +22,8 @@ import { getSpeciesName } from "../data/species";
 import { getMoveName } from "../data/moves";
 import { getGen2ItemName } from "../data/items";
 import { getGen2Location } from "../data/locations";
+import { parseEventProgress } from "../events";
+import { GEN2_EVENT_FLAGS } from "../knowledge/event-flags";
 import { GEN2_INVENTORY_LAYOUTS, type InventoryPocketLayout } from "../knowledge/inventory-layouts";
 import { GEN2_SAVE_LAYOUTS } from "../knowledge/save-layouts";
 import { getGen2UnownFormFromDVs, getUnownFormLabel } from "../forms";
@@ -683,6 +685,7 @@ function detectGen2Version(data: Uint8Array, filename = ""): { game: GameVersion
 
 export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
   const { game, offsets } = detectGen2Version(data, filename);
+  const eventLayout = game === "crystal" ? GEN2_EVENT_FLAGS.crystal : GEN2_EVENT_FLAGS.goldSilver;
 
   return {
     generation: 2,
@@ -692,6 +695,7 @@ export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
     party: parseParty(data, offsets),
     pcBoxes: parsePCBoxes(data, offsets),
     inventory: parseInventory(data, offsets),
+    events: parseEventProgress(data, eventLayout, "save"),
     location: parseLocation(data, offsets),
     valid: true,
     rawSize: data.length,

@@ -147,6 +147,37 @@ export interface InventorySection {
   items: InventoryItem[];
 }
 
+export interface GameEventFlag {
+  id: number;
+  key: string;
+  label: string;
+  category: string;
+  completed: boolean;
+  importance?: "story" | "unlock" | "optional" | "routine";
+  important?: boolean;
+  note?: string;
+  description?: string;
+  descriptionKind?: "source-symbol" | "source-context" | "script-guided";
+  actionHint?: string;
+  prerequisites?: string[];
+  missingPrerequisites?: string[];
+  mutuallyExclusiveWith?: string[];
+  alternativeCompleted?: string[];
+  normalMissingReason?: string;
+  flowSteps?: string[];
+  flowStatus?: "done" | "available" | "blocked" | "optional" | "not-set";
+  sourceRefs?: string[];
+}
+
+export interface GameEventProgress {
+  source: "save" | "live";
+  completedCount: number;
+  totalCount: number;
+  importantCompletedCount: number;
+  importantTotalCount: number;
+  flags: GameEventFlag[];
+}
+
 export interface SaveData {
   generation: Generation;
   game: GameVersion;
@@ -164,6 +195,7 @@ export interface SaveData {
   party: Pokemon[];
   pcBoxes: PCBox[];
   inventory: InventorySection[];
+  events?: GameEventProgress;
   location: LocationInfo;
   valid: boolean;
   checksum?: number;

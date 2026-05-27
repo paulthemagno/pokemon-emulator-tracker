@@ -41,6 +41,7 @@ Current generated local dumps:
 - `lib/pokemon/data/gen2-map-landmarks.ts`: generated from `pret/pokecrystal`.
 - `public/maps/kanto-town-map-rby.png`: generated from Gen 1 map graphics.
 - `public/maps/*town-map-gsc.png`: generated from `pret/pokecrystal`.
+- `lib/pokemon/knowledge/event-flags.ts`: generated from pinned `pret` event flag definitions for Gen 1/2/3.
 
 ## When Adding A Game
 

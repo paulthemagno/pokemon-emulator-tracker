@@ -31,8 +31,8 @@
 
 Pokemon Emulator Tracker is a local-first dashboard for two workflows:
 
-- static save analysis: upload `.sav` / `.srm` files and inspect trainer data, party, Pokédex, PC boxes, inventory, badges, and map location
-- live emulator tracking: connect mGBA through a Lua adapter and watch party, HP, PC boxes, inventory, and map updates while the game is running
+- static save analysis: upload `.sav` / `.srm` files and inspect trainer data, party, Pokédex, PC boxes, inventory, badges, event milestones/raw flags with readable captions/step lists, and map location
+- live emulator tracking: connect mGBA through a Lua adapter and watch party, HP, PC boxes, inventory, event milestones/raw flags with readable captions/step lists, and map updates while the game is running
 
 It also includes an optional local Ollama assistant that can answer questions about the currently loaded save or live session.
 
@@ -236,6 +236,9 @@ If local `pret` checkouts are available, refresh extractable manifests first:
 
 ```bash
 corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
+corepack pnpm extract:pokemon-events -- --from-github
+corepack pnpm extract:pokemon-event-contexts -- --from-github
+corepack pnpm generate:pokemon-event-guides
 corepack pnpm generate:pokemon-knowledge
 ```
 
