@@ -59,14 +59,22 @@ function isLikelyFallbackTrainerName(name: string | undefined) {
   return normalized.length === 0 || normalized === "live trainer";
 }
 
+function hasPlausibleTrainerValues(data: SaveData) {
+  const trainer = data.trainer;
+  if (trainer.money < 0 || trainer.money > 999999) return false;
+  if (trainer.playTime.hours < 0 || trainer.playTime.hours > 999) return false;
+  if (trainer.playTime.minutes < 0 || trainer.playTime.minutes > 59) return false;
+  if ((trainer.playTime.seconds ?? 0) < 0 || (trainer.playTime.seconds ?? 0) > 59) return false;
+  return true;
+}
+
 function isTrainerSnapshotPlausible(previous: SaveData | null, next: SaveData) {
-  const nextTrainer = next.trainer;
-  if (nextTrainer.money < 0 || nextTrainer.money > 999999) return false;
-  if (nextTrainer.playTime.minutes < 0 || nextTrainer.playTime.minutes > 59) return false;
-  if ((nextTrainer.playTime.seconds ?? 0) < 0 || (nextTrainer.playTime.seconds ?? 0) > 59) return false;
+  if (!hasPlausibleTrainerValues(next)) return false;
 
   if (!previous) return true;
+  if (!hasPlausibleTrainerValues(previous)) return true;
 
+  const nextTrainer = next.trainer;
   const prevTrainer = previous.trainer;
   if (isLikelyFallbackTrainerName(nextTrainer.name) && !isLikelyFallbackTrainerName(prevTrainer.name)) {
     return false;

@@ -13,6 +13,7 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .tmp/
+.cache/
 .DS_Store
 tsconfig.tsbuildinfo
 *.log

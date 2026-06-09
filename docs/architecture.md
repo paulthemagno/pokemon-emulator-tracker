@@ -91,6 +91,7 @@ The source manifest is:
 
 ```text
 lib/pokemon/knowledge/sources/save-layouts.json
+lib/pokemon/knowledge/sources/event-flags.json
 ```
 
 The Gen 1, Gen 2, and Hoenn Gen 3 mGBA live adapters consume generated Lua projections of the same source data:
@@ -117,7 +118,15 @@ If local pret checkouts are available, refresh extracted Gen 1/2 source values f
 
 ```bash
 corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
+corepack pnpm extract:pokemon-events -- --from-github
+corepack pnpm extract:pokemon-event-contexts -- --from-github
+corepack pnpm generate:pokemon-event-guides
 ```
+
+Event flag progress is intentionally split into key events and all save states. Key events are the story/access subset; all save states includes technical engine state. Source-code occurrences are collected in `lib/pokemon/knowledge/sources/event-contexts.json` by `scripts/extract-pokemon-event-contexts.mjs`. Reviewed complete walkthroughs and reference sites live in `lib/pokemon/knowledge/sources/game-guide-sources.json`. `scripts/generate-pokemon-event-guides.mjs` combines both sources into compact `event-guides.json`, including a readable description, likely location, set/not-set meaning, suggested steps for recognizable event shapes, and multiple evidence links; the knowledge generator emits this as `lib/pokemon/knowledge/event-guides.ts`. Verified event-specific sequences, prerequisite notes, and alternative branches remain hand-curated in `lib/pokemon/data/event-guidance.ts`. The UI presents descriptions first and expands steps, dependencies, source symbols, and sources on demand. It does not claim that an event is currently available until a real prerequisite graph is audited. Use `agents/pokemon-event-research-agent/SKILL.md` for event-specific audits.
+
+Event categories are individually collapsible and use stable emoji labels. Progress filters (`Not completed`, `Completed`, `Everything`) are visually separate from dataset filters (`Key events`, `All save states`). `Key events` must exclude optional legendary encounters, one-off rewards, map-object state, and repeatable/session flags even when their source symbols contain a major character or location name.
+The event panel displays a section-local refinement warning because flag interpretation, categorization, and generated player-facing descriptions are still being audited across supported games.
 
 Run the lightweight audit with:
 

@@ -101,6 +101,12 @@ For source audits, new game support, generated Pokemon data, and LLM tool-callin
 agents/pokemon-research-agent/SKILL.md
 ```
 
+For story/event flag audits, event sequences, and event progress UI guidance, also follow:
+
+```text
+agents/pokemon-event-research-agent/SKILL.md
+```
+
 Core docs:
 
 ```text
@@ -115,9 +121,13 @@ Generated knowledge commands:
 ```bash
 corepack pnpm generate:pokemon-knowledge
 corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
+corepack pnpm extract:pokemon-events -- --from-github
+corepack pnpm extract:pokemon-event-contexts -- --from-github
+corepack pnpm generate:pokemon-event-guides
 ```
 
 Generated files under `lib/pokemon/knowledge/` and `live-adapters/generated/` must not be edited by hand. Update `lib/pokemon/knowledge/sources/*.json` and rerun the generator.
+For event research, keep reviewed whole-game walkthrough/reference URLs in `lib/pokemon/knowledge/sources/game-guide-sources.json`; generated per-flag descriptions must combine that catalog with `event-contexts.json`.
 
 ## Maps
 

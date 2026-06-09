@@ -35,13 +35,15 @@ The current adapter avoids a complex HTTP parser and sends a snapshot as soon as
 During menu transitions or battle frames, the emulator memory snapshot can briefly come back partially empty.
 The client now keeps the last good live sections in place instead of flashing empty panels, but the underlying
 live read is still best-effort and may lag by one refresh.
+Trainer snapshot retention validates both the incoming and retained values. A previously cached trainer with impossible
+money or play-time fields is replaced by the next valid snapshot instead of blocking recovery as a backward time jump.
 
 The Gen 1 and Gen 2 mGBA live adapters both expose common status fields such as `sram`, `sramSize`, `sramHealth`,
 `sramReadMode`, `profile`, `romTitle`, `pcBoxes`, and `pcBoxPokemon`.
 
-The Gen 1 mGBA live adapter reads PC boxes from the documented SRAM box layout. It prefers mGBA's linear SRAM memory
-domain, but can fall back to brief MBC1 SRAM bank selection through the `$A000` bus window when the domain exposes only
-an erased/windowed view. If SRAM is unavailable, it falls back to the active WRAM box only. When an uploaded save file is
+The Gen 1 mGBA live adapter reads PC boxes from the documented SRAM box layout through mGBA's read-only SRAM memory
+domain. It does not change MBC1 cartridge banking during polling. If the full SRAM domain is unavailable, it falls back
+to the active WRAM box only. When an uploaded save file is
 also loaded, the UI merges live current-box data with non-current boxes from the save file so switching the in-game
 current PC box does not hide the rest of the stored collection. The live UI also caches Gen 1 boxes already observed as
 the current WRAM box during the current session. Box names remain plain in Gen 1; current-box state is represented by

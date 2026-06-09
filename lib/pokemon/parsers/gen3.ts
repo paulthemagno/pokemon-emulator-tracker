@@ -16,6 +16,8 @@ import {
 import {
   getSpeciesById,
 } from "../data/species";
+import { parseEventProgress } from "../events";
+import { GEN3_EVENT_FLAGS } from "../knowledge/event-flags";
 import { GEN3_INVENTORY_LAYOUTS, type InventoryLayout } from "../knowledge/inventory-layouts";
 import { GEN3_SAVE_LAYOUTS, type Gen3SaveLayout } from "../knowledge/save-layouts";
 import { getGen3NationalSpeciesId } from "../knowledge/species-id-maps";
@@ -108,6 +110,12 @@ function getGen3SaveProfile(game: Gen3GameVersion | string): Gen3SaveProfile {
     layout: GEN3_SAVE_LAYOUTS.rubySapphire,
     inventoryLayout: GEN3_INVENTORY_LAYOUTS.rubySapphire,
   };
+}
+
+function getGen3EventLayout(game: Gen3GameVersion | string) {
+  if (game === "firered" || game === "leafgreen") return GEN3_EVENT_FLAGS.fireRedLeafGreen;
+  if (game === "emerald") return GEN3_EVENT_FLAGS.emerald;
+  return GEN3_EVENT_FLAGS.rubySapphire;
 }
 
 function readSections(data: Uint8Array, slot: number): Map<number, Section> {
@@ -959,6 +967,8 @@ export function parseGen3Save(buffer: ArrayBuffer, filename = ""): SaveData {
   const pokedex = parsePokedexProgress(sections, generation);
   const pcBoxes = parsePCBoxes(sections, generation);
   const location = parseLocation(sections, game);
+  const profile = getGen3SaveProfile(game);
+  const saveBlock1 = getSaveBlock1(sections, profile.layout);
 
   return {
     generation: 3,
@@ -968,6 +978,7 @@ export function parseGen3Save(buffer: ArrayBuffer, filename = ""): SaveData {
     party,
     pcBoxes,
     inventory,
+    events: parseEventProgress(saveBlock1, getGen3EventLayout(game), "save", profile.layout.offsets.flags),
     location,
     valid: true,
     rawSize: data.length,

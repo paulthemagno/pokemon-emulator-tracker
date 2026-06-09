@@ -31,8 +31,8 @@
 
 Pokemon Emulator Tracker is a local-first dashboard for two workflows:
 
-- static save analysis: upload `.sav` / `.srm` files and inspect trainer data, party, Pokédex, PC boxes, inventory, badges, and map location
-- live emulator tracking: connect mGBA through a Lua adapter and watch party, HP, PC boxes, inventory, and map updates while the game is running
+- static save analysis: upload `.sav` / `.srm` files and inspect trainer data, party, Pokédex, PC boxes, inventory, badges, key events/all save states with readable captions and step lists, and map location
+- live emulator tracking: connect mGBA through a Lua adapter and watch party, HP, PC boxes, inventory, key events/all save states with readable captions and step lists, and map updates while the game is running
 
 It also includes an optional local Ollama assistant that can answer questions about the currently loaded save or live session.
 
@@ -236,6 +236,9 @@ If local `pret` checkouts are available, refresh extractable manifests first:
 
 ```bash
 corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
+corepack pnpm extract:pokemon-events -- --from-github
+corepack pnpm extract:pokemon-event-contexts -- --from-github
+corepack pnpm generate:pokemon-event-guides
 corepack pnpm generate:pokemon-knowledge
 ```
 
@@ -243,6 +246,10 @@ Source policy and pins:
 
 - [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md)
 - [docs/source-lockfile.md](docs/source-lockfile.md)
+
+Event descriptions combine pinned PRET source occurrences with the reviewed multi-guide catalog in
+`lib/pokemon/knowledge/sources/game-guide-sources.json`. The UI exposes the likely location, the meaning of
+the current boolean state, expandable completion steps, and separate game-source/walkthrough links.
 
 Do not patch generated knowledge files by hand. Update the source JSON/manifests and regenerate.
 

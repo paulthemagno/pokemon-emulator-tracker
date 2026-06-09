@@ -9,6 +9,7 @@ import { GEN3_KANTO_DEX_COUNT } from "./data/gen3-kanto-dex";
 import { getGen1Location, getGen3FRLGLocation, getGen3RSELocation } from "./data/locations";
 import { getMoveById } from "./data/moves";
 import { getSpeciesById } from "./data/species";
+import { normalizeEventProgress, normalizeLiveEventBytes } from "./events";
 import { getExpForLevel } from "./experience";
 import { getStatusCondition } from "./utils";
 
@@ -286,6 +287,7 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
     party,
     pcBoxes,
     inventory: normalizeInventory(snapshot.bag ?? snapshot.inventory, generation),
+    events: normalizeEventProgress(snapshot.events) ?? normalizeLiveEventBytes(snapshot.eventsRaw, generation, game),
     location: {
       mapId: liveMapId,
       mapGroup: Number.isFinite(liveMapGroup) ? liveMapGroup : undefined,
