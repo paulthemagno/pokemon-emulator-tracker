@@ -153,11 +153,17 @@ export interface GameEventFlag {
   label: string;
   category: string;
   completed: boolean;
+  rawSet?: boolean;
+  initiallySet?: boolean;
+  stateKind?: "visibility" | "system";
   importance?: "story" | "unlock" | "optional" | "routine";
   important?: boolean;
   note?: string;
   description?: string;
   descriptionKind?: "source-symbol" | "source-context" | "script-guided";
+  location?: string;
+  completionMeaning?: string;
+  notCompletedMeaning?: string;
   actionHint?: string;
   prerequisites?: string[];
   missingPrerequisites?: string[];
@@ -165,7 +171,7 @@ export interface GameEventFlag {
   alternativeCompleted?: string[];
   normalMissingReason?: string;
   flowSteps?: string[];
-  flowStatus?: "done" | "available" | "blocked" | "optional" | "not-set";
+  flowStatus?: "done" | "initial" | "state" | "available" | "blocked" | "optional" | "not-set";
   sourceRefs?: string[];
 }
 

@@ -12,8 +12,6 @@ local BOX_RECORD_SIZE = 0x462
 local BOX_CAPACITY = 20
 local GEN1_NUM_SPECIES = 151
 local POKEDEX_FLAG_BYTES = math.floor((GEN1_NUM_SPECIES + 7) / 8)
-local SRAM_BANK_SIZE = 0x2000
-local SRAM_WINDOW = 0xa000
 local SNAPSHOT_REFRESH_SECONDS = 0.25
 
 local OFFSET_PROFILES = nil
@@ -80,7 +78,6 @@ local lastSramHealth = "unknown"
 local sramReadMode = "domain"
 local sramBoxShift = 0
 local sramAccessMode = "domain-linear"
-local sramBusSelectedBank = nil
 local lastBoxRawCounts = {}
 local lastBoxLayoutScore = 0
 local lastCurrentBoxRawCount = 0
@@ -194,45 +191,7 @@ local function read_sram_domain_offset8(offset)
   return ok and value or 0
 end
 
-local function read_sram_bus_offset8(offset)
-  if not emu or not emu.read8 or not emu.write8 then return 0 end
-  if offset < 0 then return 0 end
-
-  local bank = math.floor(offset / SRAM_BANK_SIZE)
-  local bankOffset = offset % SRAM_BANK_SIZE
-  if bank < 0 or bank > 3 then return 0 end
-
-  local ok, value = pcall(function()
-    -- Pokemon Red/Blue/Yellow use 32 KiB battery SRAM split into four 8 KiB banks.
-    -- mGBA's GB SRAM domain can expose only the $A000 window on some versions, so
-    -- read the documented save-file offsets by briefly selecting the matching MBC1
-    -- RAM bank. The adapter restores normal ROM-banking mode after the snapshot.
-    if sramBusSelectedBank ~= bank then
-      emu:write8(0x0000, 0x0a)
-      emu:write8(0x6000, 0x01)
-      emu:write8(0x4000, bank)
-      sramBusSelectedBank = bank
-    end
-    return emu:read8(SRAM_WINDOW + bankOffset)
-  end)
-
-  if ok and value ~= nil then return value end
-  return 0
-end
-
-local function restore_sram_bus()
-  if sramBusSelectedBank == nil then return end
-  pcall(function()
-    emu:write8(0x6000, 0x00)
-    emu:write8(0x0000, 0x00)
-  end)
-  sramBusSelectedBank = nil
-end
-
 local function read_sram_offset8(offset)
-  if sramAccessMode == "bus-banked" then
-    return read_sram_bus_offset8(offset)
-  end
   return read_sram_domain_offset8(offset)
 end
 
@@ -306,14 +265,6 @@ local function select_sram_box_shift()
       bestMode = "domain-linear"
     end
   end
-  local busScore = score_box_layout_shift(offsets, 0, read_sram_bus_offset8)
-  restore_sram_bus()
-  if busScore > bestScore then
-    bestScore = busScore
-    bestShift = 0
-    bestMode = "bus-banked"
-  end
-
   sramBoxShift = bestShift
   sramAccessMode = bestMode
   sramReadMode = bestMode
@@ -658,7 +609,14 @@ local function find_wram_current_box_data_offset(defaultOffset)
   return bestOffset
 end
 
-local function read_current_pc_box()
+local function read_current_box_number()
+  local offsets = get_offset_profile()
+  local boxNumber = low_bits(read8(offsets.currentBoxNumber), 0x7f)
+  if boxNumber < 0 or boxNumber >= 12 then return 0 end
+  return boxNumber
+end
+
+local function read_current_pc_box(boxNumber)
   local offsets = get_offset_profile()
   local boxDataOffset = find_wram_current_box_data_offset(offsets.currentBoxData)
   local rawCount = read8(boxDataOffset)
@@ -687,7 +645,6 @@ local function read_current_pc_box()
     if mon then table.insert(pokemon, mon) end
   end
 
-  local boxNumber = low_bits(read8(offsets.currentBoxNumber), 0x7f)
   return {
     name = "Box " .. tostring(boxNumber + 1),
     pokemon = pokemon,
@@ -698,9 +655,9 @@ end
 
 local function read_pc_boxes()
   local offsets = get_offset_profile()
-  local currentBoxNumber = low_bits(read8(offsets.currentBoxNumber), 0x7f)
+  local currentBoxNumber = read_current_box_number()
   local boxes = {}
-  local currentBox = read_current_pc_box()
+  local currentBox = read_current_pc_box(currentBoxNumber)
   local hasSram = ensure_sram_ready()
   if hasSram then
     select_sram_box_shift()
@@ -730,9 +687,7 @@ local function read_pc_boxes()
     box.isCurrent = isCurrent
     table.insert(boxes, box)
   end
-  restore_sram_bus()
-
-  return boxes
+  return boxes, currentBoxNumber
 end
 
 local function read_player()
@@ -825,8 +780,6 @@ local function build_box_debug()
   table.insert(candidates, summarize_box_candidate("save box 1", "sram", 0x4000, read_sram_offset8))
   table.insert(candidates, summarize_box_candidate("save box 2", "sram", 0x4462, read_sram_offset8))
   table.insert(candidates, summarize_box_candidate("save box 7", "sram", 0x6000, read_sram_offset8))
-  table.insert(candidates, summarize_box_candidate("sram window a000", "bus", SRAM_WINDOW, read8))
-
   return {
     generation = 1,
     adapter = "mgba-gen1-live",
@@ -843,7 +796,7 @@ end
 
 local function build_snapshot()
   local offsets = get_offset_profile()
-  local pcBoxes = read_pc_boxes()
+  local pcBoxes, currentBoxNumber = read_pc_boxes()
   local pcPokemonCount = 0
   for _, box in ipairs(pcBoxes) do
     pcPokemonCount = pcPokemonCount + #box.pokemon

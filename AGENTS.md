@@ -127,6 +127,7 @@ corepack pnpm generate:pokemon-event-guides
 ```
 
 Generated files under `lib/pokemon/knowledge/` and `live-adapters/generated/` must not be edited by hand. Update `lib/pokemon/knowledge/sources/*.json` and rerun the generator.
+For event research, keep reviewed whole-game walkthrough/reference URLs in `lib/pokemon/knowledge/sources/game-guide-sources.json`; generated per-flag descriptions must combine that catalog with `event-contexts.json`.
 
 ## Maps
 

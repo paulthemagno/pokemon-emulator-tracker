@@ -127,6 +127,39 @@ test("live polling accepts forward play-time jumps from a refreshed live source"
   assert.deepEqual(merged.trainer.playTime, { hours: 2, minutes: 15, seconds: 30 });
 });
 
+test("live polling replaces a corrupted trainer snapshot with valid Gen 3 data", () => {
+  const previous = {
+    ...gen3Live([]),
+    game: "firered" as const,
+    trainer: {
+      ...gen3Live([]).trainer,
+      name: "CORRUPT",
+      id: 65535,
+      money: 0,
+      badges: [false, false, false, false, false, false, false, false],
+      badgeCount: 0,
+      playTime: { hours: 65535, minutes: 2, seconds: 192 },
+    },
+  };
+  const next = {
+    ...gen3Live([]),
+    game: "firered" as const,
+    trainer: {
+      ...gen3Live([]).trainer,
+      name: "PLAYER",
+      id: 12345,
+      money: 4321,
+      badges: [true, true, true, true, true, true, true, true],
+      badgeCount: 8,
+      playTime: { hours: 42, minutes: 28, seconds: 2 },
+    },
+  };
+
+  const merged = mergeLiveData(previous, next);
+
+  assert.deepEqual(merged.trainer, next.trainer);
+});
+
 test("live polling resets stale state when switching Gen 3 games", () => {
   const previous = {
     ...gen3Live([box(1, [pokemon(1)], true)]),

@@ -59,6 +59,7 @@ lib/pokemon/knowledge/sources/save-layouts.json
 lib/pokemon/knowledge/sources/event-flags.json
 lib/pokemon/knowledge/sources/event-contexts.json
 lib/pokemon/knowledge/sources/event-guides.json
+lib/pokemon/knowledge/sources/game-guide-sources.json
 ```
 
 Regenerate generated TypeScript knowledge modules and the Gen 1/2/3 live Lua offsets with:
@@ -94,9 +95,13 @@ corepack pnpm generate:pokemon-knowledge
 ```
 
 Parsers should consume the generated modules instead of duplicating offsets/ranges inline.
-Event progress guidance that goes beyond the raw flag name is not generated from `event-flags.json`; keep it in `lib/pokemon/data/event-guidance.ts` with pinned pret script URLs for every gameplay claim, including descriptions, step sequences, prerequisites, and alternative branches. Do not mark an event as "available now" unless a prerequisite graph has been audited from source scripts and external guide sources. The UI may derive fallback captions from pret symbol names, but those fallback captions must be labeled as source-symbol guidance rather than audited script guidance.
+Generic event descriptions, likely locations, state meanings, source links, and recognizable action shapes are generated from `event-contexts.json` plus `game-guide-sources.json`. Keep fully audited event-specific sequences, prerequisites, alternative branches, and gameplay claims in `lib/pokemon/data/event-guidance.ts` with pinned PRET script URLs. Do not mark an event as currently available unless its prerequisite graph has been audited from source scripts and external guide sources.
 `event-contexts.json` records source-code usages for generated event flags: file path, line number, operation kind, and nearby source lines. Treat it as evidence for generated descriptions, not as player-facing text by itself.
-`event-guides.json` is generated from `event-contexts.json` plus profile-level online walkthrough sources. It is intentionally compact and may provide source-backed captions/steps, but only `lib/pokemon/data/event-guidance.ts` should contain fully audited player-facing sequence claims.
+For Gen 2, the extractor also reads PRET's `InitializeEventsScript` from `engine/events/std_scripts.asm`. For Ruby/Sapphire and Emerald it reads `data/scripts/new_game.inc`. Flags set by these new-save scripts are tagged as initial game state: their raw bit remains visible, but it is not counted as player completion or as a key milestone.
+Visibility flags (`FLAG_HIDE_*`, `EVENT_HIDE_*`, and Gen 3 decoration object flags) and `FLAG_SYS_*` values are exposed as technical state rather than completed progress. Their set/clear value remains available to the UI without contributing to completion totals.
+Gen 1 event storage starts at `0x29F3` in both Red/Blue and Yellow save files. Live WRAM starts at `0xD747` in Red/Blue and `0xD746` in Yellow, consistent with Yellow's player-data symbols being one byte earlier. Reading Yellow at `0xD753` or `0xD747` shifts the bit-to-event mapping and can create false flags.
+`game-guide-sources.json` is the reviewed online knowledge-base catalog for every supported game profile. It contains multiple complete walkthroughs, progression checklists, and game references.
+`event-guides.json` is generated from `event-contexts.json` plus that online source catalog. It provides a readable description, likely source location, set/not-set meaning, suggested steps when the event shape supports them, and links to both PRET code and multiple guides. Only `lib/pokemon/data/event-guidance.ts` should contain fully audited event-specific sequence claims.
 
 Gen 1 Town Map coordinates are represented in `lib/pokemon/data/gen1-map-landmarks.ts`. They come from
 `pret/pokered` `data/maps/town_map_entries.asm` and `constants/map_constants.asm`, including both
@@ -221,8 +226,9 @@ Important: Yellow's Gen 1 save-file inventory offsets do not differ from Red/Blu
 generated knowledge still exports a Yellow-specific inventory layout so parsers can keep game selection explicit, but
 its Bag and PC Storage offsets mirror Red/Blue.
 
-Important: Gen 1 non-current PC boxes are SRAM-backed. The live adapter reads the active box from WRAM and prefers
-mGBA's linear SRAM memory domain for stored boxes. If that domain exposes only an erased/windowed view, the adapter can
-briefly select the matching MBC1 SRAM bank through the `$A000` bus window, read the box, and restore normal mode.
+Important: Gen 1 non-current PC boxes are SRAM-backed. The live adapter reads the active box from WRAM and reads stored
+boxes only through mGBA's read-only SRAM memory domain. It must not write MBC1 bank-control addresses during polling,
+because changing cartridge banking can corrupt live rendering or runtime state. If the SRAM domain is unavailable or
+windowed, live mode exposes the active WRAM box and can merge the remaining boxes from an uploaded save.
 
 Important: Gen 2 TM quantities are stored as a fixed 57-byte TM/HM quantity table, but the TM item IDs are not a contiguous `0xBF + index` range. `pokecrystal` has item ID gaps at `0xC3` and `0xDC`, so the generated `TMs/HMs` pocket stores the exact `itemIds` sequence. Parsers must use that list for fixed-quantity pockets.

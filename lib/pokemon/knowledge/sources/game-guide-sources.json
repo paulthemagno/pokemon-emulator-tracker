@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "description": "Online game knowledge sources used to interpret event flags. PRET remains the primary source for flag behavior; walkthroughs and game references provide player-facing meaning and progression context.",
+  "profiles": {
+    "red-blue-en": {
+      "game": "Pokemon Red and Blue",
+      "region": "Kanto",
+      "sources": [
+        {
+          "title": "Bulbapedia complete walkthrough",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_Red_and_Blue",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki complete walkthrough",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_Red_and_Blue/Walkthrough",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki progression checklist",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_Red_and_Blue/Walkthrough_summary",
+          "kind": "checklist"
+        },
+        {
+          "title": "Psypoke complete walkthrough",
+          "url": "https://www.psypokes.com/rby/walkthrough.php",
+          "kind": "walkthrough"
+        }
+      ]
+    },
+    "yellow-en": {
+      "game": "Pokemon Yellow",
+      "region": "Kanto",
+      "sources": [
+        {
+          "title": "Bulbapedia complete walkthrough",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_Yellow",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki complete walkthrough",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_Yellow/Walkthrough",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Bulbapedia game and storyline reference",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Yellow",
+          "kind": "reference"
+        },
+        {
+          "title": "Psypoke Yellow reference",
+          "url": "https://www.psypokes.com/rby/yellow.php",
+          "kind": "reference"
+        }
+      ]
+    },
+    "gold-silver-en": {
+      "game": "Pokemon Gold and Silver",
+      "region": "Johto and Kanto",
+      "sources": [
+        {
+          "title": "Bulbapedia complete walkthrough",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_Gold_and_Silver",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki complete walkthrough",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_Gold_and_Silver/Walkthrough",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Psypoke complete walkthrough",
+          "url": "https://www.psypokes.com/gsc/walkthrough.php",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Bulbapedia game reference",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Gold_and_Silver_Versions",
+          "kind": "reference"
+        }
+      ]
+    },
+    "crystal-en": {
+      "game": "Pokemon Crystal",
+      "region": "Johto and Kanto",
+      "sources": [
+        {
+          "title": "Bulbapedia complete walkthrough",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_Crystal",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki Crystal guide",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_Crystal",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki Gold, Silver and Crystal walkthrough",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_Gold_and_Silver/Walkthrough",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Psypoke complete walkthrough",
+          "url": "https://www.psypokes.com/gsc/walkthrough.php",
+          "kind": "walkthrough"
+        }
+      ]
+    },
+    "ruby-sapphire-en": {
+      "game": "Pokemon Ruby and Sapphire",
+      "region": "Hoenn",
+      "sources": [
+        {
+          "title": "Bulbapedia complete walkthrough",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_Ruby_and_Sapphire",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki complete walkthrough",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_Ruby_and_Sapphire/Walkthrough",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Psypoke complete walkthrough",
+          "url": "https://www.psypokes.com/rs/walkthrough.php",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Bulbapedia game reference",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Ruby_and_Sapphire",
+          "kind": "reference"
+        }
+      ]
+    },
+    "emerald-en": {
+      "game": "Pokemon Emerald",
+      "region": "Hoenn",
+      "sources": [
+        {
+          "title": "Bulbapedia complete walkthrough",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_Emerald",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Psypoke Emerald guide",
+          "url": "https://www.psypokes.com/emerald/",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Thonky Hoenn walkthrough",
+          "url": "https://www.thonky.com/pokemon-ruby-sapphire-emerald/",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Bulbapedia game reference",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Emerald",
+          "kind": "reference"
+        }
+      ]
+    },
+    "firered-leafgreen-en": {
+      "game": "Pokemon FireRed and LeafGreen",
+      "region": "Kanto and Sevii Islands",
+      "sources": [
+        {
+          "title": "Bulbapedia complete walkthrough",
+          "url": "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_FireRed_and_LeafGreen",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "StrategyWiki complete walkthrough",
+          "url": "https://strategywiki.org/wiki/Pok%C3%A9mon_FireRed_and_LeafGreen/Walkthrough",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Psypoke complete walkthrough",
+          "url": "https://www.psypokes.com/frlg/walkthrough.php",
+          "kind": "walkthrough"
+        },
+        {
+          "title": "Game8 story progression guide",
+          "url": "https://game8.co/games/Pokemon-FireRed-LeafGreen/archives/582181",
+          "kind": "checklist"
+        }
+      ]
+    }
+  }
+}

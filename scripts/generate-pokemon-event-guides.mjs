@@ -4,35 +4,6 @@ import path from "node:path";
 const root = process.cwd();
 const sourceDir = path.join(root, "lib/pokemon/knowledge/sources");
 
-const ONLINE_WALKTHROUGH_SOURCES = {
-  "red-blue-en": [
-    "https://bulbapedia.bulbagarden.net/wiki/Red_and_Blue_walkthrough",
-    "https://strategywiki.org/wiki/Pok%C3%A9mon_Red_and_Blue/Walkthrough",
-  ],
-  "yellow-en": [
-    "https://bulbapedia.bulbagarden.net/wiki/Yellow_walkthrough",
-    "https://strategywiki.org/wiki/Pok%C3%A9mon_Yellow/Walkthrough",
-  ],
-  "gold-silver-en": [
-    "https://bulbapedia.bulbagarden.net/wiki/Appendix%3AGold_and_Silver_walkthrough",
-  ],
-  "crystal-en": [
-    "https://bulbapedia.bulbagarden.net/wiki/Appendix%3ACrystal_walkthrough",
-  ],
-  "ruby-sapphire-en": [
-    "https://bulbapedia.bulbagarden.net/wiki/Walkthrough%3APok%C3%A9mon_Ruby_and_Sapphire",
-    "https://www.thonky.com/pokemon-ruby-sapphire-emerald/",
-  ],
-  "emerald-en": [
-    "https://bulbapedia.bulbagarden.net/wiki/Appendix%3AEmerald_walkthrough",
-    "https://www.thonky.com/pokemon-ruby-sapphire-emerald/",
-  ],
-  "firered-leafgreen-en": [
-    "https://bulbapedia.bulbagarden.net/wiki/Appendix%3AFireRed_and_LeafGreen_walkthrough",
-    "https://strategywiki.org/wiki/Pok%C3%A9mon_FireRed_and_LeafGreen/Walkthrough",
-  ],
-};
-
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
@@ -68,68 +39,248 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function wordsFromIdentifier(value) {
+const LOCATION_OVERRIDES = {
+  OaksLab: "Professor Oak's Laboratory",
+  ElmsLab: "Professor Elm's Laboratory",
+  BluesHouse: "Blue's House",
+  MrPokemonsHouse: "Mr. Pokemon's House",
+  HallOfFame: "Hall of Fame",
+  IndigoPlateauPokecenter1F: "Indigo Plateau Pokemon Center",
+};
+
+function humanizeLocation(value) {
+  if (!value) return undefined;
+  if (LOCATION_OVERRIDES[value]) return LOCATION_OVERRIDES[value];
   return value
-    .replace(/^EVENT_/, "")
-    .replace(/^FLAG_/, "")
-    .replace(/^SYS_/, "")
     .replace(/_/g, " ")
-    .replace(/\bHm(\d+)/gi, "HM$1")
-    .replace(/\bTm(\d+)/gi, "TM$1")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\bPokecenter\b/gi, "Pokemon Center")
+    .replace(/\bPoke Mart\b/gi, "Poke Mart")
+    .replace(/\bRoute\s*(\d+)/gi, "Route $1")
     .replace(/\bSs\b/g, "S.S.")
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    .replace(/\bMt\b/g, "Mt.")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function locationFromPath(filePath) {
+  const parts = filePath.split("/");
+  const mapsIndex = parts.lastIndexOf("maps");
+  if (mapsIndex >= 0 && parts[mapsIndex + 1]) {
+    const candidate = parts[mapsIndex + 1].replace(/\.(asm|inc|c|h|json|s|txt)$/i, "");
+    if (!["scripts", "events", "header"].includes(candidate.toLowerCase())) return humanizeLocation(candidate);
+  }
+  if (parts[0] === "maps" || parts[0] === "scripts") {
+    return humanizeLocation(parts.at(-1)?.replace(/\.(asm|inc|c|h|json|s|txt)$/i, ""));
+  }
+  return undefined;
+}
+
+function contextScore(context) {
+  let score = 0;
+  if (locationFromPath(context.path)) score += 10;
+  if (["set", "clear", "trainer", "item-object", "map-object"].includes(context.operation)) score += 4;
+  if (context.operation === "check") score += 2;
+  if (context.operation === "definition") score -= 10;
+  return score;
+}
+
+function eventLocation(contexts) {
+  const best = [...contexts].sort((a, b) => contextScore(b) - contextScore(a))[0];
+  return best ? locationFromPath(best.path) : undefined;
 }
 
 function hasOperation(contexts, operation) {
   return contexts.some((context) => context.operation === operation);
 }
 
-function buildSteps(entry, contexts) {
+function locationPrefix(location) {
+  return location ? `Go to ${location}.` : undefined;
+}
+
+function buildSteps(entry, contexts, location) {
   const label = entry.label;
   if (/^Hidden Item /.test(label)) {
-    return [`Check the matching hidden-item spot for ${label.replace(/^Hidden Item /, "")}.`];
+    const item = subjectWithoutLocation(label.replace(/^Hidden Item /, ""), location);
+    return unique([
+      locationPrefix(location),
+      `Search the indicated hidden-item tile and collect ${item}.`,
+    ]);
   }
   if (/^Item /.test(label)) {
-    return [`Pick up the matching visible item ball for ${label.replace(/^Item /, "")}.`];
+    const item = subjectWithoutLocation(label.replace(/^Item /, ""), location);
+    return unique([
+      locationPrefix(location),
+      `Pick up the visible item ball containing ${item}.`,
+    ]);
   }
   if (/^(Got|Received|Obtained) /.test(label)) {
-    return [`Receive ${label.replace(/^(Got|Received|Obtained) /, "")} from the in-game script or NPC that grants it.`];
+    return unique([
+      locationPrefix(location),
+      `Complete the related conversation, gift, pickup, or story scene and receive ${humanizeSubject(label.replace(/^(Got|Received|Obtained) /, ""))}.`,
+    ]);
   }
   if (/^(Beat|Defeated) /.test(label) || hasOperation(contexts, "trainer")) {
-    return [`Win the related battle: ${label.replace(/^(Beat|Defeated) /, "")}.`];
+    if (location === "Hall of Fame") {
+      return [`Defeat ${humanizeSubject(label.replace(/^(Beat|Defeated) /, ""))} and enter the Hall of Fame.`];
+    }
+    return unique([
+      locationPrefix(location),
+      `Start and win the related battle against ${humanizeSubject(label.replace(/^(Beat|Defeated) /, ""))}.`,
+    ]);
   }
   if (/^(Solved|Opened|Restored|Unlocked) /.test(label)) {
-    return [`Complete the related puzzle, door, or unlock sequence: ${label}.`];
+    return unique([
+      locationPrefix(location),
+      `Complete the related puzzle, door, restoration, or access sequence.`,
+    ]);
+  }
+  if (/^(Talked To|Met|Saw) /.test(label)) {
+    return unique([
+      locationPrefix(location),
+      `Speak to or encounter ${label.replace(/^(Talked To|Met|Saw) /, "")} to complete the first-time interaction.`,
+    ]);
+  }
+  if (/^(Caught|Fought) /.test(label)) {
+    return unique([
+      locationPrefix(location),
+      `${label.startsWith("Caught") ? "Catch" : "Fight"} ${label.replace(/^(Caught|Fought) /, "")}.`,
+    ]);
+  }
+  if (/^(Visited|Reached|Entered) /.test(label)) {
+    return [locationPrefix(location) ?? `Reach ${label.replace(/^(Visited|Reached|Entered) /, "")}.`];
+  }
+  if (/^(Rescued|Freed|Returned|Delivered|Gave|Helped) /.test(label)) {
+    return unique([
+      locationPrefix(location),
+      `Complete the related interaction: ${label}.`,
+    ]);
   }
   return undefined;
 }
 
-function buildDescription(entry, contexts) {
+function atLocation(location) {
+  return location ? ` in ${location}` : "";
+}
+
+function humanizeSubject(value) {
+  return value
+    .replace(/\bHm(\d+)/g, "HM$1")
+    .replace(/\bTm(\d+)/g, "TM$1")
+    .replace(/\bHo Oh\b/g, "Ho-Oh")
+    .replace(/\bSs\b/g, "S.S.")
+    .replace(/\b(\d+)(f)\b/gi, (_, floor) => `${floor}F`);
+}
+
+function subjectWithoutLocation(value, location) {
+  const subject = humanizeSubject(value);
+  if (!location) return subject;
+  return subject.toLowerCase().startsWith(location.toLowerCase())
+    ? subject.slice(location.length).trim()
+    : subject;
+}
+
+function buildDescription(entry, contexts, location) {
   const label = entry.label;
-  if (/^Hidden Item /.test(label)) return `Hidden item pickup: ${label.replace(/^Hidden Item /, "")}.`;
-  if (/^Item /.test(label)) return `Visible item pickup: ${label.replace(/^Item /, "")}.`;
-  if (/^(Got|Received|Obtained) /.test(label)) return `${label}.`;
-  if (/^(Beat|Defeated) /.test(label)) return `${label}.`;
-  if (/^(Solved|Opened|Restored|Unlocked) /.test(label)) return `${label}.`;
-  if (label.startsWith("Hide ") || label.startsWith("Show ") || label.startsWith("Hidden ")) {
-    return `${label}; this is map-object visibility state.`;
+  if (/^Hidden Item /.test(label)) {
+    const item = subjectWithoutLocation(label.replace(/^Hidden Item /, ""), location);
+    return `Hidden item${atLocation(location)}: ${item}. Once collected, this flag prevents it from reappearing.`;
   }
-  if (contexts.length > 0) return `${label}.`;
-  return undefined;
+  if (/^Item /.test(label)) {
+    const item = subjectWithoutLocation(label.replace(/^Item /, ""), location);
+    return `Visible item pickup${atLocation(location)}: ${item}. Once collected, the item ball stays removed from the map.`;
+  }
+  if (/^(Got|Received|Obtained) /.test(label)) {
+    return `Records that you received ${humanizeSubject(label.replace(/^(Got|Received|Obtained) /, ""))}${atLocation(location)} from the related gift, pickup, NPC, or story scene.`;
+  }
+  if (/^(Beat|Defeated) /.test(label)) {
+    return `Records the victory over ${humanizeSubject(label.replace(/^(Beat|Defeated) /, ""))}${atLocation(location)} so the game keeps that battle completed.`;
+  }
+  if (/^(Solved|Opened|Restored|Unlocked|Activated) /.test(label)) {
+    return `Records that the related puzzle, passage, restoration, or access change was completed${atLocation(location)}: ${label}.`;
+  }
+  if (/^(Talked To|Met|Saw) /.test(label)) {
+    return `Records the first important conversation or encounter with ${label.replace(/^(Talked To|Met|Saw) /, "")}${atLocation(location)}.`;
+  }
+  if (/^(Caught|Fought) /.test(label)) {
+    return `Records that you ${label.startsWith("Caught") ? "caught" : "fought"} ${label.replace(/^(Caught|Fought) /, "")}${atLocation(location)}.`;
+  }
+  if (/^(Visited|Reached|Entered) /.test(label)) {
+    return `Records that you reached or entered ${label.replace(/^(Visited|Reached|Entered) /, "")}${atLocation(location)}.`;
+  }
+  if (/^(Rescued|Freed|Returned|Delivered|Gave|Helped) /.test(label)) {
+    return `Tracks the completed story interaction “${label}”${atLocation(location)}.`;
+  }
+  if (label.startsWith("Hide ")) {
+    return `Controls whether ${label.replace(/^Hide /, "")} is hidden${atLocation(location)}. This is map-object state and may be changed by another event rather than by a standalone quest.`;
+  }
+  if (label.startsWith("Show ")) {
+    return `Controls whether ${label.replace(/^Show /, "")} is shown${atLocation(location)}. This is map-object state used to rebuild the current world after loading.`;
+  }
+  if (label.startsWith("Hidden ")) {
+    return `Tracks the hidden or removed state of ${label.replace(/^Hidden /, "")}${atLocation(location)}. It usually controls an NPC, obstacle, item, or scene object.`;
+  }
+  if (/^(Sys|System) /.test(label)) {
+    return `Tracks the saved system unlock or capability “${label.replace(/^(Sys|System) /, "")}”.`;
+  }
+  if (contexts.length > 0) {
+    return `Tracks the saved state for “${label}”${atLocation(location)}.`;
+  }
+  return `Tracks the saved event state “${label}”.`;
 }
 
-function buildGuideEntry(profile, entry, contexts) {
+function buildStateMeaning(entry) {
+  const label = entry.label;
+  if (/^Hidden Item |^Item /.test(label)) {
+    return {
+      completionMeaning: "Set: the item has been collected and should no longer appear.",
+      notCompletedMeaning: "Not set: the pickup has not been recorded in this save.",
+    };
+  }
+  if (/^(Got|Received|Obtained) /.test(label)) {
+    return {
+      completionMeaning: "Set: the gift, item, Pokemon, or reward was received.",
+      notCompletedMeaning: "Not set: this specific reward event was not recorded.",
+    };
+  }
+  if (/^(Beat|Defeated) /.test(label)) {
+    return {
+      completionMeaning: "Set: the related battle was won.",
+      notCompletedMeaning: "Not set: the save does not currently record that victory.",
+    };
+  }
+  if (label.startsWith("Hide ") || label.startsWith("Hidden ")) {
+    return {
+      completionMeaning: "Set: the referenced map object is hidden or removed.",
+      notCompletedMeaning: "Not set: the object is not being hidden by this flag.",
+    };
+  }
+  if (label.startsWith("Show ")) {
+    return {
+      completionMeaning: "Set: the referenced map object is shown.",
+      notCompletedMeaning: "Not set: this flag is not forcing the object to appear.",
+    };
+  }
+  return {
+    completionMeaning: "Set: the game has recorded this event or state.",
+    notCompletedMeaning: "Not set: this event or state is not recorded by this flag.",
+  };
+}
+
+function buildGuideEntry(profile, entry, contexts, onlineSources) {
+  const location = eventLocation(contexts);
   const sourceRefs = unique([
     ...contexts.slice(0, 2).map((context) => githubUrl(profile, context)),
-    ...(ONLINE_WALKTHROUGH_SOURCES[profile.gameProfile ?? profile.profileKey] ?? []).slice(0, 1),
+    ...onlineSources.slice(0, 2).map((source) => source.url),
   ]);
-  const description = buildDescription(entry, contexts);
-  const steps = buildSteps(entry, contexts);
+  const description = buildDescription(entry, contexts, location);
+  const steps = buildSteps(entry, contexts, location);
   return {
     description,
     descriptionKind: contexts.length > 0 ? "source-context" : "source-symbol",
+    location,
     steps,
+    ...buildStateMeaning(entry),
     sourceRefs,
   };
 }
@@ -138,6 +289,7 @@ const args = parseArgs(process.argv.slice(2));
 const maxPerProfile = Number(args["max-per-profile"] ?? 0);
 const eventFlags = await readJson("event-flags.json");
 const eventContexts = await readJson("event-contexts.json");
+const guideSources = await readJson("game-guide-sources.json");
 
 const profiles = {};
 for (const layout of allLayouts(eventFlags)) {
@@ -145,12 +297,17 @@ for (const layout of allLayouts(eventFlags)) {
   if (!contextProfile) {
     throw new Error(`Missing event contexts for ${layout.gameProfile}. Run extract:pokemon-event-contexts first.`);
   }
+  const onlineSources = guideSources.profiles[layout.gameProfile]?.sources ?? [];
+  if (onlineSources.length < 2) {
+    throw new Error(`Expected at least two online guide sources for ${layout.gameProfile}.`);
+  }
   const entries = {};
   for (const entry of layout.entries.slice(0, maxPerProfile > 0 ? maxPerProfile : layout.entries.length)) {
     entries[entry.key] = buildGuideEntry(
       { ...contextProfile, gameProfile: layout.gameProfile, profileKey: layout.gameProfile },
       entry,
-      contextProfile.contexts[entry.key] ?? []
+      contextProfile.contexts[entry.key] ?? [],
+      onlineSources
     );
   }
   profiles[layout.gameProfile] = {
@@ -158,7 +315,7 @@ for (const layout of allLayouts(eventFlags)) {
     sourceKey: layout.sourceKey,
     eventCount: layout.entries.length,
     guidedCount: Object.keys(entries).length,
-    onlineSources: ONLINE_WALKTHROUGH_SOURCES[layout.gameProfile] ?? [],
+    onlineSources,
     entries,
   };
 }

@@ -11,7 +11,7 @@ Use the strongest source available for each data type.
 | Official public source | Public game identity, regions, feature descriptions, supported platforms, user-facing copy | Pokemon.com, Nintendo support, official manuals/guides when legally accessible | Official pages rarely include save offsets, internal IDs, or RAM maps. |
 | Reproducible technical source | Internal IDs, ROM data, maps, save offsets, RAM symbols, learnsets, encounters | `pret/pokered`, `pret/pokeyellow`, `pret/pokecrystal`, `pret/pokeruby`, `pret/pokeemerald`, `pret/pokefirered` | These are reverse-engineered, not official, but they are auditable and script-friendly. Pin commits when extracting. |
 | Structured API source | Descriptions, localized names, convenient cross-game metadata | PokeAPI | PokeAPI is not official. Treat it as a generated data source and keep runtime calls out of gameplay UI. |
-| Secondary reference | Cross-checking unclear structures, save layouts, emulator-facing RAM maps, or edge cases | Bulbapedia, Data Crystal, community docs, emulator docs | Prefer pret extraction when it directly matches the runtime layout. Use secondary references when they document the emulator/save-facing structure more directly, and record why in `docs/source-lockfile.md`. |
+| Secondary reference | Cross-checking unclear structures, save layouts, emulator-facing RAM maps, story order, item locations, and event meaning | Bulbapedia, StrategyWiki, Psypoke, Data Crystal, community docs, emulator docs | Prefer pret extraction for the boolean and script behavior. Use multiple walkthrough/reference sources for player-facing event meaning and keep the reviewed catalog in `game-guide-sources.json`. |
 
 ## Required Provenance
 
@@ -42,6 +42,7 @@ Current generated local dumps:
 - `public/maps/kanto-town-map-rby.png`: generated from Gen 1 map graphics.
 - `public/maps/*town-map-gsc.png`: generated from `pret/pokecrystal`.
 - `lib/pokemon/knowledge/event-flags.ts`: generated from pinned `pret` event flag definitions for Gen 1/2/3.
+- `lib/pokemon/knowledge/event-guides.ts`: generated from PRET flag occurrences plus the reviewed whole-game guide catalog.
 
 ## When Adding A Game
 

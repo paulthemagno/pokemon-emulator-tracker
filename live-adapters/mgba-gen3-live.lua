@@ -11,7 +11,7 @@ local RSE_NATIONAL_MAGIC = 0xDA
 local DEX_MODE_NATIONAL = 1
 local SNAPSHOT_REFRESH_SECONDS = 0.25
 local HEAVY_SECTION_REFRESH_SECONDS = 1.25
-local ADAPTER_REVISION = "gen3-frlg-live-profile-2026-05-25"
+local ADAPTER_REVISION = "gen3-frlg-saveblock-validation-2026-06-10"
 
 local function script_directory()
   local info = debug and debug.getinfo and debug.getinfo(1, "S")
@@ -100,6 +100,7 @@ local cachedHeavySectionsGame = nil
 local lastPollAt = 0
 local saveBlockScanCursorByProfile = {}
 local saveBlockScanBestByProfile = {}
+local runtimePointerAddressByProfile = {}
 local storageScanCursorByProfile = {}
 local storageScanBestByProfile = {}
 local SAVEBLOCK_SCAN_CANDIDATES_PER_SNAPSHOT = 128
@@ -244,6 +245,7 @@ local function get_game()
     cachedHeavySectionsGame = nil
     saveBlockScanCursorByProfile = {}
     saveBlockScanBestByProfile = {}
+    runtimePointerAddressByProfile = {}
     storageScanCursorByProfile = {}
     storageScanBestByProfile = {}
   end
@@ -280,7 +282,12 @@ local function score_saveblock2(base, p)
   if is_printable_name(base + p.trainerName, 7) then score = score + 3 end
   local gender = read8(base + p.trainerGender)
   if gender == 0 or gender == 1 then score = score + 1 end
-  if read8(base + p.playTimeMinutes) < 60 and read8(base + p.playTimeSeconds) < 60 then score = score + 2 end
+  local hours = read16(base + p.playTimeHours)
+  local minutes = read8(base + p.playTimeMinutes)
+  local seconds = read8(base + p.playTimeSeconds)
+  local vblanks = p.playTimeVBlanks and read8(base + p.playTimeVBlanks) or 0
+  if hours > 999 or minutes >= 60 or seconds >= 60 or vblanks >= 60 then return -1 end
+  score = score + 3
   local magic = read8(base + p.pokedexNationalMagic)
   local nationalMagic = p.nationalMagic or RSE_NATIONAL_MAGIC
   if magic == 0 or magic == nationalMagic then score = score + 1 end
@@ -312,7 +319,15 @@ local function find_saveblock_incremental(p, name, size, minScore, scorer)
   local best = saveBlockScanBestByProfile[key] or { base = nil, score = -1, complete = false }
 
   if best.complete then
-    return best.base, "scan-complete:" .. tostring(best.score)
+    local currentScore = best.base and scorer(best.base) or -1
+    if currentScore >= minScore then
+      best.score = currentScore
+      return best.base, "scan-complete:" .. tostring(currentScore)
+    end
+    cursor = p.ewramStart
+    best = { base = nil, score = -1, complete = false }
+    saveBlockScanCursorByProfile[key] = cursor
+    saveBlockScanBestByProfile[key] = best
   end
 
   local scanned = 0
@@ -340,30 +355,84 @@ local function find_saveblock_incremental(p, name, size, minScore, scorer)
   return nil, (best.complete and "scan-complete:" or "scan-progress:") .. tostring(best.score)
 end
 
+local function find_runtime_pointer(p, name, size, minScore, scorer, preferredAddress)
+  local key = (p.key or "default") .. ":" .. name
+  local cachedAddress = runtimePointerAddressByProfile[key]
+  if cachedAddress then
+    local base = read32(cachedAddress)
+    if base >= p.ewramStart and base + size <= p.ewramEnd and scorer(base) >= minScore then
+      return base, "runtime-pointer-scan"
+    end
+    runtimePointerAddressByProfile[key] = nil
+  end
+
+  if preferredAddress then
+    local base = read32(preferredAddress)
+    if base >= p.ewramStart and base + size <= p.ewramEnd and scorer(base) >= minScore then
+      runtimePointerAddressByProfile[key] = preferredAddress
+      return base, "runtime-pointer-adjacent"
+    end
+  end
+
+  local bestAddress, bestBase, bestScore = nil, nil, -1
+  for address = 0x03000000, 0x03007ffc, 4 do
+    local base = read32(address)
+    if base >= p.ewramStart and base + size <= p.ewramEnd then
+      local score = scorer(base)
+      if score > bestScore then
+        bestAddress, bestBase, bestScore = address, base, score
+      end
+    end
+  end
+  if bestScore >= minScore then
+    runtimePointerAddressByProfile[key] = bestAddress
+    return bestBase, "runtime-pointer-scan"
+  end
+  return nil, "runtime-pointer-scan:" .. tostring(bestScore)
+end
+
 local function find_saveblock2(p)
   if type(p.saveBlock2Ptr) == "number" then
     local base = read32(p.saveBlock2Ptr)
-    if base >= p.ewramStart and base + p.saveBlock2Size <= p.ewramEnd and score_saveblock2(base, p) >= 5 then
+    if base >= p.ewramStart and base + p.saveBlock2Size <= p.ewramEnd and score_saveblock2(base, p) >= 7 then
+      runtimePointerAddressByProfile[(p.key or "default") .. ":saveBlock2"] = p.saveBlock2Ptr
       return base, "runtime-pointer"
     end
   end
   if type(p.saveBlock2) == "number" then return p.saveBlock2, "fixed" end
-  return find_saveblock_incremental(p, "saveBlock2", p.saveBlock2Size, 5, function(base)
+  local pointerBase, pointerMode = find_runtime_pointer(p, "saveBlock2", p.saveBlock2Size, 7, function(base)
+    return score_saveblock2(base, p)
+  end)
+  if pointerBase then return pointerBase, pointerMode end
+  return find_saveblock_incremental(p, "saveBlock2", p.saveBlock2Size, 7, function(base)
     return score_saveblock2(base, p)
   end)
 end
 
 local function find_saveblock1(p, securityKey)
+  local scorer = function(base)
+    return score_saveblock1(base, p, securityKey)
+  end
   if type(p.saveBlock1Ptr) == "number" then
     local base = read32(p.saveBlock1Ptr)
-    if base >= p.ewramStart and base + p.saveBlock1Size <= p.ewramEnd and score_saveblock1(base, p, securityKey) >= 4 then
+    if base >= p.ewramStart and base + p.saveBlock1Size <= p.ewramEnd and scorer(base) >= 5 then
+      runtimePointerAddressByProfile[(p.key or "default") .. ":saveBlock1"] = p.saveBlock1Ptr
       return base, "runtime-pointer"
     end
   end
   if type(p.saveBlock1) == "number" then return p.saveBlock1, "fixed" end
-  return find_saveblock_incremental(p, "saveBlock1", p.saveBlock1Size, 4, function(base)
-    return score_saveblock1(base, p, securityKey)
-  end)
+  local saveBlock2Pointer = runtimePointerAddressByProfile[(p.key or "default") .. ":saveBlock2"]
+  local preferredAddress = saveBlock2Pointer and saveBlock2Pointer - 4 or nil
+  local pointerBase, pointerMode = find_runtime_pointer(
+    p,
+    "saveBlock1",
+    p.saveBlock1Size,
+    5,
+    scorer,
+    preferredAddress
+  )
+  if pointerBase then return pointerBase, pointerMode end
+  return find_saveblock_incremental(p, "saveBlock1", p.saveBlock1Size, 5, scorer)
 end
 
 local function checksum_box_pokemon(record)

@@ -24,6 +24,53 @@ interface AutoEventText {
   steps?: string[];
 }
 
+function describeTechnicalState(
+  flag: Pick<GameEventFlag, "key" | "label" | "stateKind" | "initiallySet">,
+  rawSet: boolean
+): string | undefined {
+  if (flag.stateKind === "visibility") {
+    const decorationMatch = flag.key.match(/^FLAG_DECORATION_(\d+)$/);
+    if (decorationMatch) {
+      return rawSet
+        ? `Decoration slot ${decorationMatch[1]} is hidden or unused. This usually means no decoration object is placed in that slot; it is not completed story progress.`
+        : `Decoration slot ${decorationMatch[1]} is available to display a placed decoration. This is room or Secret Base object state, not story progress.`;
+    }
+
+    const target = flag.label.replace(/^(?:Hide|Show|Hidden)\s+/, "");
+    const initialPrefix = flag.initiallySet ? "The new game starts with this state: " : "";
+    return rawSet
+      ? `${initialPrefix}${target} is currently hidden from its map. The bit describes object visibility, not a completed event.`
+      : `${target} is currently allowed to appear on its map. The bit describes object visibility, not an unfinished event.`;
+  }
+
+  if (flag.stateKind !== "system") return undefined;
+
+  const knownDescriptions: Record<string, [string, string]> = {
+    FLAG_SYS_CLOCK_SET: [
+      "The real-time clock has been initialized, enabling time-based game systems. This is normal after setting the bedroom clock.",
+      "The real-time clock has not been initialized yet.",
+    ],
+    FLAG_SYS_TV_HOME: [
+      "The television system is using the player's-home program state after the introductory TV scene. This is internal TV state, not story completion.",
+      "The player's-home TV program state is inactive.",
+    ],
+    FLAG_SYS_TV_WATCH: [
+      "The television engine is in its watch/display state. This controls TV behavior and is not a completed event.",
+      "The television watch/display state is inactive.",
+    ],
+    FLAG_SYS_SHOAL_ITEM: [
+      "Shoal Cave's tide-item refresh marker is active. The cave uses and clears it when refreshing Shoal Salt and Shoal Shell objects; it does not mean Shoal Cave was visited.",
+      "Shoal Cave's tide-item refresh marker is inactive.",
+    ],
+  };
+  const known = knownDescriptions[flag.key];
+  if (known) return rawSet ? known[0] : known[1];
+
+  return rawSet
+    ? `${flag.label} is an active internal engine state. It is not completed story progress.`
+    : `${flag.label} is an inactive internal engine state. It is not an unfinished quest.`;
+}
+
 function splitTrailingItemName(text: string): { location: string; item: string } | undefined {
   for (const itemName of KNOWN_ITEM_NAMES) {
     if (itemName === "None" || itemName === "Nothing" || itemName.includes("?")) continue;
@@ -156,6 +203,11 @@ function readBit(data: Uint8Array, offset: number, bitIndex: number): boolean {
   return (byte & (1 << (bitIndex % 8))) !== 0;
 }
 
+function mergeSourceRefs(...groups: Array<string[] | undefined>): string[] | undefined {
+  const refs = [...new Set(groups.flatMap((group) => group ?? []))];
+  return refs.length > 0 ? refs : undefined;
+}
+
 export function parseEventProgress(
   data: Uint8Array,
   layout: EventFlagLayout,
@@ -166,25 +218,35 @@ export function parseEventProgress(
     const guidance = getEventGuidance(layout.gameProfile, entry.key);
     const generatedGuide = getGeneratedEventGuide(layout.gameProfile, entry.key);
     const autoDescription = autoDescribeSourceFlag(entry);
+    const rawSet = readBit(data, flagStartOffset, entry.id);
+    const technicalStateDescription = describeTechnicalState(entry, rawSet);
     return {
       id: entry.id,
       key: entry.key,
       label: entry.label,
       category: entry.category,
-      completed: readBit(data, flagStartOffset, entry.id),
+      rawSet,
+      initiallySet: entry.initiallySet,
+      stateKind: entry.stateKind,
+      completed: rawSet && !entry.initiallySet && !entry.stateKind,
       importance: entry.importance,
       important: entry.important,
       note: entry.note,
-      description: guidance?.description ?? autoDescription.description ?? generatedGuide?.description,
+      description: technicalStateDescription ?? (entry.initiallySet
+        ? "Initial game-state flag. The game sets this automatically when a new save is initialized; a set bit does not prove that the named action was completed."
+        : guidance?.description ?? generatedGuide?.description ?? autoDescription.description),
       descriptionKind: guidance?.description
         ? "script-guided" as const
         : generatedGuide?.descriptionKind ?? "source-symbol" as const,
+      location: generatedGuide?.location,
+      completionMeaning: generatedGuide?.completionMeaning,
+      notCompletedMeaning: generatedGuide?.notCompletedMeaning,
       actionHint: guidance?.actionHint,
-      flowSteps: guidance?.steps ?? autoDescription.steps ?? generatedGuide?.steps,
+      flowSteps: guidance?.steps ?? generatedGuide?.steps ?? autoDescription.steps,
       prerequisites: guidance?.prerequisites,
       mutuallyExclusiveWith: guidance?.mutuallyExclusiveWith,
       normalMissingReason: guidance?.normalMissingReason,
-      sourceRefs: guidance?.sourceRefs ?? generatedGuide?.sourceRefs,
+      sourceRefs: mergeSourceRefs(guidance?.sourceRefs, generatedGuide?.sourceRefs),
     };
   });
 
@@ -206,7 +268,11 @@ function enrichEventFlow(flags: GameEventFlag[]): GameEventFlag[] {
     const missingPrerequisites = (flag.prerequisites ?? []).filter((key) => completedByKey.get(key) !== true);
     const alternativeCompleted = (flag.mutuallyExclusiveWith ?? []).filter((key) => completedByKey.get(key) === true);
     const mutuallyExclusiveDone = alternativeCompleted.length > 0;
-    const flowStatus: GameEventFlag["flowStatus"] = flag.completed
+    const flowStatus: GameEventFlag["flowStatus"] = flag.initiallySet && flag.rawSet
+      ? "initial"
+      : flag.stateKind
+        ? "state"
+      : flag.completed
       ? "done"
       : mutuallyExclusiveDone || flag.importance === "optional"
         ? "optional"
@@ -235,6 +301,9 @@ export function normalizeEventProgress(value: unknown): GameEventProgress | unde
       label: String(flag.label ?? flag.key ?? "Event"),
       category: String(flag.category ?? "Other"),
       completed: Boolean(flag.completed),
+      rawSet: flag.rawSet === undefined ? Boolean(flag.completed) : Boolean(flag.rawSet),
+      initiallySet: Boolean(flag.initiallySet),
+      stateKind: ["visibility", "system"].includes(String(flag.stateKind)) ? flag.stateKind : undefined,
       importance: ["story", "unlock", "optional", "routine"].includes(String(flag.importance))
         ? flag.importance
         : undefined,
@@ -244,6 +313,9 @@ export function normalizeEventProgress(value: unknown): GameEventProgress | unde
       descriptionKind: ["source-symbol", "source-context", "script-guided"].includes(String(flag.descriptionKind))
         ? flag.descriptionKind
         : undefined,
+      location: flag.location === undefined ? undefined : String(flag.location),
+      completionMeaning: flag.completionMeaning === undefined ? undefined : String(flag.completionMeaning),
+      notCompletedMeaning: flag.notCompletedMeaning === undefined ? undefined : String(flag.notCompletedMeaning),
       actionHint: flag.actionHint === undefined ? undefined : String(flag.actionHint),
       flowSteps: Array.isArray(flag.flowSteps) ? flag.flowSteps.map(String) : undefined,
       prerequisites: Array.isArray(flag.prerequisites) ? flag.prerequisites.map(String) : undefined,
@@ -251,7 +323,7 @@ export function normalizeEventProgress(value: unknown): GameEventProgress | unde
       mutuallyExclusiveWith: Array.isArray(flag.mutuallyExclusiveWith) ? flag.mutuallyExclusiveWith.map(String) : undefined,
       alternativeCompleted: Array.isArray(flag.alternativeCompleted) ? flag.alternativeCompleted.map(String) : undefined,
       normalMissingReason: flag.normalMissingReason === undefined ? undefined : String(flag.normalMissingReason),
-      flowStatus: ["done", "available", "blocked", "optional", "not-set"].includes(String(flag.flowStatus))
+      flowStatus: ["done", "initial", "state", "available", "blocked", "optional", "not-set"].includes(String(flag.flowStatus))
         ? flag.flowStatus
         : undefined,
       sourceRefs: Array.isArray(flag.sourceRefs) ? flag.sourceRefs.map(String) : undefined,

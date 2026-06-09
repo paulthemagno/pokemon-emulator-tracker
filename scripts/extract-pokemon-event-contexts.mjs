@@ -180,12 +180,36 @@ function shouldPreferOccurrence(context) {
   return context.operation !== "definition";
 }
 
+function occurrenceScore(context) {
+  const operationScores = {
+    set: 100,
+    clear: 95,
+    trainer: 85,
+    "item-object": 85,
+    "map-object": 80,
+    check: 60,
+    reference: 40,
+    definition: 0,
+  };
+  let score = operationScores[context.operation] ?? 20;
+  if (context.path.startsWith("maps/") || context.path.includes("/maps/") || context.path.startsWith("scripts/")) {
+    score += 20;
+  }
+  return score;
+}
+
 function compactContexts(contextsByKey, maxPerFlag) {
   return Object.fromEntries(
     Object.entries(contextsByKey)
       .map(([key, contexts]) => {
         const nonDefinitions = contexts.filter((context) => context.operation !== "definition");
-        return [key, (nonDefinitions.length > 0 ? nonDefinitions : contexts).slice(0, maxPerFlag)];
+        const candidates = nonDefinitions.length > 0 ? nonDefinitions : contexts;
+        return [
+          key,
+          [...candidates]
+            .sort((a, b) => occurrenceScore(b) - occurrenceScore(a) || a.path.localeCompare(b.path) || a.line - b.line)
+            .slice(0, maxPerFlag),
+        ];
       })
       .filter(([, contexts]) => contexts.length > 0)
   );
@@ -219,7 +243,7 @@ async function collectRepoContexts(repoPath, keys, options) {
       for (const match of line.matchAll(regex)) {
         const key = match[1];
         const current = contextsByKey[key];
-        if (!current || current.length >= maxPerFlag) continue;
+        if (!current) continue;
         const context = {
           path: filePath,
           line: lineIndex + 1,

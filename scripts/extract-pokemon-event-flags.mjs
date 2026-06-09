@@ -28,6 +28,7 @@ const PINNED_SOURCES = {
     commit: "09d2148d6d26b20840fb4997916321666ca1e953",
     eventPath: "constants/event_flags.asm",
     wramPath: "ram/wram.asm",
+    initEventsPath: "engine/events/std_scripts.asm",
   },
   pokecrystal: {
     sourceKey: "pokecrystal",
@@ -35,18 +36,21 @@ const PINNED_SOURCES = {
     commit: "8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217",
     eventPath: "constants/event_flags.asm",
     wramPath: "ram/wram.asm",
+    initEventsPath: "engine/events/std_scripts.asm",
   },
   pokeruby: {
     sourceKey: "pretPokeruby",
     repo: "pret/pokeruby",
     commit: "63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1",
     eventPath: "include/constants/flags.h",
+    initEventsPath: "data/scripts/new_game.inc",
   },
   pokeemerald: {
     sourceKey: "pretPokeemerald",
     repo: "pret/pokeemerald",
     commit: "0d3100185e0b13faabfc589fc402dd46f83c1d6a",
     eventPath: "include/constants/flags.h",
+    initEventsPath: "data/scripts/new_game.inc",
   },
   pokefirered: {
     sourceKey: "pretPokefirered",
@@ -160,7 +164,16 @@ function humanizeFlagName(name) {
 function categorize(name, section = "", comment = "") {
   const text = `${name} ${section} ${comment}`.toLowerCase();
   if (text.includes("unused") || text.includes("never set") || text.includes("unknown")) return "Unused/unknown";
+  if (/^(?:FLAG|EVENT)_HIDE_/.test(name)) return "Map objects";
+  if (/^FLAG_DECORATION_\d+$/.test(name)) return "Map objects";
+  if (/^FLAG_SYS_/.test(name)) return "System state";
   if (/EVENT_BEAT_ELITE_4_|EVENT_BEAT_CHAMPION_LANCE|_ROOM_ENTRANCE_CLOSED|_ROOM_EXIT_OPEN/.test(name)) return "League challenge state";
+  if (/LANCES_ROOM_LOCK_DOOR|HALL_OF_FAME_DEX_RATING/.test(name)) return "Map objects";
+  if (/STARTER_DOLL|BIRCH_AIDE_MET|MATCH_CALL/.test(name)) return "Optional rewards";
+  if (/BEAT_MEWTWO|CAUGHT_(?:LUGIA|HO_OH)|DEFEATED_(?:KYOGRE|GROUDON|RAYQUAZA|HO_OH|LUGIA)|SET_WHEN_FOUGHT_HO_OH|SOLVED_HO_OH_PUZZLE|WALL_OPENED_IN_.*_CHAMBER/.test(name)) return "Optional rewards";
+  if (/FOLLOWED_OAK_INTO_LAB|OAK_ASKED_TO_CHOOSE_MON|GOT_STARTER|OAK_GOT_PARCEL|GOT_OAKS_PARCEL|RESCUED_BIRCH|KYOGRE_ESCAPED_SEAFLOOR_CAVERN|WALLACE_GOES_TO_SKY_PILLAR/.test(name)) return "Story: Main";
+  if (/FOUGHT_SUICUNE|SAW_SUICUNE|TIN_TOWER_1F_SUICUNE/.test(name)) return "Story: Main";
+  if (/BEAT_LANCE|DEFEATED_LANCE|DEFEATED_LEADER_GIOVANNI/.test(name)) return "Story: Gyms and League";
   if (/\bbeat_|_trainer|trainer_/.test(text) && !/(elite|champion|giovanni|rival|wally|archie|maxie|aqua|magma|rocket)/.test(text)) return "Trainers";
   if (/\bHM\d|_HM\d|HM[0-9]|_BIKE$|BICYCLE|TICKET|POKEDEX|POKENAV|MACHINE_PART|CARD_KEY|BASEMENT_KEY|LIFT_KEY/.test(name)) return "Key items and unlocks";
   if (text.includes("hidden") || text.includes("_item_") || text.includes("itemball") || text.includes("picked_up")) return "Items";
@@ -175,8 +188,14 @@ function categorize(name, section = "", comment = "") {
   return "Other";
 }
 
+function stateKindFor(name) {
+  if (/^(?:FLAG|EVENT)_HIDE_|^FLAG_DECORATION_\d+$/.test(name)) return "visibility";
+  if (/^FLAG_SYS_/.test(name)) return "system";
+  return undefined;
+}
+
 function importanceFor(name, category) {
-  if (category === "League challenge state") return "routine";
+  if (category === "League challenge state" || category === "System state") return "routine";
   if (category === "Story: Main" || category === "Story: Gyms and League" || category === "Story: Rival") return "story";
   if (category === "Key items and unlocks") return "unlock";
   if (category === "Items" || category === "Optional rewards" || category === "Daily") return "optional";
@@ -186,8 +205,9 @@ function importanceFor(name, category) {
 }
 
 function isImportant(name, category) {
-  if (category === "Unused/unknown" || category === "Daily" || category === "Items" || category === "Trainers" || category === "Map objects" || category === "Optional rewards" || category === "League challenge state") return false;
-  return /BADGE|GYM|ELITE|CHAMPION|POKEDEX|POKENAV|HM[0-9]|_HM\d|TICKET|STARTER|OAK|ELM|BIRCH|RIVAL|WALLY|ROCKET|AQUA|MAGMA|DEVON|SILPH|GIOVANNI|LANCE|WALLACE|KYOGRE|GROUDON|RAYQUAZA|HO_OH|LUGIA|SUICUNE|MEWTWO|GAME_CLEAR|HALL_OF_FAME|SS_TICKET|MACHINE_PART|POWER_TO_KANTO|OPENED_MT_SILVER|RED_IN_MT_SILVER/.test(name);
+  if (category === "Unused/unknown" || category === "Daily" || category === "Items" || category === "Trainers" || category === "Map objects" || category === "System state" || category === "Optional rewards" || category === "League challenge state") return false;
+  if (/FOLLOWED_OAK_INTO_LAB|OAK_ASKED_TO_CHOOSE_MON|GOT_STARTER|OAK_GOT_PARCEL|GOT_OAKS_PARCEL|GOT_A_POKEMON_FROM_ELM|GOT_(?:CYNDAQUIL|TOTODILE|CHIKORITA)_FROM_ELM|GOT_MYSTERY_EGG_FROM_MR_POKEMON|GAVE_MYSTERY_EGG_TO_ELM|RESCUED_BIRCH/.test(name)) return true;
+  return /BADGE|GYM|ELITE|CHAMPION|POKEDEX|POKENAV|HM[0-9]|_HM\d|TICKET|RIVAL|WALLY|ROCKET|AQUA|MAGMA|DEVON|SILPH|GIOVANNI|LANCE|WALLACE|KYOGRE_ESCAPED|WALLACE_GOES_TO_SKY_PILLAR|SUICUNE|GAME_CLEAR|HALL_OF_FAME|SS_TICKET|MACHINE_PART|POWER_TO_KANTO|OPENED_MT_SILVER|RED_IN_MT_SILVER/.test(name);
 }
 
 function parseAsmEvents(source) {
@@ -231,6 +251,7 @@ function parseAsmEvents(source) {
         category,
         importance: importanceFor(key, category),
         important: isImportant(key, category),
+        stateKind: stateKindFor(key),
         note: comment || undefined,
       });
       value += 1;
@@ -298,6 +319,7 @@ function parseCFlags(source, seed = {}) {
       category,
       importance: importanceFor(key, category),
       important: isImportant(key, category),
+      stateKind: stateKindFor(key),
       note: comment || undefined,
     });
   }
@@ -306,6 +328,16 @@ function parseCFlags(source, seed = {}) {
     flagCount: Math.max(...entries.map((entry) => entry.id)) + 1,
     entries,
   };
+}
+
+function parseInitiallySetEvents(source) {
+  const start = source.indexOf("InitializeEventsScript:");
+  const body = start === -1
+    ? source
+    : source.slice(start).split(/\bendcallback\b/, 1)[0];
+  return new Set(
+    Array.from(body.matchAll(/^\s*set(?:event|flag)\s+((?:EVENT|FLAG)_[A-Z0-9_]+)/gm), (match) => match[1])
+  );
 }
 
 function extractWramLabelOffset(source, label, constants, startLabel) {
@@ -336,12 +368,25 @@ async function buildGame(args, key, profile, generation, parser) {
         ? { SYS_FLAGS: 0x800 }
         : {};
   const parsed = parser(eventSource, cSeed);
+  const initiallySetEvents = source.initEventsPath
+    ? parseInitiallySetEvents(await readSource(args, key, source.initEventsPath))
+    : new Set();
   const layout = {
     generation,
     gameProfile: profile,
     sourceKey: source.sourceKey,
     flagCount: parsed.flagCount,
-    entries: parsed.entries,
+    entries: parsed.entries.map((entry) => {
+      if (!initiallySetEvents.has(entry.key)) return entry;
+      return {
+        ...entry,
+        initiallySet: true,
+        important: false,
+        importance: "routine",
+        category: "Initial game state",
+        note: "Set by the new-save initialization script; the raw bit alone is not proof that the named action was completed.",
+      };
+    }),
   };
 
   if (generation <= 2) {
@@ -379,8 +424,14 @@ async function buildGame(args, key, profile, generation, parser) {
     const base = generation === 1 ? 0x25a3 : 0x2009;
     const startLabel = generation === 1 ? "wMainDataStart" : "wGameData";
     const liveBase = generation === 1 ? 0xd2f7 : profile === "crystal-en" ? 0xd473 : 0xd1a1;
-    layout.flagStartOffset = `0x${(base + extractWramLabelOffset(wram, "wEventFlags", constants, startLabel)).toString(16)}`;
-    layout.liveFlagStartOffset = `0x${(liveBase + extractWramLabelOffset(wram, "wEventFlags", constants, startLabel)).toString(16)}`;
+    const labelOffset = extractWramLabelOffset(wram, "wEventFlags", constants, startLabel);
+    // Gen 1's saved event array starts at $29f3 for both profiles. Yellow's
+    // live WRAM layout is one byte earlier than Red/Blue, matching the other
+    // Yellow player-data symbols (for example wPokedexOwned).
+    const saveCorrection = profile === "red-blue-en" ? 6 : profile === "yellow-en" ? -12 : 0;
+    const liveCorrection = profile === "red-blue-en" ? 6 : profile === "yellow-en" ? -13 : 0;
+    layout.flagStartOffset = `0x${(base + labelOffset + saveCorrection).toString(16)}`;
+    layout.liveFlagStartOffset = `0x${(liveBase + labelOffset + liveCorrection).toString(16)}`;
   }
 
   return layout;
@@ -391,7 +442,7 @@ const provenance = await readJson("provenance.json");
 for (const [key, source] of Object.entries(PINNED_SOURCES)) {
   if (args[key]) {
     provenance[source.sourceKey].commit = await getCommit(args[key]);
-    provenance[source.sourceKey].path = [source.eventPath, source.wramPath].filter(Boolean).join(", ");
+    provenance[source.sourceKey].path = [source.eventPath, source.wramPath, source.initEventsPath].filter(Boolean).join(", ");
   }
 }
 
