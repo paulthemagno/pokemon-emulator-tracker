@@ -6,6 +6,30 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  attachments?: ChatImageAttachment[];
+  thinking?: string;
+}
+
+export interface ChatImageAttachment {
+  kind: 'image';
+  name: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  data: string;
+}
+
+export interface ChatRuntimeConfig {
+  endpoint?: string;
+  modelName?: string;
+  apiKey?: string;
+  thinking?: boolean;
+}
+
+export interface ChatProviderInfo {
+  provider: string;
+  modelName: string;
+  endpoint: string;
+  ready: boolean;
+  credentialSource: 'request' | 'environment' | 'none';
 }
 
 export interface ConversationState {
@@ -87,7 +111,9 @@ export interface ChatProvider {
     conversationHistory: ChatMessage[],
     gameContext?: GameContextSnapshot,
     systemPrompt?: string,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    attachments?: ChatImageAttachment[],
+    onThinkingChunk?: (chunk: string) => void
   ): Promise<string>;
   validateConfig(): Promise<boolean>;
   isReady(): boolean;
@@ -99,6 +125,7 @@ export interface ProviderConfig {
   modelName?: string;
   maxTokens?: number;
   temperature?: number;
+  thinking?: boolean;
 }
 
 export interface OllamaConfig extends ProviderConfig {

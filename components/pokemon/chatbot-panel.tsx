@@ -13,8 +13,22 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, X, Trash2 } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Brain,
+  ImagePlus,
+  MessageSquare,
+  Settings,
+  Trash2,
+  X,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import type {
+  ChatImageAttachment,
+  ChatProviderInfo,
+  ChatRuntimeConfig,
+} from '@/lib/chatbot/types';
 
 interface ChatbotPanelProps {
   isOpen: boolean;
@@ -129,8 +143,20 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
   const conversation = useConversation({ autoSave: true });
   const [inputValue, setInputValue] = useState('');
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [streamingThinking, setStreamingThinking] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [providerReady, setProviderReady] = useState(false);
+  const [providerInfo, setProviderInfo] = useState<ChatProviderInfo | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [runtimeConfig, setRuntimeConfig] = useState<ChatRuntimeConfig>({
+    endpoint: '',
+    modelName: '',
+    apiKey: '',
+    thinking: true,
+  });
+  const [imageAttachment, setImageAttachment] = useState<ChatImageAttachment | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [bubblePosition, setBubblePosition] = useState<FloatingPosition>({ x: 0, y: 0 });
   const [panelPosition, setPanelPosition] = useState<FloatingPosition>({ x: 0, y: 0 });
   const [panelSize, setPanelSize] = useState<FloatingSize>({
@@ -158,7 +184,10 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
   });
   const dragMovedRef = useRef(false);
   const suppressBubbleClickRef = useRef(false);
-  const isStreaming = conversation.isLoading || streamingMessage.length > 0;
+  const isStreaming =
+    conversation.isLoading ||
+    streamingMessage.length > 0 ||
+    streamingThinking.length > 0;
 
   useEffect(() => {
     const defaultPanelSize = getDefaultPanelSize();
@@ -253,15 +282,10 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
   useEffect(() => {
     const checkProvider = async () => {
       try {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: '',
-            history: [],
-          }),
-        });
-        setProviderReady(response.status !== 503);
+        const response = await fetch('/api/chat');
+        const info = (await response.json()) as ChatProviderInfo;
+        setProviderInfo(info);
+        setProviderReady(response.ok && info.ready);
       } catch {
         setProviderReady(false);
       }
@@ -271,6 +295,34 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
       checkProvider();
     }
   }, [isOpen]);
+
+  const handleImageSelection = async (file?: File) => {
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      conversation.setError('Use a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      conversation.setError('Images must be 5 MB or smaller.');
+      return;
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('Failed to read image.'));
+      reader.readAsDataURL(file);
+    });
+
+    setImageAttachment({
+      kind: 'image',
+      name: file.name,
+      mediaType: file.type as ChatImageAttachment['mediaType'],
+      data: dataUrl.slice(dataUrl.indexOf(',') + 1),
+    });
+    conversation.setError(null);
+  };
 
   // Update game context when gameData changes
   useEffect(() => {
@@ -290,6 +342,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
     if (trimmed === '/reset') {
       await conversation.clearConversation();
       setStreamingMessage('');
+      setStreamingThinking('');
       return true;
     }
 
@@ -297,6 +350,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
     if (trimmed === '/clear') {
       await conversation.clearConversation();
       setStreamingMessage('');
+      setStreamingThinking('');
       return true;
     }
 
@@ -314,12 +368,14 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || conversation.isLoading || !providerReady) {
+    if ((!inputValue.trim() && !imageAttachment) || conversation.isLoading) {
       return;
     }
 
-    const userMessage = inputValue.trim();
+    const userMessage = inputValue.trim() || 'Describe this image in the context of my current game.';
+    const pendingAttachment = imageAttachment;
     setInputValue('');
+    setImageAttachment(null);
 
     // Check for commands
     if (userMessage.startsWith('/')) {
@@ -331,9 +387,14 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
       conversation.setIsLoading(true);
       conversation.setError(null);
       setStreamingMessage('');
+      setStreamingThinking('');
 
       // Add user message
-      await conversation.addMessage('user', userMessage);
+      await conversation.addMessage(
+        'user',
+        userMessage,
+        pendingAttachment ? { attachments: [pendingAttachment] } : {}
+      );
 
       // Call chat API with streaming
       const response = await fetch('/api/chat', {
@@ -344,6 +405,13 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           history: conversation.messages,
           gameContext: conversation.gameContext,
           stream: true,
+          attachments: pendingAttachment ? [pendingAttachment] : [],
+          runtimeConfig: {
+            endpoint: runtimeConfig.endpoint?.trim() || undefined,
+            modelName: runtimeConfig.modelName?.trim() || undefined,
+            apiKey: runtimeConfig.apiKey?.trim() || undefined,
+            thinking: runtimeConfig.thinking,
+          },
         }),
       });
 
@@ -358,6 +426,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
 
       const decoder = new TextDecoder();
       let fullMessage = '';
+      let fullThinking = '';
       let pending = '';
 
       while (true) {
@@ -371,41 +440,75 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
         for (const rawLine of lines) {
           const line = rawLine.trim();
           if (!line) continue;
+          let parsed: {
+            chunk?: string;
+            thinking?: string;
+            error?: string;
+            meta?: ChatProviderInfo;
+          };
           try {
-            const parsed = JSON.parse(line) as { chunk?: string; error?: string };
-            if (parsed.error) {
-              throw new Error(parsed.error);
-            }
-            if (parsed.chunk) {
-              fullMessage += parsed.chunk;
-              setStreamingMessage(fullMessage);
-            }
+            parsed = JSON.parse(line);
           } catch {
             // Ignore malformed lines from partial chunks
+            continue;
           }
-        }
-      }
-
-      if (pending.trim()) {
-        try {
-          const parsed = JSON.parse(pending.trim()) as { chunk?: string; error?: string };
           if (parsed.error) {
             throw new Error(parsed.error);
+          }
+          if (parsed.meta) {
+            setProviderInfo(parsed.meta);
+            setProviderReady(parsed.meta.ready);
           }
           if (parsed.chunk) {
             fullMessage += parsed.chunk;
             setStreamingMessage(fullMessage);
           }
+          if (parsed.thinking) {
+            fullThinking += parsed.thinking;
+            setStreamingThinking(fullThinking);
+          }
+        }
+      }
+
+      if (pending.trim()) {
+        let parsed: {
+          chunk?: string;
+          thinking?: string;
+          error?: string;
+          meta?: ChatProviderInfo;
+        } | null = null;
+        try {
+          parsed = JSON.parse(pending.trim());
         } catch {
           // Ignore incomplete trailing JSON
+        }
+        if (parsed?.error) {
+          throw new Error(parsed.error);
+        }
+        if (parsed?.meta) {
+          setProviderInfo(parsed.meta);
+          setProviderReady(parsed.meta.ready);
+        }
+        if (parsed?.chunk) {
+          fullMessage += parsed.chunk;
+          setStreamingMessage(fullMessage);
+        }
+        if (parsed?.thinking) {
+          fullThinking += parsed.thinking;
+          setStreamingThinking(fullThinking);
         }
       }
 
       // Save complete message
-      if (fullMessage) {
-        await conversation.addMessage('assistant', fullMessage);
+      if (fullMessage || fullThinking) {
+        await conversation.addMessage(
+          'assistant',
+          fullMessage || 'No final response was returned.',
+          fullThinking ? { thinking: fullThinking } : {}
+        );
       }
       setStreamingMessage('');
+      setStreamingThinking('');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       conversation.setError(errorMessage);
@@ -496,8 +599,21 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             >
               {providerReady ? 'ONLINE' : 'OFFLINE'}
             </span>
+            <span className="max-w-48 truncate text-xs text-blue-100">
+              {providerInfo?.modelName || runtimeConfig.modelName || 'model unknown'}
+            </span>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onPointerDown={stopHeaderActionPointer}
+              onClick={() => setShowSettings((current) => !current)}
+              className="text-white hover:bg-blue-700"
+              title="Model settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -505,6 +621,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
               onClick={async () => {
                 await conversation.clearConversation();
                 setStreamingMessage('');
+                setStreamingThinking('');
               }}
               className="text-white hover:bg-blue-700"
               title="Clear chat"
@@ -530,11 +647,109 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           </div>
         )}
 
+        {showSettings && (
+          <div className="space-y-3 border-b bg-slate-50 px-4 py-3 text-xs dark:bg-slate-900">
+            <div>
+              <label className="mb-1 block font-medium" htmlFor="chat-model">
+                Model override
+              </label>
+              <Input
+                id="chat-model"
+                value={runtimeConfig.modelName}
+                onChange={(event) =>
+                  setRuntimeConfig((current) => ({
+                    ...current,
+                    modelName: event.target.value,
+                  }))
+                }
+                placeholder={providerInfo?.modelName || 'Uses OLLAMA_MODEL'}
+                className="h-8"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block font-medium" htmlFor="chat-endpoint">
+                Ollama endpoint override
+              </label>
+              <Input
+                id="chat-endpoint"
+                value={runtimeConfig.endpoint}
+                onChange={(event) =>
+                  setRuntimeConfig((current) => ({
+                    ...current,
+                    endpoint: event.target.value,
+                  }))
+                }
+                placeholder={providerInfo?.endpoint || 'Uses OLLAMA_ENDPOINT'}
+                className="h-8"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block font-medium" htmlFor="chat-api-key">
+                API key override
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="chat-api-key"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={runtimeConfig.apiKey}
+                  onChange={(event) =>
+                    setRuntimeConfig((current) => ({
+                      ...current,
+                      apiKey: event.target.value,
+                    }))
+                  }
+                  placeholder={
+                    providerInfo?.credentialSource === 'environment'
+                      ? 'Environment secret is configured'
+                      : 'Optional Bearer token'
+                  }
+                  autoComplete="off"
+                  className="h-8"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowApiKey((current) => !current)}
+                  className="h-8 px-2"
+                  aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <label className="flex items-center justify-between gap-3 rounded border bg-white px-3 py-2 dark:bg-slate-950">
+              <span>
+                <span className="block font-medium">Enable model thinking</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Off sends think: false, so Ollama skips thinking mode entirely.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={runtimeConfig.thinking}
+                onChange={(event) =>
+                  setRuntimeConfig((current) => ({
+                    ...current,
+                    thinking: event.target.checked,
+                  }))
+                }
+                className="h-4 w-4 accent-blue-600"
+              />
+            </label>
+            <p className="text-slate-500 dark:text-slate-400">
+              Blank fields use server environment secrets. Overrides stay in this page state and are sent only with chat requests.
+            </p>
+          </div>
+        )}
+
         {/* Messages */}
         <div className="min-h-0 flex-1">
           <ScrollArea className="h-full px-4 py-4">
             <div className="space-y-4 pr-4">
-            {conversation.messages.length === 0 && streamingMessage === '' && (
+            {conversation.messages.length === 0 &&
+              streamingMessage === '' &&
+              streamingThinking === '' && (
               <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
                 <p className="mb-2 text-lg">Pokemon assistant</p>
                 <p>Ask about the loaded save or live session: party, items, badges, Pokédex, PC boxes, and location.</p>
@@ -562,6 +777,33 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                       : 'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
                   }`}
                 >
+                  {msg.attachments?.map((attachment) => (
+                    <figure key={`${msg.timestamp}-${attachment.name}`} className="mb-2">
+                      <img
+                        src={`data:${attachment.mediaType};base64,${attachment.data}`}
+                        alt={attachment.name}
+                        className="max-h-64 w-full rounded-md object-contain"
+                      />
+                      <figcaption
+                        className={`mt-1 truncate text-[10px] ${
+                          msg.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                        }`}
+                      >
+                        {attachment.name}
+                      </figcaption>
+                    </figure>
+                  ))}
+                  {runtimeConfig.thinking && msg.thinking && (
+                    <details className="mb-2 rounded border border-slate-400/30 bg-black/5 px-2 py-1 dark:bg-white/5">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium">
+                        <Brain className="h-3.5 w-3.5" />
+                        Model thinking
+                      </summary>
+                      <div className="mt-2 whitespace-pre-wrap border-t border-slate-400/20 pt-2 text-xs opacity-80">
+                        {msg.thinking}
+                      </div>
+                    </details>
+                  )}
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown
                       components={{
@@ -580,9 +822,20 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
               </div>
             ))}
 
-            {streamingMessage && (
+            {(streamingMessage || streamingThinking) && (
               <div className="flex justify-start">
                 <div className="max-w-xs rounded-lg px-4 py-2 text-sm bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100">
+                  {runtimeConfig.thinking && streamingThinking && (
+                    <details open className="mb-2 rounded border border-slate-400/30 bg-black/5 px-2 py-1 dark:bg-white/5">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium">
+                        <Brain className="h-3.5 w-3.5" />
+                        Thinking...
+                      </summary>
+                      <div className="mt-2 whitespace-pre-wrap border-t border-slate-400/20 pt-2 text-xs opacity-80">
+                        {streamingThinking}
+                      </div>
+                    </details>
+                  )}
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown
                       components={{
@@ -621,7 +874,45 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
 
         {/* Input */}
         <div className="border-t px-4 py-3 bg-gray-50 dark:bg-slate-900 rounded-b-lg">
+          {imageAttachment && (
+            <div className="mb-2 flex items-center gap-3 rounded border bg-white px-3 py-2 text-xs dark:bg-slate-950">
+              <img
+                src={`data:${imageAttachment.mediaType};base64,${imageAttachment.data}`}
+                alt={imageAttachment.name}
+                className="h-14 w-14 rounded object-cover"
+              />
+              <span className="min-w-0 flex-1 truncate">{imageAttachment.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setImageAttachment(null)}
+                className="h-6 px-2"
+              >
+                Remove
+              </Button>
+            </div>
+          )}
           <div className="flex space-x-2">
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                void handleImageSelection(event.target.files?.[0]);
+                event.currentTarget.value = '';
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={conversation.isLoading}
+              title="Attach image (vision model required)"
+            >
+              <ImagePlus className="h-4 w-4" />
+            </Button>
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -632,13 +923,13 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                 }
               }}
               placeholder="Type a message... (/help for commands)"
-              disabled={conversation.isLoading || !providerReady}
+              disabled={conversation.isLoading}
               className="flex-1"
             />
             <Button
               onClick={handleSendMessage}
               disabled={
-                !inputValue.trim() || conversation.isLoading || !providerReady
+                (!inputValue.trim() && !imageAttachment) || conversation.isLoading
               }
               className="bg-blue-500 hover:bg-blue-600"
             >

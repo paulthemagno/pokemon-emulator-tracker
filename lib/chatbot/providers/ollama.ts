@@ -9,12 +9,20 @@ import type {
   OllamaConfig,
   ChatMessage,
   GameContextSnapshot,
+  ChatImageAttachment,
 } from '../types';
 import { SPECIES } from '../../pokemon/data/species';
+import { MOVES } from '../../pokemon/data/moves';
+import { MOVE_DESCRIPTIONS } from '../../pokemon/data/move-descriptions';
+import { GENERATED_EVENT_GUIDES } from '../../pokemon/knowledge/event-guides';
+import gameGuideSources from '../../pokemon/knowledge/sources/game-guide-sources.json';
 
 type OllamaMessage = {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content?: string;
+  thinking?: string;
+  images?: string[];
+  tool_name?: string;
   tool_calls?: Array<{
     function?: {
       name?: string;
@@ -45,6 +53,8 @@ export class OllamaProvider implements ChatProvider {
   private ready: boolean = false;
   private enableTools: boolean = true;
   private modelSupportsTools: boolean | null = null;
+  private apiKey?: string;
+  private thinking: boolean = true;
 
   async initialize(config: ProviderConfig): Promise<void> {
     const ollamaConfig = config as OllamaConfig;
@@ -60,6 +70,8 @@ export class OllamaProvider implements ChatProvider {
     if (ollamaConfig.temperature !== undefined) {
       this.temperature = ollamaConfig.temperature;
     }
+    this.apiKey = ollamaConfig.apiKey;
+    this.thinking = ollamaConfig.thinking !== false;
     this.enableTools = process.env.OLLAMA_ENABLE_TOOLS !== 'false';
 
     // Test connection
@@ -70,7 +82,7 @@ export class OllamaProvider implements ChatProvider {
     try {
       const response = await fetch(`${this.endpoint}/api/tags`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
       });
 
       if (!response.ok) {
@@ -105,12 +117,23 @@ export class OllamaProvider implements ChatProvider {
     return this.ready;
   }
 
+  getInfo() {
+    return {
+      provider: this.name,
+      modelName: this.modelName,
+      endpoint: this.endpoint,
+      ready: this.ready,
+    };
+  }
+
   async sendMessage(
     message: string,
     conversationHistory: ChatMessage[],
     gameContext?: GameContextSnapshot,
     systemPrompt?: string,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    attachments: ChatImageAttachment[] = [],
+    onThinkingChunk?: (chunk: string) => void
   ): Promise<string> {
     if (!this.ready) {
       throw new Error('Ollama provider not initialized or not ready');
@@ -131,13 +154,19 @@ Keep answers concise and practical.`;
       ...conversationHistory.map((msg) => ({
         role: msg.role,
         content: msg.content,
+        images: msg.attachments?.map((attachment) => attachment.data),
       })),
-      { role: 'user' as const, content: message },
+      {
+        role: 'user' as const,
+        content: message,
+        images: attachments.map((attachment) => attachment.data),
+      },
     ];
 
     const typedMessages: OllamaMessage[] = messages.map((msg) => ({
       role: msg.role,
       content: msg.content,
+      ...('images' in msg && msg.images?.length ? { images: msg.images } : {}),
     }));
 
     // DEBUG: Log the full prompt and request
@@ -153,7 +182,8 @@ Keep answers concise and practical.`;
       const toolReply = await this.tryToolCalling(
         typedMessages,
         fullSystemPrompt,
-        gameContext
+        gameContext,
+        onThinkingChunk
       );
 
       if (toolReply !== null) {
@@ -174,7 +204,7 @@ Keep answers concise and practical.`;
 
       const response = await fetch(`${this.endpoint}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify({
           model: this.modelName,
           messages: [
@@ -182,6 +212,7 @@ Keep answers concise and practical.`;
             ...messages,
           ],
           stream: Boolean(onStreamChunk),
+          think: this.thinking,
           options: {
             temperature: this.temperature,
             num_predict: this.maxTokens,
@@ -198,6 +229,9 @@ Keep answers concise and practical.`;
         // Non-streaming response
         const data = (await response.json()) as OllamaChatResponse;
         const reply = data.message?.content || '';
+        if (data.message?.thinking && onThinkingChunk) {
+          onThinkingChunk(data.message.thinking);
+        }
 
         // DEBUG: Log response
         console.log('[OLLAMA DEBUG] RESPONSE (non-streaming):\n', reply);
@@ -224,8 +258,14 @@ Keep answers concise and practical.`;
           try {
             const data = JSON.parse(line) as OllamaChatResponse;
             const content = data.message?.content || '';
+            const thinking = data.message?.thinking || '';
+            if (thinking) {
+              onThinkingChunk?.(thinking);
+            }
             fullReply += content;
-            onStreamChunk(content);
+            if (content) {
+              onStreamChunk(content);
+            }
           } catch {
             // Skip non-JSON lines
           }
@@ -246,7 +286,8 @@ Keep answers concise and practical.`;
   private async tryToolCalling(
     messages: OllamaMessage[],
     fullSystemPrompt: string,
-    gameContext?: GameContextSnapshot
+    gameContext?: GameContextSnapshot,
+    onThinkingChunk?: (chunk: string) => void
   ): Promise<string | null> {
     if (!this.enableTools) {
       console.log('[OLLAMA DEBUG][TOOLS] Skipping tool-calling: disabled via OLLAMA_ENABLE_TOOLS');
@@ -281,11 +322,12 @@ Keep answers concise and practical.`;
       console.log(`[OLLAMA DEBUG][TOOLS] Round ${i + 1}/3`);
       const response = await fetch(`${this.endpoint}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify({
           model: this.modelName,
           messages: workingMessages,
           stream: false,
+          think: this.thinking,
           tools,
           options: {
             temperature: this.temperature,
@@ -311,6 +353,9 @@ Keep answers concise and practical.`;
         role: 'assistant',
         content: '',
       };
+      if (assistantMessage.thinking) {
+        onThinkingChunk?.(assistantMessage.thinking);
+      }
 
       const toolCalls = assistantMessage.tool_calls ?? [];
       if (toolCalls.length === 0) {
@@ -334,6 +379,7 @@ Keep answers concise and practical.`;
 
         workingMessages.push({
           role: 'tool',
+          tool_name: name,
           content: JSON.stringify(result),
         });
       }
@@ -354,6 +400,13 @@ Keep answers concise and practical.`;
     } catch {
       return String(value);
     }
+  }
+
+  private getHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+    };
   }
 
   private normalizeForSearch(value: string): string {
@@ -405,8 +458,50 @@ Keep answers concise and practical.`;
     return {};
   }
 
-  private getToolDefinitions(): OllamaTool[] {
+  getToolDefinitions(): OllamaTool[] {
     return [
+      {
+        type: 'function',
+        function: {
+          name: 'get_move_reference',
+          description: 'Look up source-backed local move data and generation-specific flavor/effect text.',
+          parameters: {
+            type: 'object',
+            properties: {
+              moveName: {
+                type: 'string',
+                description: 'Move name, for example Thunder Punch or Surf.',
+              },
+              game: {
+                type: 'string',
+                description: 'Optional game name used to select generation-specific text.',
+              },
+            },
+            required: ['moveName'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'search_game_guidance',
+          description: 'Search local source-backed event guidance and return relevant walkthrough/code sources.',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'Story event, location, item, character, or objective to search for.',
+              },
+              limit: {
+                type: 'number',
+                description: 'Maximum number of matching guidance entries, from 1 to 8.',
+              },
+            },
+            required: ['query'],
+          },
+        },
+      },
       {
         type: 'function',
         function: {
@@ -512,12 +607,122 @@ Keep answers concise and practical.`;
     ];
   }
 
-  private executeTool(
+  executeTool(
     toolName: string,
     args: Record<string, unknown>,
     context: GameContextSnapshot
   ): Record<string, unknown> {
     switch (toolName) {
+      case 'get_move_reference': {
+        const moveName = typeof args.moveName === 'string' ? args.moveName.trim() : '';
+        const normalizedName = this.normalizeForSearch(moveName);
+        const move = MOVES.find(
+          (candidate) => candidate.id > 0 && this.normalizeForSearch(candidate.name) === normalizedName
+        );
+
+        if (!move) {
+          return { error: `Unknown move: "${moveName}".` };
+        }
+
+        const description = MOVE_DESCRIPTIONS[move.id];
+        const requestedGame =
+          typeof args.game === 'string' && args.game.trim()
+            ? args.game
+            : context.gameTitle || '';
+        const versionGroup = this.getVersionGroup(requestedGame);
+
+        return {
+          name: move.name,
+          type: move.type,
+          power: move.power,
+          accuracy: move.accuracy,
+          pp: move.pp,
+          effect: description?.shortEffect,
+          flavorText:
+            (versionGroup ? description?.flavorTexts[versionGroup] : undefined) ??
+            description?.flavorText,
+          appliesTo: versionGroup || 'generic Gen 1-3 data',
+          source: description?.source === 'pokeapi'
+            ? {
+                kind: 'pokeapi',
+                name: 'PokeAPI',
+                url: `https://pokeapi.co/api/v2/move/${description.slug}`,
+              }
+            : {
+                kind: 'local-fallback',
+                name: 'Pokemon Emulator Tracker local move table',
+              },
+          limitation: 'This tool does not yet prove whether a specific Pokemon learns the move in this game.',
+        };
+      }
+
+      case 'search_game_guidance': {
+        const query = typeof args.query === 'string' ? args.query.trim() : '';
+        if (!query) {
+          return { error: 'query is required.' };
+        }
+
+        const profile = this.getGameProfile(context.gameTitle);
+        if (!profile) {
+          return {
+            error: `No guide profile is mapped for ${context.gameTitle || 'the current game'}.`,
+          };
+        }
+
+        const guides = GENERATED_EVENT_GUIDES[profile] ?? {};
+        const tokens = query
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((token) => token.length > 2);
+        const requestedLimit =
+          typeof args.limit === 'number' ? args.limit : Number.parseInt(String(args.limit ?? '4'), 10);
+        const limit = Number.isFinite(requestedLimit)
+          ? Math.min(Math.max(requestedLimit, 1), 8)
+          : 4;
+
+        const matches = Object.entries(guides)
+          .map(([key, guide]) => {
+            const haystack = [
+              key,
+              guide.description,
+              guide.location,
+              ...(guide.steps ?? []),
+              guide.completionMeaning,
+              guide.notCompletedMeaning,
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+            const score = tokens.reduce(
+              (total, token) => total + (haystack.includes(token) ? 1 : 0),
+              0
+            );
+            return { key, guide, score };
+          })
+          .filter((entry) => entry.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, limit)
+          .map(({ key, guide }) => ({
+            event: key,
+            description: guide.description,
+            location: guide.location,
+            steps: guide.steps,
+            completionMeaning: guide.completionMeaning,
+            notCompletedMeaning: guide.notCompletedMeaning,
+            sourceRefs: guide.sourceRefs,
+          }));
+
+        const catalog = gameGuideSources.profiles[profile as keyof typeof gameGuideSources.profiles];
+        return {
+          game: catalog?.game ?? context.gameTitle,
+          query,
+          matches,
+          generalGuideSources: catalog?.sources ?? [],
+          caution:
+            'Matches are retrieval hints, not proof that an event is currently available. Current availability requires audited prerequisites and save-state evidence.',
+        };
+      }
+
       case 'get_trainer_status':
         return {
           trainerName: context.trainerName,
@@ -720,5 +925,29 @@ ${storyContext || '(no audited non-boolean story state available)'}
 
 ## Party
 ${partyDetails || '(empty)'}`;
+  }
+
+  private getVersionGroup(game: string): string | undefined {
+    const normalized = game.toLowerCase();
+    if (normalized.includes('crystal')) return 'crystal';
+    if (normalized.includes('gold') || normalized.includes('silver')) return 'gold-silver';
+    if (normalized.includes('emerald')) return 'emerald';
+    if (normalized.includes('ruby') || normalized.includes('sapphire')) return 'ruby-sapphire';
+    if (normalized.includes('firered') || normalized.includes('leafgreen')) return 'firered-leafgreen';
+    return undefined;
+  }
+
+  private getGameProfile(game?: string): keyof typeof GENERATED_EVENT_GUIDES | undefined {
+    const normalized = (game ?? '').toLowerCase();
+    if (normalized.includes('yellow')) return 'yellow-en';
+    if (normalized.includes('red') || normalized.includes('blue')) return 'red-blue-en';
+    if (normalized.includes('crystal')) return 'crystal-en';
+    if (normalized.includes('gold') || normalized.includes('silver')) return 'gold-silver-en';
+    if (normalized.includes('emerald')) return 'emerald-en';
+    if (normalized.includes('ruby') || normalized.includes('sapphire')) return 'ruby-sapphire-en';
+    if (normalized.includes('firered') || normalized.includes('leafgreen')) {
+      return 'firered-leafgreen-en';
+    }
+    return undefined;
   }
 }

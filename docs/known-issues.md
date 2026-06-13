@@ -17,6 +17,11 @@ Known examples:
 - Gen 3 Pokemon structures now translate internal species IDs to National Dex IDs, but species gender ratios are still incomplete.
 - Gen 3 uses a Hoenn map asset and source-backed landmark coordinates for Ruby/Sapphire/Emerald, plus FireRed/LeafGreen Kanto and Sevii overview maps generated from `pret/pokefirered` region-map assets. Edge/event maps still need broader real-save validation.
 - Gen 1 and Gen 3 generated location/encounter/learnset datasets are not first-class local data yet.
+- Chat image attachments require a vision-capable Ollama model; capability
+  discovery is not exposed in the UI yet.
+- Audio notes are not supported and need a dedicated speech-to-text provider.
+- Authenticated Ollama endpoints are supported, but separate OpenAI/Anthropic
+  provider adapters do not yet share the tool loop.
 - Gen 1 and Gen 2 PC item storage is parsed, but the UI labels it generically as `PC Storage` rather than with game-specific copy.
 
 Track support status in `docs/game-support-matrix.md` and run `corepack pnpm audit:pokemon-data` before promoting a game to supported.

@@ -22,6 +22,8 @@ Local knowledge modules under `lib/pokemon/knowledge/` are the ground-truth entr
 
 Current Ollama tools:
 
+- `get_move_reference`
+- `search_game_guidance`
 - `get_trainer_status`
 - `get_story_context`
 - `get_party_overview`
@@ -40,6 +42,32 @@ Recommended next tools:
 | `get_encounters` | location, game, optional method/time | Encounter species, levels, rates, method, source. |
 | `get_game_support` | game | Known parser/live/data support and limitations. |
 | `get_save_field` | field, game | Save/live field meaning, offset/provenance when documented. |
+
+`get_move_reference` reads the generated local Gen 1-3 move table and
+PokeAPI-derived descriptions. It does not call PokeAPI during chat requests and
+does not claim that a species learns the move.
+
+`search_game_guidance` searches `GENERATED_EVENT_GUIDES` within the loaded game
+profile. It returns compact event meaning, locations, available steps, PRET links,
+and reviewed walkthrough sources. Text matches are retrieval hints, not proof
+that an event is currently available.
+
+## Provider And Multimodal Policy
+
+- Display the effective provider and model to the user.
+- Blank UI overrides use the server-side `OLLAMA_*` environment values.
+- Request API keys may override `OLLAMA_API_KEY`, but must not be persisted or
+  returned in provider metadata.
+- Images require a vision-capable model and use bounded JPEG, PNG, or WebP input.
+- Image attachments remain part of client-side conversation history so follow-up
+  turns can reference the same visual input.
+- Ollama `message.thinking` is separate from final answer content. Store it
+  separately, render it collapsed, and honor `think: false` when the user disables
+  model thinking.
+- Audio requires an explicit speech-to-text stage. Do not pass arbitrary audio to
+  a text/vision model and claim it was understood.
+- Future hosted provider adapters must reuse the same local tools and provenance
+  rules instead of replacing retrieval with prompt memory.
 
 ## Context Packing Improvements
 

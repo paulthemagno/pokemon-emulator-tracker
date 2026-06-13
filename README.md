@@ -189,12 +189,27 @@ Optional environment variables:
 ```bash
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma4:latest
+OLLAMA_API_KEY=
+OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
 OLLAMA_MAX_TOKENS=2048
 OLLAMA_TEMPERATURE=0.7
 OLLAMA_ENABLE_TOOLS=true
+OLLAMA_THINKING=true
 ```
 
 If the selected Ollama model does not support tool calls, the app falls back to prompt/context mode.
+The chat header shows the effective model. Its settings panel can override the
+model, a local endpoint, and an optional Bearer API key for the current page
+session. Blank fields use the server environment values, and request API keys are
+not stored in conversation history. Remote endpoint overrides require
+`OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
+
+JPEG, PNG, and WebP attachments work with vision-capable Ollama models. Audio
+notes require a separate speech-to-text step and are not accepted yet.
+Attached images are rendered in the chat and stored with the client-side
+conversation. Models that support Ollama thinking can stream it into a
+collapsible panel. Disable **Model thinking** in chat settings, or set
+`OLLAMA_THINKING=false`, to request only the final answer.
 
 Details: [docs/chatbot-phase1.md](docs/chatbot-phase1.md) and [docs/llm-pokemon-agent.md](docs/llm-pokemon-agent.md).
 
