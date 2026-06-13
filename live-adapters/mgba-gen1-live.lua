@@ -729,6 +729,15 @@ local function read_event_bytes()
   }
 end
 
+local function read_progress_values()
+  local offsets = get_offset_profile()
+  return {
+    playerStarter = read8(offsets.playerStarter),
+    oaksLabScript = read8(offsets.oaksLabScript),
+    hallOfFameCount = read8(offsets.hallOfFameCount),
+  }
+end
+
 local function read_bag()
   local offsets = get_offset_profile()
   return {
@@ -830,6 +839,7 @@ local function build_snapshot()
     player = read_player(),
     pokedex = read_pokedex(),
     eventsRaw = read_event_bytes(),
+    progressRaw = read_progress_values(),
     party = read_party(),
     pcBoxes = pcBoxes,
     bag = read_bag(),

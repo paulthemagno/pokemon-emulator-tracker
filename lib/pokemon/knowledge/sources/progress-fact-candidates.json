@@ -1,0 +1,467 @@
+{
+  "version": 1,
+  "purpose": "Source-audited candidates for useful non-boolean progress facts. This is research input, not runtime app data.",
+  "candidates": [
+    {
+      "id": "gen1-starter-choice",
+      "generation": 1,
+      "games": ["red", "blue", "yellow"],
+      "title": "Chosen starter",
+      "kind": "choice",
+      "priority": "high",
+      "playerValue": "Shows the actual starter instead of only saying that a starter was received.",
+      "proposedDisplay": "Starter chosen: {species}",
+      "llmValue": "Lets the assistant discuss the player's route and rival team without guessing.",
+      "interpretation": "Read wPlayerStarter only after EVENT_GOT_STARTER is set.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokered",
+          "path": "ram/wram.asm",
+          "patterns": ["wPlayerStarter:: db", "wRivalStarter:: db"]
+        },
+        {
+          "sourceKey": "pretPokered",
+          "path": "scripts/OaksLab.asm",
+          "patterns": ["ld [wPlayerStarter], a", "SetEvent EVENT_GOT_STARTER"]
+        },
+        {
+          "sourceKey": "pretPokeyellow",
+          "path": "ram/wram.asm",
+          "patterns": ["wPlayerStarter:: db"]
+        },
+        {
+          "sourceKey": "pretPokeyellow",
+          "path": "scripts/OaksLab.asm",
+          "patterns": ["ld [wPlayerStarter], a", "SetEvent EVENT_GOT_STARTER"]
+        }
+      ]
+    },
+    {
+      "id": "gen1-oaks-lab-phase",
+      "generation": 1,
+      "games": ["red", "blue", "yellow"],
+      "title": "Oak's Lab story phase",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Explains the exact early-game step: choose a Pokemon, fight the rival, deliver the Parcel, or receive the Pokedex.",
+      "proposedDisplay": "Oak's Lab: {phase}",
+      "llmValue": "Provides a precise early-game next action when several flags are still unset.",
+      "interpretation": "Decode wOaksLabCurScript through the source script pointer table; hide it once the lab returns to its no-op state.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokered",
+          "path": "ram/wram.asm",
+          "patterns": ["wOaksLabCurScript:: db"]
+        },
+        {
+          "sourceKey": "pretPokered",
+          "path": "scripts/OaksLab.asm",
+          "patterns": ["OaksLab_ScriptPointers:", "SCRIPT_OAKSLAB_OAK_CHOOSE_MON_SPEECH", "SCRIPT_OAKSLAB_OAK_GIVES_POKEDEX"]
+        },
+        {
+          "sourceKey": "pretPokeyellow",
+          "path": "ram/wram.asm",
+          "patterns": ["wOaksLabCurScript:: db"]
+        },
+        {
+          "sourceKey": "pretPokeyellow",
+          "path": "scripts/OaksLab.asm",
+          "patterns": ["OaksLab_ScriptPointers:"]
+        }
+      ]
+    },
+    {
+      "id": "gen2-starter-choice",
+      "generation": 2,
+      "games": ["gold", "silver", "crystal"],
+      "title": "Chosen starter as one consolidated fact",
+      "kind": "derived-choice",
+      "priority": "high",
+      "playerValue": "Replaces three alternative raw flags with one readable result.",
+      "proposedDisplay": "Starter chosen: {Cyndaquil|Totodile|Chikorita}",
+      "llmValue": "Avoids presenting the two unchosen starters as missing content.",
+      "interpretation": "Combine the three mutually exclusive EVENT_GOT_*_FROM_ELM flags.",
+      "evidence": [
+        {
+          "sourceKey": "pokecrystal",
+          "path": "maps/ElmsLab.asm",
+          "patterns": ["setevent EVENT_GOT_CYNDAQUIL_FROM_ELM", "setevent EVENT_GOT_TOTODILE_FROM_ELM", "setevent EVENT_GOT_CHIKORITA_FROM_ELM"]
+        },
+        {
+          "sourceKey": "pretPokegold",
+          "path": "maps/ElmsLab.asm",
+          "patterns": ["setevent EVENT_GOT_CYNDAQUIL_FROM_ELM", "setevent EVENT_GOT_TOTODILE_FROM_ELM", "setevent EVENT_GOT_CHIKORITA_FROM_ELM"]
+        }
+      ]
+    },
+    {
+      "id": "gen2-elms-lab-phase",
+      "generation": 2,
+      "games": ["gold", "silver", "crystal"],
+      "title": "Elm's Lab story phase",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Distinguishes choosing the starter, receiving the Potion, reporting the theft, and receiving Poke Balls.",
+      "proposedDisplay": "Elm's Lab: {phase and next interaction}",
+      "llmValue": "Supplies a reliable current objective during the opening Johto sequence.",
+      "interpretation": "Decode wElmsLabSceneID using the ordered scene declarations and setscene transitions.",
+      "evidence": [
+        {
+          "sourceKey": "pokecrystal",
+          "path": "ram/wram.asm",
+          "patterns": ["wElmsLabSceneID::"]
+        },
+        {
+          "sourceKey": "pokecrystal",
+          "path": "maps/ElmsLab.asm",
+          "patterns": ["SCENE_ELMSLAB_CANT_LEAVE", "SCENE_ELMSLAB_AIDE_GIVES_POTION", "SCENE_ELMSLAB_AIDE_GIVES_POKE_BALLS"]
+        },
+        {
+          "sourceKey": "pretPokegold",
+          "path": "ram/wram.asm",
+          "patterns": ["wElmsLabSceneID::"]
+        },
+        {
+          "sourceKey": "pretPokegold",
+          "path": "maps/ElmsLab.asm",
+          "patterns": ["SCENE_ELMSLAB_CANT_LEAVE", "SCENE_ELMSLAB_AIDE_GIVES_POTION", "SCENE_ELMSLAB_AIDE_GIVES_POKE_BALLS"]
+        }
+      ]
+    },
+    {
+      "id": "gen2-radio-tower-phase",
+      "generation": 2,
+      "games": ["gold", "silver", "crystal"],
+      "title": "Radio Tower takeover phase",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Tells whether the next required step is defeating the fake Director, confronting the Rocket boss, or collecting the final reward.",
+      "proposedDisplay": "Radio Tower: {fake Director|Rocket boss|cleared}",
+      "llmValue": "Adds the missing order inside one of Johto's longest mandatory story sequences.",
+      "interpretation": "Decode wRadioTower5FSceneID and combine it with EVENT_CLEARED_RADIO_TOWER.",
+      "evidence": [
+        {
+          "sourceKey": "pokecrystal",
+          "path": "ram/wram.asm",
+          "patterns": ["wRadioTower5FSceneID::"]
+        },
+        {
+          "sourceKey": "pokecrystal",
+          "path": "maps/RadioTower5F.asm",
+          "patterns": ["SCENE_RADIOTOWER5F_FAKE_DIRECTOR", "SCENE_RADIOTOWER5F_ROCKET_BOSS", "EVENT_CLEARED_RADIO_TOWER"]
+        },
+        {
+          "sourceKey": "pretPokegold",
+          "path": "ram/wram.asm",
+          "patterns": ["wRadioTower5FSceneID::"]
+        },
+        {
+          "sourceKey": "pretPokegold",
+          "path": "maps/RadioTower5F.asm",
+          "patterns": ["SCENE_RADIOTOWER5F_FAKE_DIRECTOR", "SCENE_RADIOTOWER5F_ROCKET_BOSS", "EVENT_CLEARED_RADIO_TOWER"]
+        }
+      ]
+    },
+    {
+      "id": "gen2-team-rocket-base-phase",
+      "generation": 2,
+      "games": ["gold", "silver", "crystal"],
+      "title": "Mahogany Team Rocket base phase",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Distinguishes password collection, the rival scene, the Executive battles, and the Electrode generator shutdown.",
+      "proposedDisplay": "Team Rocket HQ: {current operation step}",
+      "llmValue": "Provides the ordered objective inside the Mahogany base without treating initialized scene zero as active progress.",
+      "interpretation": "Decode the B3F and B2F scene IDs only after EVENT_DECIDED_TO_HELP_LANCE and hide the phase after EVENT_CLEARED_ROCKET_HIDEOUT.",
+      "evidence": [
+        {
+          "sourceKey": "pokecrystal",
+          "path": "ram/wram.asm",
+          "patterns": ["wTeamRocketBaseB2FSceneID::", "wTeamRocketBaseB3FSceneID::"]
+        },
+        {
+          "sourceKey": "pokecrystal",
+          "path": "maps/TeamRocketBaseB3F.asm",
+          "patterns": ["SCENE_TEAMROCKETBASEB3F_LANCE_GETS_PASSWORD", "SCENE_TEAMROCKETBASEB3F_RIVAL_ENCOUNTER", "SCENE_TEAMROCKETBASEB3F_ROCKET_BOSS"]
+        },
+        {
+          "sourceKey": "pokecrystal",
+          "path": "maps/TeamRocketBaseB2F.asm",
+          "patterns": ["SCENE_TEAMROCKETBASEB2F_LANCE_HEALS", "SCENE_TEAMROCKETBASEB2F_ROCKET_BOSS", "SCENE_TEAMROCKETBASEB2F_ELECTRODES"]
+        },
+        {
+          "sourceKey": "pretPokegold",
+          "path": "ram/wram.asm",
+          "patterns": ["wTeamRocketBaseB2FSceneID::", "wTeamRocketBaseB3FSceneID::"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-starter-choice",
+      "generation": 3,
+      "games": ["ruby", "sapphire", "emerald"],
+      "title": "Chosen Hoenn starter",
+      "kind": "choice",
+      "priority": "high",
+      "playerValue": "Shows Treecko, Torchic, or Mudkip instead of only the Birch rescue flag.",
+      "proposedDisplay": "Starter chosen: {Treecko|Torchic|Mudkip}",
+      "llmValue": "Gives stable team and rival context.",
+      "interpretation": "Read VAR_STARTER_MON only after the starter sequence is complete; zero alone cannot prove Treecko because zero is also the initialized value.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_STARTER_MON", "0=Treecko, 1=Torchic, 2=Mudkip"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "src/starter_choose.c",
+          "patterns": ["SPECIES_TREECKO", "SPECIES_TORCHIC", "SPECIES_MUDKIP", "gSpecialVar_Result = gTasks[taskId].tStarterSelection"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route101/scripts.inc",
+          "patterns": ["setflag FLAG_RESCUED_BIRCH", "special ChooseStarter"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_STARTER_MON", "0=Treecko, 1=Torchic, 2=Mudkip"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "data/maps/Route101/scripts.inc",
+          "patterns": ["setflag FLAG_RESCUED_BIRCH", "special ScrSpecial_ChooseStarter"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-kanto-starter-choice",
+      "generation": 3,
+      "games": ["firered", "leafgreen"],
+      "title": "Chosen Kanto starter",
+      "kind": "choice",
+      "priority": "high",
+      "playerValue": "Shows Bulbasaur, Squirtle, or Charmander and identifies the rival's corresponding starter route.",
+      "proposedDisplay": "Starter chosen: {Bulbasaur|Squirtle|Charmander}",
+      "llmValue": "Gives stable team and rival context in FireRed and LeafGreen.",
+      "interpretation": "Read VAR_STARTER_MON only after FLAG_SYS_POKEMON_GET is set.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokefirered",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_STARTER_MON", "0: Bulbasaur, 1: Squirtle, 2: Charmander"]
+        },
+        {
+          "sourceKey": "pretPokefirered",
+          "path": "data/maps/PalletTown_ProfessorOaksLab/scripts.inc",
+          "patterns": ["copyvar VAR_STARTER_MON, PLAYER_STARTER_NUM", "setflag FLAG_SYS_POKEMON_GET"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-littleroot-intro-phase",
+      "generation": 3,
+      "games": ["ruby", "sapphire", "emerald"],
+      "title": "Littleroot introduction phase",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Explains whether the player must set the clock, watch the TV report, visit the rival's house, or leave for Route 101.",
+      "proposedDisplay": "Littleroot introduction: {next step}",
+      "llmValue": "Prevents the assistant from jumping ahead during the opening sequence.",
+      "interpretation": "Decode VAR_LITTLEROOT_INTRO_STATE from the transitions in the player's house scripts.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_LITTLEROOT_INTRO_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/scripts/players_house.inc",
+          "patterns": ["setvar VAR_LITTLEROOT_INTRO_STATE, 4", "setvar VAR_LITTLEROOT_INTRO_STATE, 6", "setvar VAR_LITTLEROOT_INTRO_STATE, 7"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_LITTLEROOT_INTRO_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "data/scripts/players_house.inc",
+          "patterns": ["setvar VAR_LITTLEROOT_INTRO_STATE, 4", "setvar VAR_LITTLEROOT_INTRO_STATE, 6", "setvar VAR_LITTLEROOT_INTRO_STATE, 7"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-petalburg-gym-phase",
+      "generation": 3,
+      "games": ["ruby", "sapphire", "emerald"],
+      "title": "Petalburg Gym story phase",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Distinguishes the Wally tutorial, the badge requirement, the Norman challenge, victory, and rematch state.",
+      "proposedDisplay": "Petalburg Gym: {current phase}",
+      "llmValue": "Explains why Norman cannot yet be challenged and what unlocks him.",
+      "interpretation": "Decode VAR_PETALBURG_GYM_STATE; the source comment documents values 0-8 and the map scripts enforce them.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_PETALBURG_GYM_STATE", "7: Defeated Norman", "8: Rematch Norman"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/PetalburgCity_Gym/scripts.inc",
+          "patterns": ["VAR_PETALBURG_GYM_STATE", "PetalburgCity_Gym_EventScript_ReturnFromWallyTutorial", "FLAG_DEFEATED_PETALBURG_GYM"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_PETALBURG_GYM_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "data/maps/PetalburgCity_Gym/scripts.inc",
+          "patterns": ["VAR_PETALBURG_GYM_STATE", "PetalburgCity_Gym_EventScript_ReturnFromWallyTutorial", "FLAG_DEFEATED_PETALBURG_GYM"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-sootopolis-crisis-phase",
+      "generation": 3,
+      "games": ["ruby", "sapphire", "emerald"],
+      "title": "Sootopolis legendary crisis",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Shows the current required action during the late-game legendary crisis instead of only listing disconnected flags.",
+      "proposedDisplay": "Sootopolis crisis: {Steven|Wallace|Sky Pillar|Rayquaza|Cave of Origin}",
+      "llmValue": "Prevents suggestions from mixing the Ruby/Sapphire Cave of Origin route with Emerald's Rayquaza route.",
+      "interpretation": "Decode var 0x405E with version-specific guards. Emerald values 1-5 form the Groudon/Kyogre/Rayquaza sequence; Ruby/Sapphire values 1-2 require the escaped and battle-completed legendary flags.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_SOOTOPOLIS_CITY_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/SeafloorCavern_Room9/scripts.inc",
+          "patterns": ["setvar VAR_SOOTOPOLIS_CITY_STATE, 1"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/CaveOfOrigin_B1F/scripts.inc",
+          "patterns": ["setvar VAR_SOOTOPOLIS_CITY_STATE, 3"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/SkyPillar_Top/scripts.inc",
+          "patterns": ["setvar VAR_SOOTOPOLIS_CITY_STATE, 5"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_SOOTOPOLIS_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "data/maps/SeafloorCavern_Room9/scripts.inc",
+          "patterns": ["setvar VAR_SOOTOPOLIS_STATE, 1"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-elite-four-run-phase",
+      "generation": 3,
+      "games": ["ruby", "sapphire", "emerald"],
+      "title": "Current Elite Four run phase",
+      "kind": "scene",
+      "priority": "high",
+      "playerValue": "Separates an active League-room sequence from permanent victories and makes the room order readable.",
+      "proposedDisplay": "Pokemon League run: {current room or completed}",
+      "llmValue": "Lets the assistant distinguish an in-progress League attempt from overall game completion.",
+      "interpretation": "Combine VAR_ELITE_4_STATE with the four defeated-member flags and the game-clear flag.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_ELITE_4_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/EverGrandeCity_SidneysRoom/scripts.inc",
+          "patterns": ["VAR_ELITE_4_STATE", "FLAG_DEFEATED_ELITE_4_SIDNEY", "setvar VAR_ELITE_4_STATE, 1"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_ELITE_4_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "data/maps/EverGrandeCity_SidneysRoom/scripts.inc",
+          "patterns": ["VAR_ELITE_4_STATE", "setvar VAR_ELITE_4_STATE, 1"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-roamer-choice",
+      "generation": 3,
+      "games": ["emerald"],
+      "title": "Roaming legendary choice",
+      "kind": "choice",
+      "priority": "medium",
+      "playerValue": "Records whether the postgame roaming encounter is Latias or Latios.",
+      "proposedDisplay": "Roaming Pokemon: {Latias|Latios}",
+      "llmValue": "Prevents suggesting the wrong roaming legendary.",
+      "interpretation": "Read VAR_ROAMER_POKEMON only after the TV choice has initialized the roamer.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_ROAMER_POKEMON", "0 = Latias, 1 = Latios"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/scripts/players_house.inc",
+          "patterns": ["special InitRoamer", "copyvar VAR_ROAMER_POKEMON, VAR_RESULT"]
+        }
+      ]
+    },
+    {
+      "id": "gen3-fossil-revival",
+      "generation": 3,
+      "games": ["ruby", "sapphire", "emerald"],
+      "title": "Fossil revival status",
+      "kind": "quest-state",
+      "priority": "medium",
+      "playerValue": "Shows which fossil was submitted and whether the revived Pokemon is ready to collect.",
+      "proposedDisplay": "Fossil revival: {Lileep|Anorith} - {in progress|ready|collected}",
+      "llmValue": "Allows a concrete reminder for an optional quest without treating it as main-story blocking.",
+      "interpretation": "Combine VAR_FOSSIL_RESURRECTION_STATE and VAR_WHICH_FOSSIL_REVIVED with the profile-specific received-fossil flag.",
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_FOSSIL_RESURRECTION_STATE", "VAR_WHICH_FOSSIL_REVIVED"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/RustboroCity_DevonCorp_2F/scripts.inc",
+          "patterns": ["setvar VAR_WHICH_FOSSIL_REVIVED, 1", "setvar VAR_WHICH_FOSSIL_REVIVED, 2", "FLAG_RECEIVED_REVIVED_FOSSIL_MON"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_FOSSIL_RESURRECTION_STATE", "VAR_WHICH_FOSSIL_REVIVED"]
+        },
+        {
+          "sourceKey": "pretPokeruby",
+          "path": "data/maps/RustboroCity_DevonCorp_2F/scripts.inc",
+          "patterns": ["setvar VAR_WHICH_FOSSIL_REVIVED, 1", "setvar VAR_WHICH_FOSSIL_REVIVED, 2", "FLAG_RECEIVED_FOSSIL_MON"]
+        }
+      ]
+    }
+  ]
+}

@@ -308,3 +308,26 @@ test("normalizeLiveSnapshot keeps Gen 3 FireRed/LeafGreen live Pokedex regional 
   assert.equal(data.pokedex?.regionalDex, "kanto");
   assert.equal(data.pokedex?.dexMax, 151);
 });
+
+test("normalizeLiveSnapshot decodes reviewed progressRaw values without exposing the raw variable array", () => {
+  const data = normalizeLiveSnapshot({
+    generation: 3,
+    game: "emerald",
+    player: {},
+    party: [],
+    progressRaw: {
+      starterMon: 2,
+      birchLabState: 2,
+      littlerootIntroState: 7,
+      petalburgGymState: 6,
+    },
+  });
+
+  assert.equal(data.progressFacts?.source, "live");
+  assert.equal(data.progressFacts?.facts.find((fact) => fact.key === "starter-choice")?.value, "Mudkip");
+  assert.equal(
+    data.progressFacts?.facts.find((fact) => fact.key === "petalburg-gym-phase")?.value,
+    "Norman challenge available"
+  );
+  assert.equal(data.progressFacts?.facts.some((fact) => fact.key === "littleroot-intro-phase"), false);
+});

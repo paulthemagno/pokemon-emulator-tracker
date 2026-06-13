@@ -64,6 +64,12 @@ export interface GameContextSnapshot {
     name: string;
     quantity: number;
   }>;
+  progressFacts?: Array<{
+    label: string;
+    value: string;
+    description: string;
+    nextStep?: string;
+  }>;
   screenshot?: string; // base64 encoded PNG
   timestamp: number;
   gameTitle?: string;

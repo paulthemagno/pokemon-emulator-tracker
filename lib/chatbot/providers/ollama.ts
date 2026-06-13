@@ -434,6 +434,18 @@ Keep answers concise and practical.`;
       {
         type: 'function',
         function: {
+          name: 'get_story_context',
+          description: 'Get source-backed permanent choices, current story phases, and known next steps.',
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
           name: 'get_pokemon_details',
           description: 'Get detailed info for one party Pokemon by name or 1-based index.',
           parameters: {
@@ -516,6 +528,11 @@ Keep answers concise and practical.`;
           pokedexOwned: context.pokedexOwned,
           gameTitle: context.gameTitle,
           playtime: context.playtime,
+        };
+
+      case 'get_story_context':
+        return {
+          facts: context.progressFacts ?? [],
         };
 
       case 'get_party_overview':
@@ -684,6 +701,9 @@ Keep answers concise and practical.`;
       ${movesStr || '(none)'}`;
       })
       .join('\n\n');
+    const storyContext = (context.progressFacts ?? [])
+      .map((fact) => `- ${fact.label}: ${fact.value}. ${fact.description}${fact.nextStep ? ` Next: ${fact.nextStep}` : ''}`)
+      .join('\n');
 
     return `## Game State
 
@@ -694,6 +714,9 @@ Money: ₽${context.money.toLocaleString()}
 Playtime: ${playtime}
 Badges: ${context.badges}
 Pokédex: ${context.pokedexOwned}/${context.pokedexSeen}
+
+## Story Context
+${storyContext || '(no audited non-boolean story state available)'}
 
 ## Party
 ${partyDetails || '(empty)'}`;

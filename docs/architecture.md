@@ -128,6 +128,8 @@ Event flag progress is intentionally split into key events and all save states. 
 Event categories are individually collapsible and use stable emoji labels. Progress filters (`Not completed`, `Completed`, `Everything`) are visually separate from dataset filters (`Key events`, `All save states`). `Key events` must exclude optional legendary encounters, one-off rewards, map-object state, and repeatable/session flags even when their source symbols contain a major character or location name.
 The event panel displays a section-local refinement warning because flag interpretation, categorization, and generated player-facing descriptions are still being audited across supported games.
 
+Player-facing story context is represented separately as `SaveData.progressFacts`. `lib/pokemon/progress-facts.ts` combines two reviewed inputs: selected non-boolean values with explicit guards, including starter choice, Oak's Lab, Elm's Lab, the Mahogany Rocket base, Radio Tower, Littleroot, Petalburg Gym, the Sootopolis crisis, and the current Hoenn League run; and a cross-game main-story summary derived from persistent Pokédex, Gym, takeover, Hall of Fame, and League milestones. The summary reports recorded progress and the next missing major milestone, but does not claim that the milestone is immediately available when the source permits branching. These facts are displayed at the start of the existing `Story: Main` event group and are not included in completed/missing flag totals. Save parsers read variables from source-backed save offsets; live adapters send the same selected values in `progressRaw`; both paths use the same decoded event flags.
+
 Run the lightweight audit with:
 
 ```bash

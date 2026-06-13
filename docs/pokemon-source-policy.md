@@ -29,6 +29,13 @@ For TypeScript files that cannot carry provenance per row yet, add a file-level 
 
 Current source records and pin status are tracked in `docs/source-lockfile.md`.
 
+Non-boolean progress research begins in
+`lib/pokemon/knowledge/sources/progress-fact-candidates.json`. Run
+`corepack pnpm generate:progress-fact-prototype` to verify every declared
+symbol against the pinned PRET checkouts and regenerate the review report.
+Do not promote a candidate to runtime data until its guards and value
+meanings have been audited from the scripts that read and write it.
+
 ## Runtime Rule
 
 The app should not call remote Pokemon knowledge APIs during normal gameplay rendering. Remote APIs are allowed only for explicit regeneration scripts or developer audits.
@@ -43,6 +50,7 @@ Current generated local dumps:
 - `public/maps/*town-map-gsc.png`: generated from `pret/pokecrystal`.
 - `lib/pokemon/knowledge/event-flags.ts`: generated from pinned `pret` event flag definitions for Gen 1/2/3.
 - `lib/pokemon/knowledge/event-guides.ts`: generated from PRET flag occurrences plus the reviewed whole-game guide catalog.
+- `docs/progress-facts-prototype.md`: generated review report for curated non-boolean story phases, choices, and quest states. It is not consumed by the app.
 
 ## When Adding A Game
 

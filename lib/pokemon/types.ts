@@ -184,6 +184,21 @@ export interface GameEventProgress {
   flags: GameEventFlag[];
 }
 
+export interface GameProgressFact {
+  key: string;
+  label: string;
+  category: "Permanent choice" | "Current story phase" | "Main story progress";
+  value: string;
+  description: string;
+  nextStep?: string;
+  sourceRefs: string[];
+}
+
+export interface GameProgressFacts {
+  source: "save" | "live";
+  facts: GameProgressFact[];
+}
+
 export interface SaveData {
   generation: Generation;
   game: GameVersion;
@@ -202,6 +217,7 @@ export interface SaveData {
   pcBoxes: PCBox[];
   inventory: InventorySection[];
   events?: GameEventProgress;
+  progressFacts?: GameProgressFacts;
   location: LocationInfo;
   valid: boolean;
   checksum?: number;

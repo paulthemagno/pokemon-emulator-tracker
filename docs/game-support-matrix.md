@@ -49,6 +49,7 @@ Status labels:
 | Locations | Gen 1 town-map landmarks, generated Gen 2 landmarks, and source-backed Gen 3 Hoenn landmarks | Generate full Gen 3 location/encounter datasets for LLM tools. |
 | Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, Gen 3 Hoenn overview map, and FireRed/LeafGreen Kanto/Sevii overview maps with marker coordinates | Continue validating edge/event maps with real saves before promoting FireRed/LeafGreen. |
 | Encounters | Not first-class local data | Generate per-game encounter datasets from pret for LLM tools. |
+| Story context | Main-story milestone summary for Gen 1-3; starter choices; Oak Lab; Elm Lab, Mahogany Rocket base, and Radio Tower; Littleroot, Petalburg, Sootopolis crisis, and current Hoenn League run | Expand fine-grained chapter phases only from reviewed variables/scenes or source-proven flag combinations; do not expose all raw vars. |
 | Trainers/gyms | Not first-class local data | Add gym leader/rival/E4 datasets after parser foundations are stable. |
 
 ## Ground Truth Modules
