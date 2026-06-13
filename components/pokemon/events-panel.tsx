@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { GameEventProgress } from "@/lib/pokemon/types";
+import type { GameEventProgress, GameProgressFacts } from "@/lib/pokemon/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { AlertTriangle, BookOpen, ChevronDown, ChevronUp, Code2, ExternalLink, M
 
 interface EventsPanelProps {
   events?: GameEventProgress;
+  progressFacts?: GameProgressFacts;
 }
 
 function formatImportance(value?: string): string {
@@ -77,7 +78,7 @@ const CATEGORY_ORDER = [
   "Other",
 ];
 
-export function EventsPanel({ events }: EventsPanelProps) {
+export function EventsPanel({ events, progressFacts }: EventsPanelProps) {
   const [scope, setScope] = useState<"milestones" | "all">("milestones");
   const [mode, setMode] = useState<"missing" | "done" | "all">("missing");
   const [query, setQuery] = useState("");
@@ -85,6 +86,17 @@ export function EventsPanel({ events }: EventsPanelProps) {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set(CATEGORY_ORDER.filter((category) => category !== "Story: Main"))
   );
+
+  const visibleProgressFacts = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!progressFacts) return [];
+    if (!normalizedQuery) return progressFacts.facts;
+    return progressFacts.facts.filter((fact) =>
+      [fact.label, fact.value, fact.category, fact.description, fact.nextStep]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+    );
+  }, [progressFacts, query]);
 
   const grouped = useMemo(() => {
     if (!events) return [];
@@ -108,6 +120,9 @@ export function EventsPanel({ events }: EventsPanelProps) {
       group.push(flag);
       groups.set(flag.category, group);
     }
+    if (visibleProgressFacts.length && !groups.has("Story: Main")) {
+      groups.set("Story: Main", []);
+    }
     return Array.from(groups.entries()).sort(([a], [b]) => {
       const aIndex = CATEGORY_ORDER.indexOf(a);
       const bIndex = CATEGORY_ORDER.indexOf(b);
@@ -116,7 +131,7 @@ export function EventsPanel({ events }: EventsPanelProps) {
       if (bIndex === -1) return -1;
       return aIndex - bIndex;
     });
-  }, [events, mode, query, scope]);
+  }, [events, mode, query, scope, visibleProgressFacts]);
 
   const toggleExpanded = (key: string) => {
     setExpandedKeys((current) => {
@@ -238,6 +253,7 @@ export function EventsPanel({ events }: EventsPanelProps) {
           </div>
           {grouped.map(([category, flags]) => {
             const collapsed = collapsedCategories.has(category);
+            const categoryFacts = category === "Story: Main" ? visibleProgressFacts : [];
             return (
           <section key={category} className="overflow-hidden rounded-lg border border-border/70 bg-card/20">
             <button
@@ -249,7 +265,7 @@ export function EventsPanel({ events }: EventsPanelProps) {
               <span className="flex min-w-0 items-center gap-2">
                 <span className="text-lg" aria-hidden="true">{categoryEmoji(category)}</span>
                 <span className="truncate text-sm font-bold text-foreground">{category}</span>
-                <Badge variant="outline" className="rounded-full">{flags.length}</Badge>
+                <Badge variant="outline" className="rounded-full">{flags.length + categoryFacts.length}</Badge>
               </span>
               {collapsed
                 ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -257,6 +273,37 @@ export function EventsPanel({ events }: EventsPanelProps) {
             </button>
             {!collapsed && (
             <div className="grid gap-3 border-t border-border/70 p-3 lg:grid-cols-2">
+              {categoryFacts.map((fact) => (
+                <article
+                  key={`story-context-${fact.key}`}
+                  className="rounded-lg border border-emerald-500/35 bg-emerald-500/5 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-foreground">{fact.label}</p>
+                    <Badge variant="outline" className="rounded-full text-[10px] font-medium">
+                      {fact.category}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-base font-bold text-foreground">{fact.value}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-foreground/85">{fact.description}</p>
+                  {fact.nextStep ? (
+                    <div className="mt-3 border-l-2 border-emerald-500 pl-3">
+                      <p className="text-[11px] font-semibold uppercase text-muted-foreground">Next step</p>
+                      <p className="mt-0.5 text-sm text-foreground">{fact.nextStep}</p>
+                    </div>
+                  ) : null}
+                  <a
+                    href={fact.sourceRefs[0]}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Game source
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </a>
+                </article>
+              ))}
               {flags.map((flag) => {
                 const expanded = expandedKeys.has(flag.key);
                 const hasDetails = Boolean(

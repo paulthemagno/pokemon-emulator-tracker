@@ -124,10 +124,12 @@ corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --
 corepack pnpm extract:pokemon-events -- --from-github
 corepack pnpm extract:pokemon-event-contexts -- --from-github
 corepack pnpm generate:pokemon-event-guides
+corepack pnpm generate:progress-fact-prototype
 ```
 
 Generated files under `lib/pokemon/knowledge/` and `live-adapters/generated/` must not be edited by hand. Update `lib/pokemon/knowledge/sources/*.json` and rerun the generator.
 For event research, keep reviewed whole-game walkthrough/reference URLs in `lib/pokemon/knowledge/sources/game-guide-sources.json`; generated per-flag descriptions must combine that catalog with `event-contexts.json`.
+Non-boolean story phases and choices must first be reviewed in `lib/pokemon/knowledge/sources/progress-fact-candidates.json`; the generated `docs/progress-facts-prototype.md` is research output, not runtime data.
 
 ## Maps
 

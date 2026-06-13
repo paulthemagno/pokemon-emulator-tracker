@@ -11,6 +11,7 @@
     "audit:pokemon-data": "node scripts/audit-pokemon-data.mjs",
     "generate:pokemon-knowledge": "node scripts/generate-pokemon-knowledge.mjs",
     "generate:pokemon-event-guides": "node scripts/generate-pokemon-event-guides.mjs",
+    "generate:progress-fact-prototype": "node scripts/generate-progress-fact-prototype.mjs",
     "extract:pokemon-events": "node scripts/extract-pokemon-event-flags.mjs",
     "extract:pokemon-event-contexts": "node scripts/extract-pokemon-event-contexts.mjs",
     "extract:pokemon-knowledge": "node scripts/extract-pokemon-knowledge-from-pret.mjs"

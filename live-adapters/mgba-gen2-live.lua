@@ -330,6 +330,7 @@ local read_party
 local read_bag
 local read_location
 local read_event_bytes
+local read_progress_values
 
 local function build_snapshot()
   ensure_sram_ready()
@@ -365,6 +366,7 @@ local function build_snapshot()
     player = read_player(),
     pokedex = read_pokedex(),
     eventsRaw = read_event_bytes(),
+    progressRaw = read_progress_values(),
     party = read_party(),
     pcBoxes = pcData.pcBoxes,
     bag = read_bag(),
@@ -712,6 +714,16 @@ read_event_bytes = function()
   end
   return {
     bytes = bytes,
+  }
+end
+
+read_progress_values = function()
+  local offsets = get_offset_profile()
+  return {
+    elmsLabScene = read8(offsets.elmsLabScene),
+    radioTower5FScene = read8(offsets.radioTower5FScene),
+    teamRocketBaseB2FScene = read8(offsets.teamRocketBaseB2FScene),
+    teamRocketBaseB3FScene = read8(offsets.teamRocketBaseB3FScene),
   }
 end
 

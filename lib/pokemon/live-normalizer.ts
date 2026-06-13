@@ -10,6 +10,7 @@ import { getGen1Location, getGen3FRLGLocation, getGen3RSELocation } from "./data
 import { getMoveById } from "./data/moves";
 import { getSpeciesById } from "./data/species";
 import { normalizeEventProgress, normalizeLiveEventBytes } from "./events";
+import { buildProgressFacts, normalizeProgressRaw } from "./progress-facts";
 import { getExpForLevel } from "./experience";
 import { getStatusCondition } from "./utils";
 
@@ -255,6 +256,8 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
       : liveRegionalDex === "hoenn"
         ? GEN3_HOENN_DEX_COUNT
         : livePokedex?.dexMax;
+  const events = normalizeEventProgress(snapshot.events)
+    ?? normalizeLiveEventBytes(snapshot.eventsRaw, generation, game);
 
   return {
     generation,
@@ -287,7 +290,14 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
     party,
     pcBoxes,
     inventory: normalizeInventory(snapshot.bag ?? snapshot.inventory, generation),
-    events: normalizeEventProgress(snapshot.events) ?? normalizeLiveEventBytes(snapshot.eventsRaw, generation, game),
+    events,
+    progressFacts: buildProgressFacts({
+      generation,
+      game,
+      source: "live",
+      events,
+      raw: normalizeProgressRaw(snapshot.progressRaw),
+    }),
     location: {
       mapId: liveMapId,
       mapGroup: Number.isFinite(liveMapGroup) ? liveMapGroup : undefined,

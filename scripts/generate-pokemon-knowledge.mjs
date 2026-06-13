@@ -184,7 +184,7 @@ function renderSaveLayouts(source) {
   const gen2 = Object.fromEntries(Object.entries(source.gen2).map(([key, layout]) => [key, withLayoutSourceReferences(layout)]));
   const gen3 = Object.fromEntries(Object.entries(source.gen3 ?? {}).map(([key, layout]) => [key, withGen3LayoutSourceReferences(layout)]));
 
-  return `${header}import { POKEMON_KNOWLEDGE_SOURCES, type PokemonKnowledgeSource } from "./provenance";\n\nexport interface Gen1SaveLayout {\n  generation: 1;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerName: number;\n    rivalName: number;\n    money: number;\n    badges: number;\n    currentMap: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    trainerId: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    currentBoxNumber: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen2SaveLayout {\n  generation: 2;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerGender: number;\n    playerName: number;\n    trainerId: number;\n    money: number;\n    badgesJohto: number;\n    badgesKanto: number;\n    playTime: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    currentMapGroup: number;\n    currentMap: number;\n    currentMapX: number;\n    currentMapY: number;\n    currentBoxNumber: number;\n    boxNames: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen3SaveLayout {\n  generation: 3;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  offsets: {\n    trainerName: number;\n    trainerGender: number;\n    trainerId: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    playTimeVBlanks?: number;\n    encryptionKey?: number;\n    pokedexMode: number;\n    pokedexNationalMagic: number;\n    location: number;\n    locationMapGroup: number;\n    locationMapNum: number;\n    partyCount: number;\n    party: number;\n    money: number;\n    coins: number;\n    registeredItem: number;\n    pcItems: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    pokedexSeen1: number;\n    pokedexSeen2: number;\n    flags: number;\n    badgeFlagStart: number;\n    boxCurrent: number;\n    boxData: number;\n    boxNames: number;\n    boxWallpapers: number;\n  };\n  sectionIds: {\n    trainerInfo: number;\n    teamItems: number;\n    gameState: number;\n    pcBufferStart: number;\n    pcBufferEnd: number;\n  };\n  partyCountSize: 1 | 4;\n  quantityMask: "none" | "security-key-low16";\n  pcBoxCount: number;\n  pcBoxCapacity: number;\n  pcPokemonSize: number;\n  partyPokemonSize: number;\n  boxNameLength: number;\n}\n\nexport const GEN1_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen1, 0, "Record<string, Gen1SaveLayout>")};\n\nexport const GEN2_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen2, 0, "Record<string, Gen2SaveLayout>")};\n\nexport const GEN3_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen3, 0, "Record<string, Gen3SaveLayout>")};\n`;
+  return `${header}import { POKEMON_KNOWLEDGE_SOURCES, type PokemonKnowledgeSource } from "./provenance";\n\nexport interface Gen1SaveLayout {\n  generation: 1;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerName: number;\n    rivalName: number;\n    money: number;\n    badges: number;\n    currentMap: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    trainerId: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    playerStarter: number;\n    oaksLabScript: number;\n    hallOfFameCount: number;\n    currentBoxNumber: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen2SaveLayout {\n  generation: 2;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  liveWramSource?: PokemonKnowledgeSource;\n  boxOffsetsSource?: PokemonKnowledgeSource;\n  offsets: {\n    playerGender: number;\n    playerName: number;\n    trainerId: number;\n    money: number;\n    badgesJohto: number;\n    badgesKanto: number;\n    playTime: number;\n    partyCount: number;\n    partySpecies: number;\n    partyData: number;\n    currentMapGroup: number;\n    currentMap: number;\n    currentMapX: number;\n    currentMapY: number;\n    elmsLabScene: number;\n    radioTower5FScene: number;\n    teamRocketBaseB2FScene: number;\n    teamRocketBaseB3FScene: number;\n    currentBoxNumber: number;\n    boxNames: number;\n    currentBoxData: number;\n  };\n  boxOffsets: number[];\n  liveWramOffsets: Record<string, number>;\n}\n\nexport interface Gen3SaveLayout {\n  generation: 3;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  offsets: {\n    trainerName: number;\n    trainerGender: number;\n    trainerId: number;\n    playTimeHours: number;\n    playTimeMinutes: number;\n    playTimeSeconds: number;\n    playTimeVBlanks?: number;\n    encryptionKey?: number;\n    pokedexMode: number;\n    pokedexNationalMagic: number;\n    location: number;\n    locationMapGroup: number;\n    locationMapNum: number;\n    partyCount: number;\n    party: number;\n    money: number;\n    coins: number;\n    registeredItem: number;\n    pcItems: number;\n    pokedexOwned: number;\n    pokedexSeen: number;\n    pokedexSeen1: number;\n    pokedexSeen2: number;\n    flags: number;\n    vars: number;\n    badgeFlagStart: number;\n    boxCurrent: number;\n    boxData: number;\n    boxNames: number;\n    boxWallpapers: number;\n  };\n  sectionIds: {\n    trainerInfo: number;\n    teamItems: number;\n    gameState: number;\n    pcBufferStart: number;\n    pcBufferEnd: number;\n  };\n  partyCountSize: 1 | 4;\n  quantityMask: "none" | "security-key-low16";\n  pcBoxCount: number;\n  pcBoxCapacity: number;\n  pcPokemonSize: number;\n  partyPokemonSize: number;\n  boxNameLength: number;\n}\n\nexport const GEN1_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen1, 0, "Record<string, Gen1SaveLayout>")};\n\nexport const GEN2_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen2, 0, "Record<string, Gen2SaveLayout>")};\n\nexport const GEN3_SAVE_LAYOUTS = ${renderObjectWithSourceRefs(gen3, 0, "Record<string, Gen3SaveLayout>")};\n`;
 }
 
 function luaValue(value) {
@@ -266,6 +266,30 @@ function validateSaveLayouts(saveLayouts) {
     );
   }
 
+  const expectedGen1Progress = {
+    redBlue: {
+      starterSave: 0x29c3, starterLive: 0xd717, oakSave: 0x28a2, oakLive: 0xd5f6,
+      hofSave: 0x284e, hofLive: 0xd5a2,
+    },
+    yellow: {
+      starterSave: 0x29c3, starterLive: 0xd716, oakSave: 0x28a1, oakLive: 0xd5f4,
+      hofSave: 0x284e, hofLive: 0xd5a1,
+    },
+  };
+  for (const [profile, expected] of Object.entries(expectedGen1Progress)) {
+    const layout = saveLayouts.gen1[profile];
+    if (
+      numericOffset(layout.offsets.playerStarter, `gen1.${profile}.offsets.playerStarter`) !== expected.starterSave ||
+      numericOffset(layout.liveWramOffsets.playerStarter, `gen1.${profile}.liveWramOffsets.playerStarter`) !== expected.starterLive ||
+      numericOffset(layout.offsets.oaksLabScript, `gen1.${profile}.offsets.oaksLabScript`) !== expected.oakSave ||
+      numericOffset(layout.liveWramOffsets.oaksLabScript, `gen1.${profile}.liveWramOffsets.oaksLabScript`) !== expected.oakLive ||
+      numericOffset(layout.offsets.hallOfFameCount, `gen1.${profile}.offsets.hallOfFameCount`) !== expected.hofSave ||
+      numericOffset(layout.liveWramOffsets.hallOfFameCount, `gen1.${profile}.liveWramOffsets.hallOfFameCount`) !== expected.hofLive
+    ) {
+      throw new Error(`gen1.${profile} progress offsets no longer match the pinned WRAM/SRAM symbols.`);
+    }
+  }
+
   for (const [profile, layout] of Object.entries(saveLayouts.gen2)) {
     assertSaveOffset(layout.offsets.currentBoxData, `gen2.${profile}.offsets.currentBoxData`);
     for (const [field, value] of Object.entries(layout.liveWramOffsets ?? {})) {
@@ -274,6 +298,37 @@ function validateSaveLayouts(saveLayouts) {
       } else {
         assertWramOffset(value, `gen2.${profile}.liveWramOffsets.${field}`);
       }
+    }
+  }
+
+  const expectedGen2Scenes = {
+    goldSilver: {
+      elmSave: 0x2534, radioSave: 0x2549, rocketB2Save: 0x254f, rocketB3Save: 0x2550,
+      elmLive: 0xd6cc, radioLive: 0xd6e1, rocketB2Live: 0xd6e7, rocketB3Live: 0xd6e8,
+    },
+    crystal: {
+      elmSave: 0x2515, radioSave: 0x2537, rocketB2Save: 0x2541, rocketB3Save: 0x2542,
+      elmLive: 0xd987, radioLive: 0xd9a9, rocketB2Live: 0xd9b3, rocketB3Live: 0xd9b4,
+    },
+  };
+  for (const [profile, expected] of Object.entries(expectedGen2Scenes)) {
+    const layout = saveLayouts.gen2[profile];
+    const actual = [
+      numericOffset(layout.offsets.elmsLabScene, `gen2.${profile}.offsets.elmsLabScene`),
+      numericOffset(layout.offsets.radioTower5FScene, `gen2.${profile}.offsets.radioTower5FScene`),
+      numericOffset(layout.offsets.teamRocketBaseB2FScene, `gen2.${profile}.offsets.teamRocketBaseB2FScene`),
+      numericOffset(layout.offsets.teamRocketBaseB3FScene, `gen2.${profile}.offsets.teamRocketBaseB3FScene`),
+      numericOffset(layout.liveWramOffsets.elmsLabScene, `gen2.${profile}.liveWramOffsets.elmsLabScene`),
+      numericOffset(layout.liveWramOffsets.radioTower5FScene, `gen2.${profile}.liveWramOffsets.radioTower5FScene`),
+      numericOffset(layout.liveWramOffsets.teamRocketBaseB2FScene, `gen2.${profile}.liveWramOffsets.teamRocketBaseB2FScene`),
+      numericOffset(layout.liveWramOffsets.teamRocketBaseB3FScene, `gen2.${profile}.liveWramOffsets.teamRocketBaseB3FScene`),
+    ];
+    const wanted = [
+      expected.elmSave, expected.radioSave, expected.rocketB2Save, expected.rocketB3Save,
+      expected.elmLive, expected.radioLive, expected.rocketB2Live, expected.rocketB3Live,
+    ];
+    if (actual.some((value, index) => value !== wanted[index])) {
+      throw new Error(`gen2.${profile} scene offsets no longer match the pinned WRAM/SRAM symbol layout.`);
     }
   }
 
@@ -298,6 +353,14 @@ function validateSaveLayouts(saveLayouts) {
     }
     if (layout.partyPokemonSize !== 100) {
       throw new Error(`gen3.${profile} party Pokemon size must remain 100 bytes.`);
+    }
+  }
+
+  const expectedGen3Vars = { rubySapphire: 0x1340, emerald: 0x139c, fireRedLeafGreen: 0x1000 };
+  for (const [profile, expected] of Object.entries(expectedGen3Vars)) {
+    const actual = numericOffset(saveLayouts.gen3[profile].offsets.vars, `gen3.${profile}.offsets.vars`);
+    if (actual !== expected) {
+      throw new Error(`gen3.${profile}.offsets.vars no longer matches SaveBlock1.vars in the pinned pret source.`);
     }
   }
 }

@@ -27,6 +27,7 @@ import { GEN2_EVENT_FLAGS } from "../knowledge/event-flags";
 import { GEN2_INVENTORY_LAYOUTS, type InventoryPocketLayout } from "../knowledge/inventory-layouts";
 import { GEN2_SAVE_LAYOUTS } from "../knowledge/save-layouts";
 import { getGen2UnownFormFromDVs, getUnownFormLabel } from "../forms";
+import { buildProgressFacts } from "../progress-facts";
 
 // Gen 2 Memory Offsets (English versions)
 const OFFSETS = {
@@ -686,6 +687,8 @@ function detectGen2Version(data: Uint8Array, filename = ""): { game: GameVersion
 export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
   const { game, offsets } = detectGen2Version(data, filename);
   const eventLayout = game === "crystal" ? GEN2_EVENT_FLAGS.crystal : GEN2_EVENT_FLAGS.goldSilver;
+  const saveLayout = game === "crystal" ? GEN2_SAVE_LAYOUTS.crystal : GEN2_SAVE_LAYOUTS.goldSilver;
+  const events = parseEventProgress(data, eventLayout, "save");
 
   return {
     generation: 2,
@@ -695,7 +698,19 @@ export function parseGen2Save(data: Uint8Array, filename = ""): SaveData {
     party: parseParty(data, offsets),
     pcBoxes: parsePCBoxes(data, offsets),
     inventory: parseInventory(data, offsets),
-    events: parseEventProgress(data, eventLayout, "save"),
+    events,
+    progressFacts: buildProgressFacts({
+      generation: 2,
+      game,
+      source: "save",
+      events,
+      raw: {
+        elmsLabScene: data[saveLayout.offsets.elmsLabScene],
+        radioTower5FScene: data[saveLayout.offsets.radioTower5FScene],
+        teamRocketBaseB2FScene: data[saveLayout.offsets.teamRocketBaseB2FScene],
+        teamRocketBaseB3FScene: data[saveLayout.offsets.teamRocketBaseB3FScene],
+      },
+    }),
     location: parseLocation(data, offsets),
     valid: true,
     rawSize: data.length,

@@ -11,7 +11,7 @@ local RSE_NATIONAL_MAGIC = 0xDA
 local DEX_MODE_NATIONAL = 1
 local SNAPSHOT_REFRESH_SECONDS = 0.25
 local HEAVY_SECTION_REFRESH_SECONDS = 1.25
-local ADAPTER_REVISION = "gen3-frlg-saveblock-validation-2026-06-10"
+local ADAPTER_REVISION = "gen3-story-context-2026-06-11"
 
 local function script_directory()
   local info = debug and debug.getinfo and debug.getinfo(1, "S")
@@ -897,6 +897,28 @@ local function read_event_bytes()
   }
 end
 
+local function read_progress_values()
+  local p = get_profile()
+  local saveBlock1 = resolve_blocks().saveBlock1 or 0
+  local function read_var(id)
+    return read16(saveBlock1 + p.vars + (id - 0x4000) * 2)
+  end
+  local game = get_game()
+  if game == "firered" or game == "leafgreen" then
+    return {
+      starterMon = read_var(0x4031),
+    }
+  end
+  return {
+    starterMon = read_var(0x4023),
+    birchLabState = read_var(0x4084),
+    petalburgGymState = read_var(0x4085),
+    littlerootIntroState = read_var(0x4092),
+    eliteFourState = read_var(0x409c),
+    sootopolisState = read_var(0x405e),
+  }
+end
+
 local function read_badges(saveBlock1, p)
   local badges = {}
   for i = 0, 7 do
@@ -1081,6 +1103,7 @@ local function build_snapshot()
     player = read_player(),
     pokedex = heavy.pokedex,
     eventsRaw = read_event_bytes(),
+    progressRaw = read_progress_values(),
     party = read_party(),
     pcBoxes = heavy.pcBoxes,
     bag = heavy.bag,

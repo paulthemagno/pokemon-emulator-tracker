@@ -64,6 +64,12 @@ export function packGameContext(saveData: SaveData | null): GameContextSnapshot 
       name: item.name || 'Unknown Item',
       quantity: item.quantity || 0,
     })),
+    progressFacts: saveData.progressFacts?.facts.map((fact) => ({
+      label: fact.label,
+      value: fact.value,
+      description: fact.description,
+      nextStep: fact.nextStep,
+    })),
     gameTitle: `Pokémon ${saveData.game?.toUpperCase() || 'Unknown'}`,
     timestamp: Date.now(),
   };
@@ -82,6 +88,7 @@ export function areContextsEqual(
     ctx1.money === ctx2.money &&
     ctx1.badges === ctx2.badges &&
     ctx1.pokedexOwned === ctx2.pokedexOwned &&
+    JSON.stringify(ctx1.progressFacts ?? []) === JSON.stringify(ctx2.progressFacts ?? []) &&
     ctx1.partyPokemon.length === ctx2.partyPokemon.length &&
     ctx1.partyPokemon.every(
       (p, i) =>

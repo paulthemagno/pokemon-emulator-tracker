@@ -74,6 +74,8 @@ const requiredKnowledgeFiles = [
   "lib/pokemon/knowledge/sources/event-contexts.json",
   "lib/pokemon/knowledge/sources/event-guides.json",
   "lib/pokemon/knowledge/sources/game-guide-sources.json",
+  "lib/pokemon/knowledge/sources/progress-fact-candidates.json",
+  "docs/progress-facts-prototype.md",
 ];
 
 printSection("Documentation");
@@ -135,6 +137,10 @@ if (await fileExists("lib/pokemon/knowledge/sources/event-guides.json")) {
 if (await fileExists("lib/pokemon/knowledge/sources/game-guide-sources.json")) {
   const gameGuideSources = await readText("lib/pokemon/knowledge/sources/game-guide-sources.json");
   console.log(`catalogued online game guides: ${countMatches(gameGuideSources, /"kind":\s*"(?:walkthrough|checklist|reference)"/g)}`);
+}
+if (await fileExists("lib/pokemon/knowledge/sources/progress-fact-candidates.json")) {
+  const progressFacts = await readText("lib/pokemon/knowledge/sources/progress-fact-candidates.json");
+  console.log(`source-audited progress fact candidates: ${countMatches(progressFacts, /"id":\s*"gen[123]-/g)}`);
 }
 
 printSection("Known Parser Gaps");

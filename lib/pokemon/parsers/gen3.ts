@@ -17,6 +17,7 @@ import {
   getSpeciesById,
 } from "../data/species";
 import { parseEventProgress } from "../events";
+import { buildProgressFacts } from "../progress-facts";
 import { GEN3_EVENT_FLAGS } from "../knowledge/event-flags";
 import { GEN3_INVENTORY_LAYOUTS, type InventoryLayout } from "../knowledge/inventory-layouts";
 import { GEN3_SAVE_LAYOUTS, type Gen3SaveLayout } from "../knowledge/save-layouts";
@@ -969,6 +970,9 @@ export function parseGen3Save(buffer: ArrayBuffer, filename = ""): SaveData {
   const location = parseLocation(sections, game);
   const profile = getGen3SaveProfile(game);
   const saveBlock1 = getSaveBlock1(sections, profile.layout);
+  const events = parseEventProgress(saveBlock1, getGen3EventLayout(game), "save", profile.layout.offsets.flags);
+  const vars = new DataView(saveBlock1.buffer, saveBlock1.byteOffset);
+  const readVar = (id: number) => vars.getUint16(profile.layout.offsets.vars + (id - 0x4000) * 2, true);
 
   return {
     generation: 3,
@@ -978,7 +982,23 @@ export function parseGen3Save(buffer: ArrayBuffer, filename = ""): SaveData {
     party,
     pcBoxes,
     inventory,
-    events: parseEventProgress(saveBlock1, getGen3EventLayout(game), "save", profile.layout.offsets.flags),
+    events,
+    progressFacts: buildProgressFacts({
+      generation: 3,
+      game,
+      source: "save",
+      events,
+      raw: game === "firered" || game === "leafgreen"
+        ? { starterMon: readVar(0x4031) }
+        : {
+            starterMon: readVar(0x4023),
+            birchLabState: readVar(0x4084),
+            petalburgGymState: readVar(0x4085),
+            littlerootIntroState: readVar(0x4092),
+            eliteFourState: readVar(0x409c),
+            sootopolisState: readVar(0x405e),
+          },
+    }),
     location,
     valid: true,
     rawSize: data.length,

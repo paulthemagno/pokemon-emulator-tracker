@@ -25,6 +25,9 @@ export interface Gen1SaveLayout {
     trainerId: number;
     pokedexOwned: number;
     pokedexSeen: number;
+    playerStarter: number;
+    oaksLabScript: number;
+    hallOfFameCount: number;
     currentBoxNumber: number;
     currentBoxData: number;
   };
@@ -53,6 +56,10 @@ export interface Gen2SaveLayout {
     currentMap: number;
     currentMapX: number;
     currentMapY: number;
+    elmsLabScene: number;
+    radioTower5FScene: number;
+    teamRocketBaseB2FScene: number;
+    teamRocketBaseB3FScene: number;
     currentBoxNumber: number;
     boxNames: number;
     currentBoxData: number;
@@ -90,6 +97,7 @@ export interface Gen3SaveLayout {
     pokedexSeen1: number;
     pokedexSeen2: number;
     flags: number;
+    vars: number;
     badgeFlagStart: number;
     boxCurrent: number;
     boxData: number;
@@ -134,6 +142,9 @@ export const GEN1_SAVE_LAYOUTS = {
       trainerId: 0x2605,
       pokedexOwned: 0x25a3,
       pokedexSeen: 0x25b6,
+      playerStarter: 0x29c3,
+      oaksLabScript: 0x28a2,
+      hallOfFameCount: 0x284e,
       currentBoxNumber: 0x284c,
       currentBoxData: 0x30c0,
     },
@@ -167,6 +178,9 @@ export const GEN1_SAVE_LAYOUTS = {
       partyNicknames: 0xd2b5,
       pokedexOwned: 0xd2f7,
       pokedexSeen: 0xd30a,
+      playerStarter: 0xd717,
+      oaksLabScript: 0xd5f6,
+      hallOfFameCount: 0xd5a2,
       numItems: 0xd31d,
       items: 0xd31e,
       numPcItems: 0xd53a,
@@ -196,6 +210,9 @@ export const GEN1_SAVE_LAYOUTS = {
       trainerId: 0x2605,
       pokedexOwned: 0x25a3,
       pokedexSeen: 0x25b6,
+      playerStarter: 0x29c3,
+      oaksLabScript: 0x28a1,
+      hallOfFameCount: 0x284e,
       currentBoxNumber: 0x284c,
       currentBoxData: 0x30c0,
     },
@@ -229,6 +246,9 @@ export const GEN1_SAVE_LAYOUTS = {
       partyNicknames: 0xd2b4,
       pokedexOwned: 0xd2f6,
       pokedexSeen: 0xd309,
+      playerStarter: 0xd716,
+      oaksLabScript: 0xd5f4,
+      hallOfFameCount: 0xd5a1,
       numItems: 0xd31c,
       items: 0xd31d,
       numPcItems: 0xd539,
@@ -261,6 +281,10 @@ export const GEN2_SAVE_LAYOUTS = {
       currentMap: 0x2869,
       currentMapX: 0x286a,
       currentMapY: 0x286b,
+      elmsLabScene: 0x2534,
+      radioTower5FScene: 0x2549,
+      teamRocketBaseB2FScene: 0x254f,
+      teamRocketBaseB3FScene: 0x2550,
       currentBoxNumber: 0x2724,
       boxNames: 0x2727,
       currentBoxData: 0x2d6c,
@@ -300,6 +324,10 @@ export const GEN2_SAVE_LAYOUTS = {
       mapNumber: 0xda01,
       playerX: 0xda02,
       playerY: 0xda03,
+      elmsLabScene: 0xd6cc,
+      radioTower5FScene: 0xd6e1,
+      teamRocketBaseB2FScene: 0xd6e7,
+      teamRocketBaseB3FScene: 0xd6e8,
       partyCount: 0xda22,
       partyMon1: 0xda2a,
       partyNicknames: 0xdb8c,
@@ -326,6 +354,10 @@ export const GEN2_SAVE_LAYOUTS = {
       currentMap: 0x2844,
       currentMapX: 0x2845,
       currentMapY: 0x2846,
+      elmsLabScene: 0x2515,
+      radioTower5FScene: 0x2537,
+      teamRocketBaseB2FScene: 0x2541,
+      teamRocketBaseB3FScene: 0x2542,
       currentBoxNumber: 0x2700,
       boxNames: 0x2703,
       currentBoxData: 0x2d10,
@@ -366,6 +398,10 @@ export const GEN2_SAVE_LAYOUTS = {
       mapNumber: 0xdcb6,
       playerY: 0xdcb7,
       playerX: 0xdcb8,
+      elmsLabScene: 0xd987,
+      radioTower5FScene: 0xd9a9,
+      teamRocketBaseB2FScene: 0xd9b3,
+      teamRocketBaseB3FScene: 0xd9b4,
       partyCount: 0xdcd7,
       partyMon1: 0xdcdf,
       partyNicknames: 0xde41,
@@ -402,6 +438,7 @@ export const GEN3_SAVE_LAYOUTS = {
       pokedexSeen1: 0x0938,
       pokedexSeen2: 0x3a8c,
       flags: 0x1220,
+      vars: 0x1340,
       badgeFlagStart: 0x0807,
       boxCurrent: 0x0000,
       boxData: 0x0004,
@@ -452,6 +489,7 @@ export const GEN3_SAVE_LAYOUTS = {
       pokedexSeen1: 0x0988,
       pokedexSeen2: 0x3b24,
       flags: 0x1270,
+      vars: 0x139c,
       badgeFlagStart: 0x0867,
       boxCurrent: 0x0000,
       boxData: 0x0004,
@@ -502,6 +540,7 @@ export const GEN3_SAVE_LAYOUTS = {
       pokedexSeen1: 0x05f8,
       pokedexSeen2: 0x3a18,
       flags: 0x0ee0,
+      vars: 0x1000,
       badgeFlagStart: 0x0820,
       boxCurrent: 0x0000,
       boxData: 0x0004,

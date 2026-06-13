@@ -145,7 +145,7 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
             <InventoryDisplay items={saveData.inventory} generation={saveData.generation} />
           </TabsContent>
           <TabsContent value="events" className="mt-0">
-            <EventsPanel events={saveData.events} />
+            <EventsPanel events={saveData.events} progressFacts={saveData.progressFacts} />
           </TabsContent>
         </Tabs>
       </DashboardSection>

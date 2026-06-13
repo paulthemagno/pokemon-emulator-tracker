@@ -23,6 +23,7 @@ Local knowledge modules under `lib/pokemon/knowledge/` are the ground-truth entr
 Current Ollama tools:
 
 - `get_trainer_status`
+- `get_story_context`
 - `get_party_overview`
 - `get_pokemon_details`
 - `get_inventory_overview`
@@ -42,7 +43,9 @@ Recommended next tools:
 
 ## Context Packing Improvements
 
-`GameContextSnapshot` should eventually include:
+`GameContextSnapshot` includes compact source-backed `progressFacts` for reviewed permanent choices, current story phases, and the main-story milestone summary. `get_story_context` returns those values and known next steps without exposing the full raw variable array. A missing milestone is not treated as proof that it is immediately available when the game allows multiple valid orders.
+
+It should eventually also include:
 
 - `generation` and exact `game`.
 - `source`: `save` or `live`.

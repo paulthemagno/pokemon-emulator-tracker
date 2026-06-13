@@ -27,6 +27,7 @@ import { parseEventProgress } from "../events";
 import { GEN1_EVENT_FLAGS } from "../knowledge/event-flags";
 import { GEN1_INVENTORY_LAYOUT, GEN1_YELLOW_INVENTORY_LAYOUT } from "../knowledge/inventory-layouts";
 import { GEN1_SAVE_LAYOUTS, type Gen1SaveLayout } from "../knowledge/save-layouts";
+import { buildProgressFacts } from "../progress-facts";
 
 // Pokemon data structure sizes
 const PARTY_POKEMON_SIZE = 44;
@@ -510,6 +511,7 @@ function parseGameEvents(data: Uint8Array, game: GameVersion): SaveData["events"
 export function parseGen1Save(data: Uint8Array, filename = ""): SaveData {
   const game = detectGameVersion(filename);
   const layout = getGen1SaveLayout(game);
+  const events = parseGameEvents(data, game);
 
   return {
     generation: 1,
@@ -519,7 +521,18 @@ export function parseGen1Save(data: Uint8Array, filename = ""): SaveData {
     party: parseParty(data, layout),
     pcBoxes: parsePCBoxes(data, layout),
     inventory: parseInventory(data, game),
-    events: parseGameEvents(data, game),
+    events,
+    progressFacts: buildProgressFacts({
+      generation: 1,
+      game,
+      source: "save",
+      events,
+      raw: {
+        playerStarter: data[layout.offsets.playerStarter],
+        oaksLabScript: data[layout.offsets.oaksLabScript],
+        hallOfFameCount: data[layout.offsets.hallOfFameCount],
+      },
+    }),
     location: parseLocation(data, layout),
     valid: true,
     rawSize: data.length,
