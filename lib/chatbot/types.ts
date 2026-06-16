@@ -8,6 +8,19 @@ export interface ChatMessage {
   timestamp: number;
   attachments?: ChatImageAttachment[];
   thinking?: string;
+  knowledgeContext?: string;
+  sources?: ChatSource[];
+}
+
+export interface ChatSource {
+  kind: string;
+  name: string;
+  url?: string;
+  scope?: string;
+  displayName?: string;
+  siteName?: string;
+  icon?: string;
+  logoUrl?: string;
 }
 
 export interface ChatImageAttachment {
@@ -20,6 +33,7 @@ export interface ChatImageAttachment {
 export interface ChatRuntimeConfig {
   endpoint?: string;
   modelName?: string;
+  embeddingModelName?: string;
   apiKey?: string;
   thinking?: boolean;
 }
@@ -27,6 +41,7 @@ export interface ChatRuntimeConfig {
 export interface ChatProviderInfo {
   provider: string;
   modelName: string;
+  embeddingModelName?: string;
   endpoint: string;
   ready: boolean;
   credentialSource: 'request' | 'environment' | 'none';
@@ -123,6 +138,7 @@ export interface ProviderConfig {
   endpoint?: string;
   apiKey?: string;
   modelName?: string;
+  embeddingModelName?: string;
   maxTokens?: number;
   temperature?: number;
   thinking?: boolean;
@@ -131,4 +147,5 @@ export interface ProviderConfig {
 export interface OllamaConfig extends ProviderConfig {
   endpoint: string; // e.g., http://127.0.0.1:11434
   modelName: string; // e.g., 'gemma4:latest'
+  embeddingModelName?: string; // e.g., 'embeddinggemma:latest'
 }

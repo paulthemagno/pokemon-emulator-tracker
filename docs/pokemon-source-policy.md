@@ -44,12 +44,15 @@ Current generated local dumps:
 
 - `lib/pokemon/data/item-descriptions.ts`: generated from PokeAPI plus local fallbacks.
 - `lib/pokemon/data/move-descriptions.ts`: generated from PokeAPI plus local fallbacks.
+- `lib/pokemon/data/pokemon-evolutions.ts`: generated from PokeAPI evolution chains for National Dex 1-386.
 - `lib/pokemon/data/gen1-map-landmarks.ts`: generated/derived from Gen 1 town-map entries and map constants.
 - `lib/pokemon/data/gen2-map-landmarks.ts`: generated from `pret/pokecrystal`.
 - `public/maps/kanto-town-map-rby.png`: generated from Gen 1 map graphics.
 - `public/maps/*town-map-gsc.png`: generated from `pret/pokecrystal`.
 - `lib/pokemon/knowledge/event-flags.ts`: generated from pinned `pret` event flag definitions for Gen 1/2/3.
 - `lib/pokemon/knowledge/event-guides.ts`: generated from PRET flag occurrences plus the reviewed whole-game guide catalog.
+- `lib/pokemon/knowledge/walkthrough-index.json`: generated compact Bulbapedia walkthrough sections discovered from reviewed root pages.
+- `lib/pokemon/knowledge/walkthrough-embeddings.manifest.json` and `walkthrough-embeddings.f32`: generated Ollama embeddings for the local walkthrough index.
 - `docs/progress-facts-prototype.md`: generated review report for curated non-boolean story phases, choices, and quest states. It is not consumed by the app.
 
 ## When Adding A Game

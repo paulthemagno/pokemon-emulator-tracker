@@ -189,6 +189,7 @@ Optional environment variables:
 ```bash
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma4:latest
+OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest
 OLLAMA_API_KEY=
 OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
 OLLAMA_MAX_TOKENS=2048
@@ -204,6 +205,15 @@ session. Blank fields use the server environment values, and request API keys ar
 not stored in conversation history. Remote endpoint overrides require
 `OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
 
+`OLLAMA_EMBEDDING_MODEL` selects the Ollama embedding model used by guide RAG
+generation and runtime vector retrieval. It has no hidden default; set it before
+generating embeddings. If you change it, regenerate the static guide embeddings
+so document and query vectors are produced by the same model:
+
+```bash
+corepack pnpm generate:pokemon-guide-embeddings
+```
+
 JPEG, PNG, and WebP attachments work with vision-capable Ollama models. Audio
 notes require a separate speech-to-text step and are not accepted yet.
 Attached images are rendered in the chat and stored with the client-side
@@ -211,7 +221,7 @@ conversation. Models that support Ollama thinking can stream it into a
 collapsible panel. Disable **Model thinking** in chat settings, or set
 `OLLAMA_THINKING=false`, to request only the final answer.
 
-Details: [docs/chatbot-phase1.md](docs/chatbot-phase1.md) and [docs/llm-pokemon-agent.md](docs/llm-pokemon-agent.md).
+Details: [docs/llm-pokemon-agent.md](docs/llm-pokemon-agent.md).
 
 ## Test and Audit
 

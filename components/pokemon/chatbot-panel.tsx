@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
   Brain,
+  ExternalLink,
   ImagePlus,
   MessageSquare,
   Settings,
@@ -28,6 +29,7 @@ import type {
   ChatImageAttachment,
   ChatProviderInfo,
   ChatRuntimeConfig,
+  ChatSource,
 } from '@/lib/chatbot/types';
 
 interface ChatbotPanelProps {
@@ -79,6 +81,80 @@ function getDefaultPanelSize(): FloatingSize {
     width: PANEL_DEFAULT_WIDTH,
     height: Math.floor(typeof window === 'undefined' ? PANEL_DEFAULT_HEIGHT : window.innerHeight * 0.8),
   });
+}
+
+function safeDecodeUrlText(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function humanizeUrlText(value: string): string {
+  return safeDecodeUrlText(value).replace(/_/g, ' ').replace(/\\/g, '').trim();
+}
+
+function getSourceDisplay(source: ChatSource, index: number) {
+  if (!source.url) {
+    return {
+      label: `${index + 1}. ${source.displayName ?? source.name}`,
+      siteName: source.siteName ?? source.name,
+      logoUrl: source.logoUrl,
+      fallbackIcon: source.icon ?? '↗',
+    };
+  }
+
+  let url: URL;
+  try {
+    url = new URL(source.url);
+  } catch {
+    return {
+      label: `${index + 1}. ${source.displayName ?? source.name}`,
+      siteName: source.siteName ?? source.name,
+      logoUrl: source.logoUrl,
+      fallbackIcon: source.icon ?? '↗',
+    };
+  }
+
+  const host = url.hostname.replace(/^www\./, '');
+  let label = source.displayName;
+  let siteName = source.siteName ?? host;
+
+  if (!label && host === 'github.com' && url.pathname.startsWith('/pret/')) {
+    const parts = url.pathname.split('/').filter(Boolean);
+    const repo = parts[1] ?? 'pret';
+    const fileName = parts[4] ? parts.slice(4).join('/').split('/').pop() : repo;
+    label = `PRET ${repo}: ${fileName}`;
+    siteName = 'PRET';
+  }
+
+  if (!label && host === 'bulbapedia.bulbagarden.net') {
+    const section = url.hash ? humanizeUrlText(url.hash.slice(1)) : '';
+    const walkthroughMatch = source.url.match(/Walkthrough%3A([^/]+)\/Part_(\d+)/);
+    if (walkthroughMatch) {
+      const game = humanizeUrlText(walkthroughMatch[1]);
+      label = `Bulbapedia walkthrough: ${game} Part ${walkthroughMatch[2]}${
+        section ? ` - ${section}` : ''
+      }`;
+    } else {
+      const title = url.searchParams.get('title');
+      label = `Bulbapedia: ${title ? humanizeUrlText(title) : section || 'article'}`;
+    }
+    siteName = 'Bulbapedia';
+  }
+
+  if (!label) {
+    const lastPath = humanizeUrlText(url.pathname.split('/').filter(Boolean).pop() ?? host);
+    label = `${siteName}: ${lastPath}`;
+  }
+
+  return {
+    label: `${index + 1}. ${label}`,
+    siteName,
+    logoUrl: source.logoUrl ?? `${url.origin}/favicon.ico`,
+    fallbackIcon: source.icon ?? siteName.slice(0, 2).toUpperCase(),
+  };
 }
 
 function clampBubblePosition(position: FloatingPosition): FloatingPosition {
@@ -427,6 +503,8 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
       const decoder = new TextDecoder();
       let fullMessage = '';
       let fullThinking = '';
+      let knowledgeContext = '';
+      let sources: ChatSource[] = [];
       let pending = '';
 
       while (true) {
@@ -445,6 +523,8 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             thinking?: string;
             error?: string;
             meta?: ChatProviderInfo;
+            knowledgeContext?: string;
+            sources?: ChatSource[];
           };
           try {
             parsed = JSON.parse(line);
@@ -467,6 +547,12 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             fullThinking += parsed.thinking;
             setStreamingThinking(fullThinking);
           }
+          if (parsed.knowledgeContext) {
+            knowledgeContext = parsed.knowledgeContext;
+          }
+          if (parsed.sources) {
+            sources = parsed.sources;
+          }
         }
       }
 
@@ -476,6 +562,8 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           thinking?: string;
           error?: string;
           meta?: ChatProviderInfo;
+          knowledgeContext?: string;
+          sources?: ChatSource[];
         } | null = null;
         try {
           parsed = JSON.parse(pending.trim());
@@ -497,6 +585,12 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           fullThinking += parsed.thinking;
           setStreamingThinking(fullThinking);
         }
+        if (parsed?.knowledgeContext) {
+          knowledgeContext = parsed.knowledgeContext;
+        }
+        if (parsed?.sources) {
+          sources = parsed.sources;
+        }
       }
 
       // Save complete message
@@ -504,7 +598,11 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
         await conversation.addMessage(
           'assistant',
           fullMessage || 'No final response was returned.',
-          fullThinking ? { thinking: fullThinking } : {}
+          {
+            ...(fullThinking ? { thinking: fullThinking } : {}),
+            ...(knowledgeContext ? { knowledgeContext } : {}),
+            ...(sources.length > 0 ? { sources } : {}),
+          }
         );
       }
       setStreamingMessage('');
@@ -818,6 +916,59 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                       {msg.content}
                     </ReactMarkdown>
                   </div>
+                  {msg.sources && msg.sources.length > 0 && (
+                    <details className="mt-2 rounded border border-slate-400/30 bg-black/5 px-2 py-1 text-xs dark:bg-white/5">
+                      <summary className="cursor-pointer font-medium">
+                        Sources used ({msg.sources.length})
+                      </summary>
+                      <ul className="mt-2 space-y-1 border-t border-slate-400/20 pt-2">
+                        {msg.sources.map((source, sourceIndex) => {
+                          const sourceDisplay = getSourceDisplay(source, sourceIndex);
+                          return (
+                            <li key={`${source.url ?? source.name}-${sourceIndex}`}>
+                              {source.url ? (
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-start gap-2 rounded px-1 py-1 text-blue-700 hover:bg-white/50 hover:underline dark:text-blue-300 dark:hover:bg-black/20"
+                              >
+                                <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center overflow-hidden rounded bg-white p-0.5 text-[10px] font-bold text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
+                                  {sourceDisplay.logoUrl ? (
+                                    <img
+                                      src={sourceDisplay.logoUrl}
+                                      alt={`${sourceDisplay.siteName} logo`}
+                                      className="h-4 w-4 object-contain"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    sourceDisplay.fallbackIcon
+                                  )}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block break-words">
+                                    {sourceDisplay.label}
+                                  </span>
+                                  <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
+                                    {sourceDisplay.siteName}
+                                  </span>
+                                </span>
+                                <ExternalLink className="mt-1 h-3 w-3 shrink-0" />
+                              </a>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-white px-1 text-[10px] font-bold text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
+                                  {sourceDisplay.fallbackIcon}
+                                </span>
+                                {sourceDisplay.label}
+                              </span>
+                            )}
+                          </li>
+                          );
+                        })}
+                      </ul>
+                    </details>
+                  )}
                 </div>
               </div>
             ))}

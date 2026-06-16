@@ -40,6 +40,8 @@ async function createProvider(runtimeConfig: ChatRuntimeConfig = {}) {
       Boolean(runtimeConfig.endpoint)
     ),
     modelName: runtimeConfig.modelName?.trim() || DEFAULT_MODEL,
+    embeddingModelName:
+      runtimeConfig.embeddingModelName?.trim() || process.env.OLLAMA_EMBEDDING_MODEL,
     apiKey: runtimeConfig.apiKey?.trim() || process.env.OLLAMA_API_KEY,
     maxTokens: parseInt(process.env.OLLAMA_MAX_TOKENS || '2048'),
     temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0.7'),
@@ -69,6 +71,7 @@ export async function GET() {
       {
         provider: 'Ollama (Local)',
         modelName: DEFAULT_MODEL,
+        embeddingModelName: process.env.OLLAMA_EMBEDDING_MODEL,
         endpoint: DEFAULT_ENDPOINT,
         ready: false,
         credentialSource: process.env.OLLAMA_API_KEY ? 'environment' : 'none',
@@ -132,7 +135,7 @@ export async function POST(request: NextRequest) {
         gameContext.partyPokemonDetailed?.length ?? gameContext.partyPokemon.length
       );
     } else {
-      console.log('[API CHAT DEBUG] Context missing: load a save file or live data to enable tool calls');
+      console.log('[API CHAT DEBUG] Context missing: reference and general guide tools remain available');
     }
     console.log('[API CHAT DEBUG] Streaming:', stream);
     console.log('[API CHAT DEBUG] ==================\n');
@@ -194,6 +197,18 @@ export async function POST(request: NextRequest) {
                 );
               }
             );
+            const knowledgeContext = provider.getLastKnowledgeContext();
+            if (knowledgeContext) {
+              controller.enqueue(
+                encoder.encode(JSON.stringify({ knowledgeContext }) + '\n')
+              );
+            }
+            const sources = provider.getLastSources();
+            if (sources.length > 0) {
+              controller.enqueue(
+                encoder.encode(JSON.stringify({ sources }) + '\n')
+              );
+            }
 
             controller.close();
           } catch (error) {
@@ -226,7 +241,15 @@ export async function POST(request: NextRequest) {
         attachments
       );
 
-      return NextResponse.json({ reply, meta: providerInfo }, { status: 200 });
+      return NextResponse.json(
+        {
+          reply,
+          meta: providerInfo,
+          knowledgeContext: provider.getLastKnowledgeContext(),
+          sources: provider.getLastSources(),
+        },
+        { status: 200 }
+      );
     }
   } catch (error) {
     console.error('Chat API error:', error);

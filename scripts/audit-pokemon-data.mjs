@@ -61,6 +61,8 @@ const requiredKnowledgeFiles = [
   "lib/pokemon/knowledge/save-layouts.ts",
   "lib/pokemon/knowledge/event-flags.ts",
   "lib/pokemon/knowledge/event-guides.ts",
+  "lib/pokemon/knowledge/walkthrough-index.json",
+  "lib/pokemon/data/pokemon-evolutions.ts",
   "live-adapters/generated/gen1-live-offsets.lua",
   "live-adapters/generated/gen2-live-offsets.lua",
   "live-adapters/generated/gen3-live-offsets.lua",
@@ -93,6 +95,7 @@ const moveDescriptions = await readText("lib/pokemon/data/move-descriptions.ts")
 const items = await readText("lib/pokemon/data/items.ts");
 const moves = await readText("lib/pokemon/data/moves.ts");
 const species = await readText("lib/pokemon/data/species.ts");
+const evolutions = await readText("lib/pokemon/data/pokemon-evolutions.ts");
 const inventoryKnowledge = await readText("lib/pokemon/knowledge/inventory-layouts.ts");
 const itemRangeKnowledge = await readText("lib/pokemon/knowledge/item-id-ranges.ts");
 const speciesIdMapKnowledge = await readText("lib/pokemon/knowledge/species-id-maps.ts");
@@ -117,6 +120,7 @@ console.log(`Gen 2 item IDs: ${countMatches(extractObjectBlock(items, "GEN2_ITEM
 console.log(`Gen 3 item rows: ${countMatches(extractArrayBlock(items, "GEN3_ITEMS"), /\{\s*id:\s*\d+,\s*name:\s*"/g)}`);
 console.log(`Move rows: ${countMatches(moves, /\{\s*id:\s*\d+,\s*name:\s*"/g)}`);
 console.log(`Species rows: ${countMatches(species, /\{\s*id:\s*\d+,\s*name:\s*"/g)}`);
+console.log(`Evolution edges: ${countMatches(evolutions, /"fromId":\s*\d+/g)}`);
 
 printSection("Knowledge Coverage");
 console.log(`inventory layout pocket rows: ${countMatches(inventoryKnowledge, /\{\s*name:\s*"/g)}`);
@@ -137,6 +141,28 @@ if (await fileExists("lib/pokemon/knowledge/sources/event-guides.json")) {
 if (await fileExists("lib/pokemon/knowledge/sources/game-guide-sources.json")) {
   const gameGuideSources = await readText("lib/pokemon/knowledge/sources/game-guide-sources.json");
   console.log(`catalogued online game guides: ${countMatches(gameGuideSources, /"kind":\s*"(?:walkthrough|checklist|reference)"/g)}`);
+}
+if (await fileExists("lib/pokemon/knowledge/walkthrough-index.json")) {
+  const walkthroughIndex = await readText("lib/pokemon/knowledge/walkthrough-index.json");
+  console.log(`indexed walkthrough sections: ${countMatches(walkthroughIndex, /"section":/g)}`);
+}
+if (await fileExists("lib/pokemon/knowledge/walkthrough-embeddings.manifest.json")) {
+  const embeddingManifest = JSON.parse(
+    await readText("lib/pokemon/knowledge/walkthrough-embeddings.manifest.json")
+  );
+  const vectorRelativePath = `lib/pokemon/knowledge/${embeddingManifest.vectorFile}`;
+  const vectorExists = await fileExists(vectorRelativePath);
+  const expectedBytes =
+    embeddingManifest.records.length * embeddingManifest.dimensions * 4;
+  const vectorStats = vectorExists
+    ? await fs.stat(path.join(root, vectorRelativePath))
+    : undefined;
+  console.log(
+    `walkthrough embeddings: ${embeddingManifest.records.length} ${embeddingManifest.model} vectors, ${embeddingManifest.dimensions}d`
+  );
+  console.log(
+    `${vectorExists && vectorStats?.size === expectedBytes ? "ok" : "gap"} walkthrough embedding vector file`
+  );
 }
 if (await fileExists("lib/pokemon/knowledge/sources/progress-fact-candidates.json")) {
   const progressFacts = await readText("lib/pokemon/knowledge/sources/progress-fact-candidates.json");

@@ -117,7 +117,10 @@ export function useConversation(options: UseConversationOptions = {}) {
     async (
       role: 'user' | 'assistant',
       content: string,
-      metadata: Pick<ChatMessage, 'attachments' | 'thinking'> = {}
+      metadata: Pick<
+        ChatMessage,
+        'attachments' | 'thinking' | 'knowledgeContext' | 'sources'
+      > = {}
     ): Promise<void> => {
       const newMessage: ChatMessage = {
         role,

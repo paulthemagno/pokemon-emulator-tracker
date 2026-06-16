@@ -28,6 +28,8 @@ const POKEEMERALD_SEAFLOOR =
   "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/maps/SeafloorCavern_Room9/scripts.inc";
 const POKEEMERALD_MIRAGE_TOWER =
   "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/maps/MirageTower_4F/scripts.inc";
+const BULBAPEDIA_MIRAGE_TOWER =
+  "https://bulbapedia.bulbagarden.net/w/index.php?title=Mirage_Tower&oldid=4566304";
 const POKEFIRERED_SILPH =
   "https://github.com/pret/pokefirered/blob/e060ab955b5dc9ac1c4904c2cd141683615cf477/data/maps/SilphCo_11F/scripts.inc";
 const POKEFIRERED_MT_MOON =
@@ -283,6 +285,20 @@ export const EVENT_GUIDANCE_BY_PROFILE: Record<string, Record<string, EventGuida
     },
   },
   "emerald-en": {
+    GUIDE_MIRAGE_TOWER: {
+      description: "Mirage Tower is an Emerald-only optional location in the Route 111 desert.",
+      actionHint: "Bring the Mach Bike and a Pokemon that can use Rock Smash, then cross the cracked floors at speed and climb to 4F.",
+      steps: [
+        "Travel to the Route 111 desert in Pokemon Emerald; Mirage Tower can disappear and reappear when entering and leaving the route.",
+        "Use the Mach Bike to cross cracked floor tiles before they collapse.",
+        "Use Rock Smash on the breakable rocks blocking the route upward.",
+        "Reach 4F and choose either the Root Fossil or the Claw Fossil.",
+        "The Root Fossil is revived into Lileep; the Claw Fossil is revived into Anorith.",
+        "After one Fossil is taken, the tower collapses. The other Fossil becomes available later in Desert Underpass after the main game and National Pokedex.",
+      ],
+      normalMissingReason: "Mirage Tower exists in Pokemon Emerald, not in Ruby or Sapphire.",
+      sourceRefs: [POKEEMERALD_MIRAGE_TOWER, BULBAPEDIA_MIRAGE_TOWER],
+    },
     FLAG_CHOSE_ROOT_FOSSIL: {
       description: "The Root Fossil was chosen from Mirage Tower.",
       actionHint: "Choose the Root Fossil at the top of Mirage Tower.",
