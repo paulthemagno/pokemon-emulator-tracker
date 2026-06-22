@@ -121,6 +121,7 @@ Generated knowledge commands:
 ```bash
 corepack pnpm generate:pokemon-knowledge
 corepack pnpm generate:pokemon-evolutions
+corepack pnpm generate:pokemon-learnsets
 corepack pnpm generate:pokemon-guides
 corepack pnpm generate:pokemon-guide-embeddings
 corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow

@@ -47,10 +47,11 @@ Implemented reference tools:
 - `get_species`;
 - `get_type_matchup`, with explicit Generation 1 and Generation 2/3 charts;
 - `get_evolution`, backed by a generated local PokeAPI snapshot.
+- `get_learnset`, backed by a generated local PokeAPI snapshot.
 
 Still pending:
 
-- exact game-specific learnsets, encounters, and item locations;
+- PRET-backed exact game-specific learnset extraction, encounters, and item locations;
 - audited next-story-step prerequisite planning;
 - support for non-Ollama provider APIs.
 
@@ -222,6 +223,30 @@ database dump. Names should be normalized internally while preserving display na
 
 ## Tool Catalog
 
+This catalog includes both currently exposed runtime tools and planned tools. The source of
+truth for implemented runtime definitions is `lib/chatbot/tools/registry.ts`.
+
+| Tool | Status | Requires loaded save/live state | Purpose | Primary source |
+| --- | --- | --- | --- | --- |
+| `get_move` | Implemented | No | Look up Gen 1-3 move type, power, accuracy, PP, effect, and version-group flavor text. | Local move table plus generated PokeAPI move descriptions |
+| `get_move_reference` | Implemented compatibility alias | No | Backward-compatible alias for `get_move` using `moveName`. | Same as `get_move` |
+| `get_species` | Implemented | No | Look up species National Dex ID, types, growth rate, and reference stats. | Local species table |
+| `get_type_matchup` | Implemented | No, if `game` or `generation` is supplied | Calculate Gen 1, 2, or 3 type effectiveness, including Gen 1 differences. | Local type charts |
+| `get_evolution` | Implemented | No | Look up Gen 1-3 evolution relationships and trigger conditions. | Generated local PokeAPI evolution snapshot |
+| `get_learnset` | Implemented | No | Query per-game level-up, TM/HM, tutor, and egg move learnsets. | Generated local PokeAPI learnset snapshot |
+| `search_game_guidance` | Implemented | No | Retrieve source-backed walkthrough/event guidance with lexical or hybrid vector search. | Audited event guidance, generated event guides, Bulbapedia walkthrough index, optional guide embeddings |
+| `get_trainer_status` | Implemented | Yes | Return current trainer, location, money, badges, playtime, and basic progress state. | Current save/live context |
+| `get_party_overview` | Implemented | Yes | Return current party summary with HP, level, status, and types. | Current save/live context |
+| `get_story_context` | Implemented | Yes | Return source-backed permanent choices, current phases, and known next-step facts. | Current save/live context plus generated progress facts |
+| `get_pokedex_overview` | Implemented | Yes | Return seen/caught totals and completion summary. | Current save/live context |
+| `get_pokemon_details` | Implemented | Yes | Return detailed party Pokémon data by name or party index. | Current save/live context |
+| `get_pokedex_lookup` | Implemented | Yes | Check whether a specific species has been seen or caught. | Current save/live context |
+| `get_inventory_overview` | Implemented | Yes | Return inventory summary and optionally filtered item list. | Current save/live context |
+| `get_encounters` | Planned | No | Query exact per-game wild encounter tables by location/species/method/time. | Planned generated PRET dataset |
+| `get_item` | Planned | No | Look up item metadata by name or ID. | Planned local item dataset |
+| `get_item_location` | Planned | Optional | Find where an item/TM/HM is obtained and optionally compare with current inventory/events. | Planned PRET extraction plus walkthrough retrieval |
+| `get_next_story_steps` | Planned | Yes | Compute source-backed next story candidates from current progress. | Planned progression prerequisite graph |
+
 ### Pokemon reference
 
 ```ts
@@ -279,6 +304,8 @@ get_encounters({
 
 These tools must query generated PRET-derived data first. PokeAPI may enrich display names and
 cross-check version metadata. It is not sufficient by itself for exact Gen 1-3 encounter tables.
+`get_learnset` currently uses a generated local PokeAPI snapshot; PRET-backed extraction remains
+the target for stricter source parity.
 
 ### Items
 
@@ -710,7 +737,7 @@ chain-of-thought, and it is not rendered in the chat UI.
 
 ### Phase 4: exact game data
 
-- expand PRET extraction for learnsets, encounters, and item locations;
+- expand PRET extraction for encounters, item locations, and stricter learnset parity;
 - implement the corresponding tools;
 - use PokeAPI only for normalization and cross-checking.
 

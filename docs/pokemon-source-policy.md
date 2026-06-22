@@ -45,6 +45,7 @@ Current generated local dumps:
 - `lib/pokemon/data/item-descriptions.ts`: generated from PokeAPI plus local fallbacks.
 - `lib/pokemon/data/move-descriptions.ts`: generated from PokeAPI plus local fallbacks.
 - `lib/pokemon/data/pokemon-evolutions.ts`: generated from PokeAPI evolution chains for National Dex 1-386.
+- `lib/pokemon/data/pokemon-learnsets.ts`: generated from PokeAPI move version-group details for National Dex 1-386 and Gen 1-3 moves.
 - `lib/pokemon/data/gen1-map-landmarks.ts`: generated/derived from Gen 1 town-map entries and map constants.
 - `lib/pokemon/data/gen2-map-landmarks.ts`: generated from `pret/pokecrystal`.
 - `public/maps/kanto-town-map-rby.png`: generated from Gen 1 map graphics.

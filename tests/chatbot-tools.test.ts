@@ -90,7 +90,9 @@ test("shared registry exposes reference tools that work without game state", () 
   assert.ok(names.includes("get_species"));
   assert.ok(names.includes("get_type_matchup"));
   assert.ok(names.includes("get_evolution"));
+  assert.ok(names.includes("get_learnset"));
   assert.equal(canExecuteToolWithoutContext("get_species"), true);
+  assert.equal(canExecuteToolWithoutContext("get_learnset"), true);
   assert.equal(canExecuteToolWithoutContext("get_inventory_overview"), false);
 
   const result = executeChatTool("get_species", { species: "Bulbasaur" });
@@ -147,6 +149,49 @@ test("evolution lookup uses the local snapshot and respects game generation", ()
       )
     )
   );
+});
+
+test("learnset lookup uses the local snapshot and checks game-specific move availability", () => {
+  const result = executeChatTool("get_learnset", {
+    species: "Pikachu",
+    game: "Yellow",
+    move: "Thunderbolt",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.game, "yellow");
+  assert.equal(result.learnsMove, true);
+  assert.equal((result.requestedMove as { name: string }).name, "Thunderbolt");
+  assert.ok(
+    (result.entries as Array<{ method: string }>).some(
+      (entry) => entry.method === "level-up" || entry.method === "machine"
+    )
+  );
+});
+
+test("learnset lookup filters level-up moves by level and requires a game", () => {
+  const result = executeChatTool("get_learnset", {
+    species: "Marshtomp",
+    game: "Emerald",
+    methods: ["level-up"],
+    levelMax: 20,
+  });
+
+  assert.equal(result.ok, true);
+  assert.ok((result.entries as Array<{ level?: number }>).length > 0);
+  assert.ok(
+    (result.entries as Array<{ level?: number }>).every(
+      (entry) => typeof entry.level === "number" && entry.level <= 20
+    )
+  );
+
+  const missingGame = executeChatTool("get_learnset", {
+    species: "Pikachu",
+    move: "Thunderbolt",
+  });
+  const errorDetail = missingGame.errorDetail as { code?: string } | undefined;
+  assert.equal(missingGame.ok, false);
+  assert.equal(errorDetail?.code, "AMBIGUOUS_GAME");
 });
 
 test("state tools fail explicitly without a loaded game", () => {

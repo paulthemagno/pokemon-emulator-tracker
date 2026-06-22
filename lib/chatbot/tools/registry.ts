@@ -4,6 +4,7 @@ import type { GameContextSnapshot } from "../types";
 import { MOVE_DESCRIPTIONS } from "../../pokemon/data/move-descriptions";
 import { MOVES } from "../../pokemon/data/moves";
 import { POKEMON_EVOLUTIONS } from "../../pokemon/data/pokemon-evolutions";
+import { POKEMON_LEARNSETS } from "../../pokemon/data/pokemon-learnsets";
 import { getSpeciesById, SPECIES } from "../../pokemon/data/species";
 import { GENERATED_EVENT_GUIDES } from "../../pokemon/knowledge/event-guides";
 import { EVENT_GUIDANCE_BY_PROFILE } from "../../pokemon/data/event-guidance";
@@ -640,6 +641,7 @@ const REFERENCE_TOOLS = new Set([
   "get_species",
   "get_type_matchup",
   "get_evolution",
+  "get_learnset",
   "search_game_guidance",
 ]);
 
@@ -726,6 +728,32 @@ export function getChatToolDefinitions(): ChatToolDefinition[] {
             game: { type: "string", description: "Optional game context." },
           },
           required: ["species"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_learnset",
+        description: "Look up per-game Gen 1-3 level-up, machine, tutor, and egg move learnsets from a local PokeAPI snapshot.",
+        parameters: {
+          type: "object",
+          properties: {
+            species: { type: "string", description: "Species name or National Dex ID." },
+            game: { type: "string", description: "Required game or version group, for example Emerald or Pokemon Crystal." },
+            methods: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: ["level-up", "machine", "tutor", "egg"],
+              },
+              description: "Optional learn methods to include.",
+            },
+            move: { type: "string", description: "Optional move name or numeric ID to check." },
+            levelMax: { type: "number", description: "Optional maximum level for level-up moves." },
+            limit: { type: "number", minimum: 1, maximum: 100 },
+          },
+          required: ["species", "game"],
         },
       },
     },
@@ -1009,6 +1037,99 @@ export function executeChatTool(
       [getPokeApiSource("pokemon-species", String(species.id), profile)],
       [
         "Evolution triggers are filtered to species available by generation, but version-exclusive availability and trade feasibility are not yet checked.",
+      ],
+      profile
+    );
+  }
+
+  if (toolName === "get_learnset") {
+    const species = findSpecies(args.species);
+    if (!species) {
+      return failure(toolName, "NOT_FOUND", `Unknown species: "${String(args.species ?? "")}".`);
+    }
+
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    if (!profile) {
+      return failure(
+        toolName,
+        "AMBIGUOUS_GAME",
+        "A supported game is required for learnset lookup."
+      );
+    }
+    const generation = GAME_PROFILE_INFO[profile].generation;
+    const introducedGeneration = species.id <= 151 ? 1 : species.id <= 251 ? 2 : 3;
+    if (generation < introducedGeneration) {
+      return failure(
+        toolName,
+        "NOT_FOUND",
+        `${species.name} is not present in ${profile}; it was introduced in Generation ${introducedGeneration}.`
+      );
+    }
+
+    const requestedMove = args.move !== undefined ? findMove(args.move) : undefined;
+    if (args.move !== undefined && !requestedMove) {
+      return failure(toolName, "NOT_FOUND", `Unknown move: "${String(args.move ?? "")}".`);
+    }
+    const requestedMethods = Array.isArray(args.methods)
+      ? new Set(
+          args.methods.filter(
+            (value): value is string =>
+              value === "level-up" ||
+              value === "machine" ||
+              value === "tutor" ||
+              value === "egg"
+          )
+        )
+      : new Set<string>();
+    const levelMax = parseNumber(args.levelMax);
+    const requestedLimit = parseNumber(args.limit) ?? 50;
+    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 100);
+    const matchingRows = POKEMON_LEARNSETS.filter(([speciesId, moveId, versionGroup, method, level]) => {
+      if (speciesId !== species.id || versionGroup !== profile) return false;
+      if (requestedMove && moveId !== requestedMove.id) return false;
+      if (requestedMethods.size > 0 && !requestedMethods.has(method)) return false;
+      if (levelMax !== undefined && method === "level-up" && level > levelMax) return false;
+      return true;
+    });
+    const sortedRows = [...matchingRows].sort(
+      (left, right) =>
+        left[4] - right[4] ||
+        left[3].localeCompare(right[3]) ||
+        left[1] - right[1]
+    );
+    const entries = sortedRows.slice(0, limit).map(([, moveId, , method, level]) => {
+      const move = MOVES.find((candidate) => candidate.id === moveId);
+      return {
+        moveId,
+        move: move?.name ?? `Move ${moveId}`,
+        method,
+        ...(method === "level-up" ? { level } : {}),
+      };
+    });
+
+    return success(
+      toolName,
+      {
+        species: { id: species.id, name: species.name },
+        game: profile,
+        methods:
+          requestedMethods.size > 0
+            ? [...requestedMethods]
+            : ["level-up", "machine", "tutor", "egg", "other"],
+        ...(requestedMove
+          ? {
+              requestedMove: { id: requestedMove.id, name: requestedMove.name },
+              learnsMove: matchingRows.length > 0,
+            }
+          : {}),
+        ...(levelMax !== undefined ? { levelMax } : {}),
+        totalMatches: matchingRows.length,
+        returnedMatches: entries.length,
+        entries,
+      },
+      [getPokeApiSource("pokemon", String(species.id), profile)],
+      [
+        "Learnsets come from a generated local PokeAPI snapshot filtered by version group. PRET-backed exact learnset extraction is still planned.",
       ],
       profile
     );
