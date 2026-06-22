@@ -1,32 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OllamaProvider } from '@/lib/chatbot/providers/ollama';
-import type { ChatMessage, GameContextSnapshot } from '@/lib/chatbot/types';
+import type {
+  ChatImageAttachment,
+  ChatMessage,
+  ChatProviderInfo,
+  ChatRuntimeConfig,
+  GameContextSnapshot,
+} from '@/lib/chatbot/types';
 
-const provider = new OllamaProvider();
+const DEFAULT_ENDPOINT = process.env.OLLAMA_ENDPOINT || 'http://127.0.0.1:11434';
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:latest';
 
-// Initialize provider on first request
-let initialized = false;
+function validateEndpoint(endpoint: string, isRuntimeOverride = false): string {
+  const url = new URL(endpoint);
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('Ollama endpoint must use HTTP or HTTPS.');
+  }
+  const isLocal =
+    url.hostname === '127.0.0.1' ||
+    url.hostname === 'localhost' ||
+    url.hostname === '::1';
+  if (
+    isRuntimeOverride &&
+    !isLocal &&
+    process.env.OLLAMA_ALLOW_RUNTIME_ENDPOINT !== 'true'
+  ) {
+    throw new Error(
+      'Remote endpoint overrides are disabled. Configure OLLAMA_ENDPOINT or set OLLAMA_ALLOW_RUNTIME_ENDPOINT=true.'
+    );
+  }
+  return endpoint.replace(/\/+$/, '');
+}
 
-async function initializeProvider() {
-  if (!initialized) {
-    try {
-      await provider.initialize({
-        endpoint: process.env.OLLAMA_ENDPOINT || 'http://127.0.0.1:11434',
-        modelName: process.env.OLLAMA_MODEL || 'gemma4:latest',
-        maxTokens: parseInt(process.env.OLLAMA_MAX_TOKENS || '2048'),
-        temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0.7'),
-      });
-      initialized = provider.isReady();
-    } catch (error) {
-      console.error('Failed to initialize Ollama provider:', error);
-      initialized = false;
-    }
+async function createProvider(runtimeConfig: ChatRuntimeConfig = {}) {
+  const provider = new OllamaProvider();
+  await provider.initialize({
+    endpoint: validateEndpoint(
+      runtimeConfig.endpoint || DEFAULT_ENDPOINT,
+      Boolean(runtimeConfig.endpoint)
+    ),
+    modelName: runtimeConfig.modelName?.trim() || DEFAULT_MODEL,
+    embeddingModelName:
+      runtimeConfig.embeddingModelName?.trim() || process.env.OLLAMA_EMBEDDING_MODEL,
+    apiKey: runtimeConfig.apiKey?.trim() || process.env.OLLAMA_API_KEY,
+    maxTokens: parseInt(process.env.OLLAMA_MAX_TOKENS || '2048'),
+    temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0.7'),
+    thinking: runtimeConfig.thinking ?? process.env.OLLAMA_THINKING !== 'false',
+  });
+  return provider;
+}
+
+function getProviderInfo(
+  provider: OllamaProvider,
+  credentialSource: ChatProviderInfo['credentialSource']
+): ChatProviderInfo {
+  return {
+    ...provider.getInfo(),
+    credentialSource,
+  };
+}
+
+export async function GET() {
+  try {
+    const provider = await createProvider();
+    return NextResponse.json(
+      getProviderInfo(provider, process.env.OLLAMA_API_KEY ? 'environment' : 'none')
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        provider: 'Ollama (Local)',
+        modelName: DEFAULT_MODEL,
+        embeddingModelName: process.env.OLLAMA_EMBEDDING_MODEL,
+        endpoint: DEFAULT_ENDPOINT,
+        ready: false,
+        credentialSource: process.env.OLLAMA_API_KEY ? 'environment' : 'none',
+        error: error instanceof Error ? error.message : 'Provider check failed.',
+      },
+      { status: 503 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    await initializeProvider();
+    const body = (await request.json()) as {
+      message: string;
+      history?: ChatMessage[];
+      gameContext?: GameContextSnapshot;
+      systemPrompt?: string;
+      stream?: boolean;
+      attachments?: ChatImageAttachment[];
+      runtimeConfig?: ChatRuntimeConfig;
+    };
+    const provider = await createProvider(body.runtimeConfig);
 
     if (!provider.isReady()) {
       return NextResponse.json(
@@ -37,15 +104,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = (await request.json()) as {
-      message: string;
-      history?: ChatMessage[];
-      gameContext?: GameContextSnapshot;
-      systemPrompt?: string;
-      stream?: boolean;
-    };
-
-    const { message, history = [], gameContext, systemPrompt, stream = false } = body;
+    const {
+      message,
+      history = [],
+      gameContext,
+      systemPrompt,
+      stream = false,
+      attachments = [],
+      runtimeConfig,
+    } = body;
+    const providerInfo = getProviderInfo(
+      provider,
+      runtimeConfig?.apiKey?.trim()
+        ? 'request'
+        : process.env.OLLAMA_API_KEY
+          ? 'environment'
+          : 'none'
+    );
 
     // DEBUG: Log incoming request
     console.log('[API CHAT DEBUG] Incoming request');
@@ -60,7 +135,7 @@ export async function POST(request: NextRequest) {
         gameContext.partyPokemonDetailed?.length ?? gameContext.partyPokemon.length
       );
     } else {
-      console.log('[API CHAT DEBUG] Context missing: load a save file or live data to enable tool calls');
+      console.log('[API CHAT DEBUG] Context missing: reference and general guide tools remain available');
     }
     console.log('[API CHAT DEBUG] Streaming:', stream);
     console.log('[API CHAT DEBUG] ==================\n');
@@ -68,6 +143,25 @@ export async function POST(request: NextRequest) {
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
         { error: 'Message is required and must be a string' },
+        { status: 400 }
+      );
+    }
+    const allImageAttachments = [
+      ...attachments,
+      ...history.flatMap((chatMessage) => chatMessage.attachments ?? []),
+    ];
+    if (
+      allImageAttachments.some(
+        (attachment) =>
+          attachment.kind !== 'image' ||
+          !['image/jpeg', 'image/png', 'image/webp'].includes(attachment.mediaType) ||
+          attachment.data.length > 8_000_000
+      ) ||
+      allImageAttachments.reduce((total, attachment) => total + attachment.data.length, 0) >
+        24_000_000
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid or oversized image attachment history.' },
         { status: 400 }
       );
     }
@@ -82,6 +176,9 @@ export async function POST(request: NextRequest) {
           controller = ctrl;
 
           try {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ meta: providerInfo }) + '\n')
+            );
             await provider.sendMessage(
               message,
               history,
@@ -92,8 +189,26 @@ export async function POST(request: NextRequest) {
                 controller.enqueue(
                   encoder.encode(JSON.stringify({ chunk }) + '\n')
                 );
+              },
+              attachments,
+              (thinking: string) => {
+                controller.enqueue(
+                  encoder.encode(JSON.stringify({ thinking }) + '\n')
+                );
               }
             );
+            const knowledgeContext = provider.getLastKnowledgeContext();
+            if (knowledgeContext) {
+              controller.enqueue(
+                encoder.encode(JSON.stringify({ knowledgeContext }) + '\n')
+              );
+            }
+            const sources = provider.getLastSources();
+            if (sources.length > 0) {
+              controller.enqueue(
+                encoder.encode(JSON.stringify({ sources }) + '\n')
+              );
+            }
 
             controller.close();
           } catch (error) {
@@ -121,10 +236,20 @@ export async function POST(request: NextRequest) {
         message,
         history,
         gameContext,
-        systemPrompt
+        systemPrompt,
+        undefined,
+        attachments
       );
 
-      return NextResponse.json({ reply }, { status: 200 });
+      return NextResponse.json(
+        {
+          reply,
+          meta: providerInfo,
+          knowledgeContext: provider.getLastKnowledgeContext(),
+          sources: provider.getLastSources(),
+        },
+        { status: 200 }
+      );
     }
   } catch (error) {
     console.error('Chat API error:', error);

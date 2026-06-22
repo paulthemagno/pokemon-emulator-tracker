@@ -125,6 +125,23 @@ corepack pnpm generate:pokemon-event-guides
 
 Event flag progress is intentionally split into key events and all save states. Key events are the story/access subset; all save states includes technical engine state. Source-code occurrences are collected in `lib/pokemon/knowledge/sources/event-contexts.json` by `scripts/extract-pokemon-event-contexts.mjs`. Reviewed complete walkthroughs and reference sites live in `lib/pokemon/knowledge/sources/game-guide-sources.json`. `scripts/generate-pokemon-event-guides.mjs` combines both sources into compact `event-guides.json`, including a readable description, likely location, set/not-set meaning, suggested steps for recognizable event shapes, and multiple evidence links; the knowledge generator emits this as `lib/pokemon/knowledge/event-guides.ts`. Verified event-specific sequences, prerequisite notes, and alternative branches remain hand-curated in `lib/pokemon/data/event-guidance.ts`. The UI presents descriptions first and expands steps, dependencies, source symbols, and sources on demand. It does not claim that an event is currently available until a real prerequisite graph is audited. Use `agents/pokemon-event-research-agent/SKILL.md` for event-specific audits.
 
+The chatbot consumes the generated event index through `search_game_guidance`,
+scoped to the loaded game. `get_move_reference` reads the generated local
+PokeAPI-derived move descriptions. Neither tool performs runtime web requests.
+
+`GET /api/chat` exposes non-secret provider status. `POST /api/chat` accepts
+request-only Ollama model, endpoint, and API-key overrides plus bounded base64
+image attachments. The API key is applied as a Bearer token and is never returned.
+Remote runtime endpoint overrides require `OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
+Audio is not part of the chat payload and requires a separate transcription
+endpoint.
+
+`ChatMessage` stores image attachments and optional Ollama thinking separately
+from final answer text. Images render as data URLs and are resent in multimodal
+history, subject to API size limits. Streaming NDJSON uses distinct `chunk` and
+`thinking` records. The UI renders thinking in a collapsible section and can send
+`think: false` per request.
+
 Event categories are individually collapsible and use stable emoji labels. Progress filters (`Not completed`, `Completed`, `Everything`) are visually separate from dataset filters (`Key events`, `All save states`). `Key events` must exclude optional legendary encounters, one-off rewards, map-object state, and repeatable/session flags even when their source symbols contain a major character or location name.
 The event panel displays a section-local refinement warning because flag interpretation, categorization, and generated player-facing descriptions are still being audited across supported games.
 

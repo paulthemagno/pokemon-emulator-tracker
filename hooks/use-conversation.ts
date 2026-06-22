@@ -114,11 +114,19 @@ export function useConversation(options: UseConversationOptions = {}) {
 
   // Add message and optionally save
   const addMessage = useCallback(
-    async (role: 'user' | 'assistant', content: string): Promise<void> => {
+    async (
+      role: 'user' | 'assistant',
+      content: string,
+      metadata: Pick<
+        ChatMessage,
+        'attachments' | 'thinking' | 'knowledgeContext' | 'sources'
+      > = {}
+    ): Promise<void> => {
       const newMessage: ChatMessage = {
         role,
         content,
         timestamp: Date.now(),
+        ...metadata,
       };
 
       let updatedMessages: ChatMessage[] = [];

@@ -10,8 +10,12 @@
     "test": "tsc -p tsconfig.test.json && node --test .tmp/test-build/tests/*.test.js",
     "audit:pokemon-data": "node scripts/audit-pokemon-data.mjs",
     "generate:pokemon-knowledge": "node scripts/generate-pokemon-knowledge.mjs",
+    "generate:pokemon-evolutions": "node scripts/generate-pokemon-evolutions.mjs",
     "generate:pokemon-event-guides": "node scripts/generate-pokemon-event-guides.mjs",
+    "generate:pokemon-guide-embeddings": "node scripts/generate-pokemon-guide-embeddings.mjs",
+    "generate:pokemon-guides": "node scripts/generate-pokemon-walkthrough-index.mjs",
     "generate:progress-fact-prototype": "node scripts/generate-progress-fact-prototype.mjs",
+    "search:pokemon-guide-embeddings": "node scripts/search-pokemon-guide-embeddings.mjs",
     "extract:pokemon-events": "node scripts/extract-pokemon-event-flags.mjs",
     "extract:pokemon-event-contexts": "node scripts/extract-pokemon-event-contexts.mjs",
     "extract:pokemon-knowledge": "node scripts/extract-pokemon-knowledge-from-pret.mjs"

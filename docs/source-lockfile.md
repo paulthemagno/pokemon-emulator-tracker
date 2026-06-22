@@ -7,7 +7,7 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | Key | Kind | Source | Used for | Pin status |
 | --- | --- | --- | --- | --- |
 | `pokemonOfficial` | official | https://www.pokemon.com/us/pokemon-video-games | Public game identity and user-facing context | URL only |
-| `pokeapi` | pokeapi | https://pokeapi.co/docs/v2 | Generated local item/move descriptions and species growth metadata | API endpoint/version only |
+| `pokeapi` | pokeapi | https://pokeapi.co/docs/v2 | Generated local item/move descriptions, species growth metadata, and National Dex 1-386 evolution chains | API endpoint/version only |
 | `gen1SaveReference` | secondary | https://github-wiki-see.page/m/sopoforic/cgrr-pokemon/wiki/Pokemon-Generation-1-Save-Files | Gen 1 inventory offsets and HM/TM ID ranges | URL only |
 | `dataCrystalRedBlueRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Red_and_Blue/RAM_map | Red/Blue live WRAM current box and SRAM box bank cross-check | URL only |
 | `dataCrystalYellowRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Yellow/RAM_map | Yellow live WRAM offset relationship to Red/Blue | URL only |
@@ -43,6 +43,7 @@ lib/pokemon/knowledge/save-layouts.ts
 lib/pokemon/knowledge/event-flags.ts
 lib/pokemon/data/gen3-hoenn-dex.ts
 lib/pokemon/data/gen3-map-landmarks.ts
+lib/pokemon/data/pokemon-evolutions.ts
 live-adapters/generated/gen1-live-offsets.lua
 live-adapters/generated/gen2-live-offsets.lua
 live-adapters/generated/gen3-live-offsets.lua
@@ -68,6 +69,35 @@ Regenerate generated TypeScript knowledge modules and the Gen 1/2/3 live Lua off
 ```bash
 corepack pnpm generate:pokemon-knowledge
 ```
+
+Regenerate the compact local PokeAPI evolution snapshot with:
+
+```bash
+corepack pnpm generate:pokemon-evolutions
+```
+
+`pokemon-evolutions.ts` contains only evolution edges and trigger conditions for National Dex
+1-386. Runtime chatbot requests query this local file and do not call PokeAPI.
+
+Regenerate the local Bulbapedia walkthrough section index with:
+
+```bash
+corepack pnpm generate:pokemon-guides
+```
+
+This script reads reviewed walkthrough roots from `game-guide-sources.json`, calls the
+Bulbapedia MediaWiki API during generation, and writes compact local sections to
+`lib/pokemon/knowledge/walkthrough-index.json`.
+
+Regenerate static walkthrough embeddings with:
+
+```bash
+OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest corepack pnpm generate:pokemon-guide-embeddings
+```
+
+`walkthrough-embeddings.manifest.json` and `walkthrough-embeddings.f32` must be regenerated
+whenever `OLLAMA_EMBEDDING_MODEL` changes or the walkthrough index changes. Runtime guide
+retrieval only embeds the user query and compares it against these local vectors.
 
 Refresh extracted pret-backed source values with:
 

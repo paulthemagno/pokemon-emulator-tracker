@@ -120,6 +120,9 @@ Generated knowledge commands:
 
 ```bash
 corepack pnpm generate:pokemon-knowledge
+corepack pnpm generate:pokemon-evolutions
+corepack pnpm generate:pokemon-guides
+corepack pnpm generate:pokemon-guide-embeddings
 corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
 corepack pnpm extract:pokemon-events -- --from-github
 corepack pnpm extract:pokemon-event-contexts -- --from-github
@@ -184,9 +187,13 @@ Environment variables:
 ```text
 OLLAMA_ENDPOINT
 OLLAMA_MODEL
+OLLAMA_EMBEDDING_MODEL
+OLLAMA_API_KEY
+OLLAMA_ALLOW_RUNTIME_ENDPOINT
 OLLAMA_MAX_TOKENS
 OLLAMA_TEMPERATURE
 OLLAMA_ENABLE_TOOLS
+OLLAMA_THINKING
 ```
 
-Keep factual Pokemon knowledge in local tools/data, not in prompt bloat or fine-tuned memorization. Details are in `docs/llm-pokemon-agent.md` and `docs/chatbot-phase1.md`.
+Keep factual Pokemon knowledge in local tools/data, not in prompt bloat or fine-tuned memorization. Details are in `docs/llm-pokemon-agent.md`.

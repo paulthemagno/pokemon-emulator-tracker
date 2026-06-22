@@ -6,6 +6,45 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  attachments?: ChatImageAttachment[];
+  thinking?: string;
+  knowledgeContext?: string;
+  sources?: ChatSource[];
+}
+
+export interface ChatSource {
+  kind: string;
+  name: string;
+  url?: string;
+  scope?: string;
+  displayName?: string;
+  siteName?: string;
+  icon?: string;
+  logoUrl?: string;
+}
+
+export interface ChatImageAttachment {
+  kind: 'image';
+  name: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  data: string;
+}
+
+export interface ChatRuntimeConfig {
+  endpoint?: string;
+  modelName?: string;
+  embeddingModelName?: string;
+  apiKey?: string;
+  thinking?: boolean;
+}
+
+export interface ChatProviderInfo {
+  provider: string;
+  modelName: string;
+  embeddingModelName?: string;
+  endpoint: string;
+  ready: boolean;
+  credentialSource: 'request' | 'environment' | 'none';
 }
 
 export interface ConversationState {
@@ -87,7 +126,9 @@ export interface ChatProvider {
     conversationHistory: ChatMessage[],
     gameContext?: GameContextSnapshot,
     systemPrompt?: string,
-    onStreamChunk?: (chunk: string) => void
+    onStreamChunk?: (chunk: string) => void,
+    attachments?: ChatImageAttachment[],
+    onThinkingChunk?: (chunk: string) => void
   ): Promise<string>;
   validateConfig(): Promise<boolean>;
   isReady(): boolean;
@@ -97,11 +138,14 @@ export interface ProviderConfig {
   endpoint?: string;
   apiKey?: string;
   modelName?: string;
+  embeddingModelName?: string;
   maxTokens?: number;
   temperature?: number;
+  thinking?: boolean;
 }
 
 export interface OllamaConfig extends ProviderConfig {
   endpoint: string; // e.g., http://127.0.0.1:11434
   modelName: string; // e.g., 'gemma4:latest'
+  embeddingModelName?: string; // e.g., 'embeddinggemma:latest'
 }
