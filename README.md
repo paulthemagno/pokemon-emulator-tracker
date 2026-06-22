@@ -22,58 +22,43 @@
 </p>
 
 <p align="center">
+  <a href="#dashboard-overview">Overview</a> •
   <a href="#quick-start">Quick Start</a> •
-  <a href="#use-save-files">Save Upload</a> •
-  <a href="#use-mgba-live-mode">mGBA Live</a> •
-  <a href="#use-the-local-llm-assistant">LLM Assistant</a> •
-  <a href="#supported-games">Supported Games</a>
+  <a href="#save-file-workflow">Save Files</a> •
+  <a href="#live-emulator-workflow">Live mGBA</a> •
+  <a href="#local-llm-assistant">LLM Assistant</a>
 </p>
 
-Pokemon Emulator Tracker is a local-first dashboard for two workflows:
+<p align="center">
+  <img src="public/demo/fight.gif" width="720" alt="Pokemon Emulator Tracker battle demo" />
+</p>
 
-- static save analysis: upload `.sav` / `.srm` files and inspect trainer data, party, Pokédex, PC boxes, inventory, badges, key events/all save states with readable captions and step lists, and map location
-- live emulator tracking: connect mGBA through a Lua adapter and watch party, HP, PC boxes, inventory, key events/all save states with readable captions and step lists, and map updates while the game is running
+Pokemon Emulator Tracker is a local-first dashboard for Pokemon emulator runs. It turns save files and live mGBA memory into a readable trainer dashboard: party, HP, boxes, inventory, badges, Pokedex, map location, story flags, and current progress.
 
-It also includes an optional local Ollama assistant that can answer questions about the currently loaded save or live session.
+It supports two main workflows:
 
-## Hosted Demo
+- **Save files:** upload `.sav`, `.srm`, `.sa1`, `.sa2`, `.sn1`, or `.sn2` files and inspect the run.
+- **Live emulator tracking:** connect mGBA through a local Lua adapter and watch the dashboard update while the game is running.
 
-Demo URL: [pokemon-emulator-tracker.vercel.app](https://pokemon-emulator-tracker.vercel.app/)
-
-What works on Vercel:
-
-- save upload and parsing
-- dashboard browsing
-- UI exploration
-
-What still requires local setup:
-
-- mGBA live mode via `127.0.0.1:8080`
-- Ollama via `127.0.0.1:11434`
-
-The hosted Vercel version cannot reach services on your own machine, so live mode and the local LLM are local-only by design.
+An optional local Ollama assistant can answer questions about the currently loaded save or live session.
 
 ## Contents
 
-- [Supported Games](#supported-games)
+- [Dashboard Overview](#dashboard-overview)
 - [Quick Start](#quick-start)
-- [Use Save Files](#use-save-files)
-- [Use mGBA Live Mode](#use-mgba-live-mode)
-- [Use the Local LLM Assistant](#use-the-local-llm-assistant)
+- [Supported Games](#supported-games)
+- [Save File Workflow](#save-file-workflow)
+- [Live Emulator Workflow](#live-emulator-workflow)
+- [Local LLM Assistant](#local-llm-assistant)
 - [Test and Audit](#test-and-audit)
 - [Data Sources](#data-sources)
 - [Project Docs](#project-docs)
 
-## Supported Games
+## Dashboard Overview
 
-| Generation | Games | Save upload | mGBA live |
-| --- | --- | --- | --- |
-| Gen 1 | Red, Blue, Yellow | Supported | Supported |
-| Gen 2 | Gold, Silver, Crystal | Supported | Supported |
-| Gen 3 | Ruby, Sapphire, Emerald | Partial but usable | Partial but usable |
-| Gen 3 | FireRed, LeafGreen | Partial but usable | Partial but usable |
-
-See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the detailed support matrix and current caveats.
+<p align="center">
+  <img src="public/demo/overview.gif" width="720" alt="Pokemon Emulator Tracker dashboard overview" />
+</p>
 
 ## Quick Start
 
@@ -90,6 +75,13 @@ Open:
 ```text
 http://localhost:3000
 ```
+
+You can also try the hosted UI: [pokemon-emulator-tracker.vercel.app](https://pokemon-emulator-tracker.vercel.app/).
+
+The hosted demo supports save upload and UI browsing. Live mGBA mode and Ollama stay local-only because Vercel cannot reach services running on your machine.
+
+<details>
+<summary>Install and LAN notes</summary>
 
 If `pnpm install` fails because build scripts were blocked:
 
@@ -110,7 +102,20 @@ Then open the host machine IP, for example:
 http://192.168.1.83:3000
 ```
 
-## Use Save Files
+</details>
+
+## Supported Games
+
+| Generation | Games | Save upload | mGBA live |
+| --- | --- | --- | --- |
+| Gen 1 | Red, Blue, Yellow | Supported | Supported |
+| Gen 2 | Gold, Silver, Crystal | Supported | Supported |
+| Gen 3 | Ruby, Sapphire, Emerald | Partial but usable | Partial but usable |
+| Gen 3 | FireRed, LeafGreen | Partial but usable | Partial but usable |
+
+See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the detailed support matrix and current caveats.
+
+## Save File Workflow
 
 1. Start the app locally or open the hosted demo.
 2. Drag a `.sav`, `.srm`, `.sa1`, `.sa2`, `.sn1`, or `.sn2` file into the upload area.
@@ -124,7 +129,7 @@ Filename hints matter when a raw save layout does not uniquely identify the game
 
 The parser normalizes uploaded saves into the same model used by live mode, so the UI behaves the same after upload or live polling.
 
-## Use mGBA Live Mode
+## Live Emulator Workflow
 
 Live mode requires the app to run locally.
 
@@ -159,9 +164,13 @@ If you change a Lua script or any file under `live-adapters/generated/`, reload 
 
 More details and debug endpoints: [live-adapters/README.md](live-adapters/README.md).
 
-## Use the Local LLM Assistant
+## Local LLM Assistant
 
 The chat assistant is optional. It uses local Ollama and receives a compact context from the current save/live session: trainer, party, inventory, badges, location, Pokédex progress, and related local knowledge.
+
+<p align="center">
+  <img src="public/demo/llm-chat.gif" width="640" alt="Pokemon Emulator Tracker local LLM assistant demo" />
+</p>
 
 1. Install Ollama.
 2. Pull the default model:
@@ -184,6 +193,11 @@ corepack pnpm dev
 
 5. Load a save or start live mode, then open **Chat AI**.
 
+If the selected Ollama model does not support tool calls, the app falls back to prompt/context mode.
+
+<details>
+<summary>LLM configuration</summary>
+
 Optional environment variables:
 
 ```bash
@@ -198,7 +212,6 @@ OLLAMA_ENABLE_TOOLS=true
 OLLAMA_THINKING=true
 ```
 
-If the selected Ollama model does not support tool calls, the app falls back to prompt/context mode.
 The chat header shows the effective model. Its settings panel can override the
 model, a local endpoint, and an optional Bearer API key for the current page
 session. Blank fields use the server environment values, and request API keys are
@@ -221,6 +234,8 @@ conversation. Models that support Ollama thinking can stream it into a
 collapsible panel. Disable **Model thinking** in chat settings, or set
 `OLLAMA_THINKING=false`, to request only the final answer.
 
+</details>
+
 Details: [docs/llm-pokemon-agent.md](docs/llm-pokemon-agent.md).
 
 ## Test and Audit
@@ -234,7 +249,7 @@ Before promoting a new game to fully supported, update the support matrix and ad
 
 ## Data Sources
 
-Pokemon data should stay local at runtime and have traceable sources.
+Pokemon data should stay local at runtime and have traceable sources. Generated files under `lib/pokemon/knowledge/` and `live-adapters/generated/` should not be edited by hand.
 
 Source manifests:
 
@@ -257,26 +272,12 @@ Regenerate:
 corepack pnpm generate:pokemon-knowledge
 ```
 
-If local `pret` checkouts are available, refresh extractable manifests first:
-
-```bash
-corepack pnpm extract:pokemon-knowledge -- --pokecrystal /path/to/pokecrystal --pokegold /path/to/pokegold --pokered /path/to/pokered --pokeyellow /path/to/pokeyellow
-corepack pnpm extract:pokemon-events -- --from-github
-corepack pnpm extract:pokemon-event-contexts -- --from-github
-corepack pnpm generate:pokemon-event-guides
-corepack pnpm generate:pokemon-knowledge
-```
-
 Source policy and pins:
 
 - [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md)
 - [docs/source-lockfile.md](docs/source-lockfile.md)
 
-Event descriptions combine pinned PRET source occurrences with the reviewed multi-guide catalog in
-`lib/pokemon/knowledge/sources/game-guide-sources.json`. The UI exposes the likely location, the meaning of
-the current boolean state, expandable completion steps, and separate game-source/walkthrough links.
-
-Do not patch generated knowledge files by hand. Update the source JSON/manifests and regenerate.
+Event descriptions combine pinned PRET source occurrences with reviewed walkthrough references from `lib/pokemon/knowledge/sources/game-guide-sources.json`.
 
 ## Project Docs
 
@@ -284,5 +285,8 @@ Do not patch generated knowledge files by hand. Update the source JSON/manifests
 - [docs/architecture.md](docs/architecture.md): stable technical data flow.
 - [docs/game-support-matrix.md](docs/game-support-matrix.md): per-game support status.
 - [docs/known-issues.md](docs/known-issues.md): open limitations.
+- [docs/llm-pokemon-agent.md](docs/llm-pokemon-agent.md): local assistant tools, retrieval, and provider behavior.
+- [docs/pokemon-source-policy.md](docs/pokemon-source-policy.md): source standards for Pokemon data.
 - [docs/source-lockfile.md](docs/source-lockfile.md): sources, pins, and offset notes.
+- [docs/progress-facts-prototype.md](docs/progress-facts-prototype.md): generated audit report for reviewed progress facts.
 - [AGENTS.md](AGENTS.md): operational notes for Codex/agents.

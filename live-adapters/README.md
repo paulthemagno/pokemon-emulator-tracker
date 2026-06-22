@@ -45,6 +45,8 @@ Gen 3 boxed and party Pokemon use the canonical encrypted `BoxPokemon` layout: 8
 
 Gen 3 trainer names, Pokemon nicknames, OT names, and box names use the Gen 3 character table shared with the save parser. Keep the Lua table aligned with `lib/pokemon/utils.ts`.
 
+Gen 3 live party data is read from active `gPlayerParty` RAM before falling back to `SaveBlock1.playerParty`. This matters for healing and party-menu edits because the game updates the active party immediately and serializes the SaveBlock copy later. To reduce mGBA audio jitter, the Gen 3 adapter keeps party/player/location on the fast snapshot path and refreshes heavier bag, Pokedex, and PC box sections through a short cache.
+
 ## mGBA Gen 2 (Gold/Silver/Crystal)
 
 Load `mgba-gen2-live.lua` in mGBA:
@@ -69,8 +71,6 @@ The adapter can write a local debug snapshot file in the system temp directory: 
 The file includes the full live snapshot plus raw money bytes so you can inspect exact WRAM values offline.
 
 The app polls once per second by default. HP, levels, party composition, held items, bag contents, and PC boxes update when emulator memory changes.
-
-Gen 3 live party data is read from active `gPlayerParty` RAM before falling back to `SaveBlock1.playerParty`. This matters for healing and party-menu edits because the game updates the active party immediately and serializes the SaveBlock copy later. To reduce mGBA audio jitter, the Gen 3 adapter keeps party/player/location on the fast snapshot path and refreshes heavier bag, Pokedex, and PC box sections through a short cache.
 
 Gold/Silver and Crystal use different WRAM layouts for live memory. The adapter detects the ROM title and selects a matching offset profile for player, party, bag, badges, map, and Pokedex reads; PC box SRAM records stay shared across Gen 2. The Gold/Silver live profile follows the public Data Crystal RAM map for trainer data, bag, map coordinates, party, and Pokedex flags.
 
