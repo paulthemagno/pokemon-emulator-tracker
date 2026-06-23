@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { FileUpload } from "@/components/pokemon/file-upload";
-import { Dashboard } from "@/components/pokemon/dashboard";
 import { LiveSourceCard } from "@/components/pokemon/live-source-card";
-import { ChatbotPanel } from "@/components/pokemon/chatbot-panel";
 import { SupportedGamesStrip } from "@/components/pokemon/supported-games-strip";
 import { useSaveData } from "@/hooks/use-save-data";
 import { useLiveData } from "@/hooks/use-live-data";
@@ -12,6 +11,34 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Bot, FileArchive, Gamepad2, Info, MessageSquare, Radio } from "lucide-react";
 import { mergeLiveWithSavePcBoxes } from "@/lib/pokemon/pc-box-merge";
+
+const Dashboard = dynamic(
+  () => {
+    return import("@/components/pokemon/dashboard").then((module) => module.Dashboard);
+  },
+  {
+    ssr: false,
+    loading: () => {
+      return (
+        <div className="rounded-xl border border-border/70 bg-card/45 p-4 text-sm text-muted-foreground">
+          Loading dashboard...
+        </div>
+      );
+    },
+  }
+);
+
+const ChatbotPanel = dynamic(
+  () => {
+    return import("@/components/pokemon/chatbot-panel").then((module) => module.ChatbotPanel);
+  },
+  {
+    ssr: false,
+    loading: () => {
+      return null;
+    },
+  }
+);
 
 export default function Home() {
   const { saveData, isLoading, error, filename, uploadFile, clearData, lastUpdated } =
@@ -37,6 +64,9 @@ export default function Home() {
     live.clear();
     clearData();
   }, [clearData, live]);
+  const handleOpenChatbot = useCallback(() => {
+    setShowChatbot(true);
+  }, []);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background">
@@ -69,7 +99,7 @@ export default function Home() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setShowChatbot(true)}
+                onClick={handleOpenChatbot}
                 className="gap-2"
                 title="Open Pokémon Assistant"
               >
@@ -292,7 +322,7 @@ export default function Home() {
       {/* Chatbot Panel */}
       <ChatbotPanel
         isOpen={showChatbot}
-        onOpen={() => setShowChatbot(true)}
+        onOpen={handleOpenChatbot}
         onClose={() => setShowChatbot(false)}
         gameData={activeSaveData}
       />

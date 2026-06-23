@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { GameContextSnapshot } from "../types";
+import { ITEM_DESCRIPTIONS } from "../../pokemon/data/item-descriptions";
 import { MOVE_DESCRIPTIONS } from "../../pokemon/data/move-descriptions";
 import { MOVES } from "../../pokemon/data/moves";
+import { GEN1_ITEMS, GEN2_ITEMS, GEN3_ITEMS } from "../../pokemon/data/items";
 import { POKEMON_EVOLUTIONS } from "../../pokemon/data/pokemon-evolutions";
-import { POKEMON_LEARNSETS } from "../../pokemon/data/pokemon-learnsets";
 import { getSpeciesById, SPECIES } from "../../pokemon/data/species";
 import { GENERATED_EVENT_GUIDES } from "../../pokemon/knowledge/event-guides";
 import { EVENT_GUIDANCE_BY_PROFILE } from "../../pokemon/data/event-guidance";
@@ -29,6 +30,14 @@ type ToolSource = {
   scope?: string;
 };
 
+type ItemReference = {
+  id?: number;
+  name: string;
+  pocket?: string;
+  slug?: string;
+  profiles: GameProfile[];
+};
+
 type GameProfile =
   | "red-blue"
   | "yellow"
@@ -48,6 +57,50 @@ type KnowledgeProfile =
   | "firered-leafgreen-en";
 
 type TypeChart = Record<string, Record<string, number>>;
+
+type PokemonLearnsetEntry = readonly [
+  speciesId: number,
+  moveId: number,
+  versionGroup: string,
+  method: string,
+  level: number,
+];
+
+type PokemonEncounterEntry = readonly [
+  speciesId: number,
+  gameProfile: string,
+  locationAreaId: number,
+  locationArea: string,
+  method: string,
+  minLevel: number,
+  maxLevel: number,
+  chance: number,
+  conditions: string,
+];
+
+let pokemonLearnsets: readonly PokemonLearnsetEntry[] | null = null;
+let pokemonEncounters: readonly PokemonEncounterEntry[] | null = null;
+
+function readGeneratedRows<T extends readonly unknown[]>(filename: string): readonly T[] {
+  const startedAt = Date.now();
+  const filePath = path.join(process.cwd(), "lib/pokemon/data", filename);
+  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as { rows?: T[] };
+  const rows = parsed.rows ?? [];
+  console.log(
+    `[CHATBOT TOOLS] Loaded ${filename}: rows=${rows.length} in ${Date.now() - startedAt}ms`
+  );
+  return rows;
+}
+
+function getPokemonLearnsets(): readonly PokemonLearnsetEntry[] {
+  pokemonLearnsets ??= readGeneratedRows<PokemonLearnsetEntry>("pokemon-learnsets.json");
+  return pokemonLearnsets;
+}
+
+function getPokemonEncounters(): readonly PokemonEncounterEntry[] {
+  pokemonEncounters ??= readGeneratedRows<PokemonEncounterEntry>("pokemon-encounters.json");
+  return pokemonEncounters;
+}
 
 const GAME_PROFILE_INFO: Record<
   GameProfile,
@@ -463,9 +516,123 @@ function findMove(value: unknown) {
   );
 }
 
+function getItemDescriptionForName(name: string) {
+  const normalized = normalizeForSearch(name);
+  return Object.values(ITEM_DESCRIPTIONS).find((description) =>
+    [description.slug, ...description.names].some(
+      (candidate) => normalizeForSearch(candidate) === normalized
+    )
+  );
+}
+
+function getItemDescriptionForReference(reference: ItemReference) {
+  if (reference.slug) return ITEM_DESCRIPTIONS[reference.slug];
+  return getItemDescriptionForName(reference.name);
+}
+
+function getItemReferences(value: unknown, profile?: GameProfile): ItemReference[] {
+  const numericId = parseNumber(value);
+  const normalized = typeof value === "string" ? normalizeForSearch(value) : "";
+  const references: ItemReference[] = [];
+
+  const addReference = (reference: ItemReference) => {
+    if (profile && !reference.profiles.includes(profile)) return;
+    const duplicate = references.some(
+      (candidate) =>
+        candidate.id === reference.id &&
+        candidate.name === reference.name &&
+        candidate.profiles.join(",") === reference.profiles.join(",")
+    );
+    if (!duplicate) references.push(reference);
+  };
+
+  for (const [idText, name] of Object.entries(GEN1_ITEMS)) {
+    const id = Number(idText);
+    addReference({ id, name, profiles: ["red-blue", "yellow"] });
+  }
+  for (const [idText, name] of Object.entries(GEN2_ITEMS)) {
+    const id = Number(idText);
+    addReference({ id, name, profiles: ["gold-silver", "crystal"] });
+  }
+  for (const item of GEN3_ITEMS) {
+    addReference({
+      id: item.id,
+      name: item.name,
+      pocket: item.pocket,
+      profiles: ["ruby-sapphire", "emerald", "firered-leafgreen"],
+    });
+  }
+  for (const description of Object.values(ITEM_DESCRIPTIONS)) {
+    addReference({
+      name: description.names[0] ?? description.slug.replace(/-/g, " "),
+      slug: description.slug,
+      profiles: Object.keys(GAME_PROFILE_INFO) as GameProfile[],
+    });
+  }
+
+  const matches = references.filter((reference) => {
+    if (numericId !== undefined && reference.id === Math.floor(numericId)) return true;
+    if (!normalized) return false;
+    const names = [
+      reference.name,
+      reference.slug,
+      ...(getItemDescriptionForReference(reference)?.names ?? []),
+    ].filter((name): name is string => Boolean(name));
+    return names.some((name) => {
+      const candidate = normalizeForSearch(name);
+      return (
+        candidate === normalized ||
+        candidate.startsWith(normalized) ||
+        (candidate.startsWith("tm") || candidate.startsWith("hm")
+          ? candidate.includes(normalized)
+          : false)
+      );
+    });
+  });
+
+  return matches.sort((left, right) => {
+    const leftExact = normalizeForSearch(left.name) === normalized ? 0 : 1;
+    const rightExact = normalizeForSearch(right.name) === normalized ? 0 : 1;
+    return leftExact - rightExact || (left.id ?? 9999) - (right.id ?? 9999);
+  });
+}
+
+function humanizeSlug(value: string): string {
+  return value
+    .split("-")
+    .filter(Boolean)
+    .map((part) => {
+      if (/^\d+$/.test(part)) return part;
+      if (part === "hoenn" || part === "kanto" || part === "johto") {
+        return part[0].toUpperCase() + part.slice(1);
+      }
+      return part[0].toUpperCase() + part.slice(1);
+    })
+    .join(" ");
+}
+
+function normalizeEncounterMethod(value: unknown): string | undefined {
+  const normalized = typeof value === "string" ? normalizePhrase(value) : "";
+  if (!normalized) return undefined;
+  if (normalized.includes("old rod")) return "old-rod";
+  if (normalized.includes("good rod")) return "good-rod";
+  if (normalized.includes("super rod")) return "super-rod";
+  if (normalized.includes("rock smash")) return "rock-smash";
+  if (normalized.includes("surf")) return "surf";
+  if (normalized.includes("walk") || normalized.includes("grass")) return "walk";
+  return normalized.replace(/\s+/g, "-");
+}
+
 function resolveGameProfile(value?: unknown): GameProfile | undefined {
   const normalized = typeof value === "string" ? normalizeForSearch(value) : "";
   if (!normalized) return undefined;
+  if (normalized.includes("smeraldo")) return "emerald";
+  if (normalized.includes("cristallo")) return "crystal";
+  if (normalized.includes("oro") || normalized.includes("argento")) return "gold-silver";
+  if (normalized.includes("giallo")) return "yellow";
+  if (normalized.includes("rossofuoco") || normalized.includes("verdefoglia")) return "firered-leafgreen";
+  if (normalized.includes("rosso") || normalized.includes("blu")) return "red-blue";
+  if (normalized.includes("rubino") || normalized.includes("zaffiro")) return "ruby-sapphire";
   if (normalized.includes("firered") || normalized.includes("leafgreen")) return "firered-leafgreen";
   if (normalized.includes("yellow")) return "yellow";
   if (normalized.includes("red") || normalized.includes("blue")) return "red-blue";
@@ -642,8 +809,24 @@ const REFERENCE_TOOLS = new Set([
   "get_type_matchup",
   "get_evolution",
   "get_learnset",
+  "get_encounters",
+  "get_item",
+  "get_item_location",
   "search_game_guidance",
 ]);
+
+console.log(
+  [
+    "[CHATBOT TOOLS] Registry initialized:",
+    `moves=${MOVES.length}`,
+    `species=${SPECIES.length}`,
+    `evolutions=${POKEMON_EVOLUTIONS.length}`,
+    "learnsets=lazy",
+    "encounters=lazy",
+    `walkthroughChunks=${walkthroughIndex.chunks.length}`,
+    `embeddings=${WALKTHROUGH_EMBEDDINGS ? `${WALKTHROUGH_EMBEDDINGS.manifest.records.length}x${WALKTHROUGH_EMBEDDINGS.manifest.dimensions}` : "none"}`,
+  ].join(" ")
+);
 
 export function canExecuteToolWithoutContext(toolName: string): boolean {
   return REFERENCE_TOOLS.has(toolName);
@@ -754,6 +937,61 @@ export function getChatToolDefinitions(): ChatToolDefinition[] {
             limit: { type: "number", minimum: 1, maximum: 100 },
           },
           required: ["species", "game"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_encounters",
+        description: "Look up Gen 1-3 wild encounter availability by Pokemon, location, method, and time from a local snapshot.",
+        parameters: {
+          type: "object",
+          properties: {
+            game: { type: "string", description: "Required game or version group, for example Emerald or Pokemon Crystal." },
+            location: { type: "string", description: "Optional location name, for example Route 102 or Granite Cave." },
+            species: { type: "string", description: "Optional species name or National Dex ID." },
+            method: { type: "string", description: "Optional encounter method, for example walk, surf, old-rod, good-rod, super-rod, rock-smash." },
+            timeOfDay: { type: "string", enum: ["morning", "day", "night"] },
+            limit: { type: "number", minimum: 1, maximum: 100 },
+          },
+          required: ["game"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_item",
+        description: "Look up Gen 1-3 item metadata, pocket, description, and game availability from local item tables.",
+        parameters: {
+          type: "object",
+          properties: {
+            item: { type: "string", description: "Item name, machine label, or numeric ID, for example Exp. Share or TM24." },
+            game: { type: "string", description: "Optional game context." },
+          },
+          required: ["item"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_item_location",
+        description: "Find walkthrough-backed guidance for where an item, TM, HM, or key item is obtained.",
+        parameters: {
+          type: "object",
+          properties: {
+            item: { type: "string", description: "Item name, TM/HM label, or numeric ID." },
+            game: { type: "string", description: "Required game or version group." },
+            canonicalQuery: {
+              type: "string",
+              description: "Optional concise English source-search query, for example Mach Bike location Pokemon Emerald.",
+            },
+            obtainedOnly: { type: "boolean", description: "When save/live state is available, return only if the item is already in inventory." },
+            limit: { type: "number", minimum: 1, maximum: 8 },
+          },
+          required: ["item", "game"],
         },
       },
     },
@@ -1084,7 +1322,7 @@ export function executeChatTool(
     const levelMax = parseNumber(args.levelMax);
     const requestedLimit = parseNumber(args.limit) ?? 50;
     const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 100);
-    const matchingRows = POKEMON_LEARNSETS.filter(([speciesId, moveId, versionGroup, method, level]) => {
+    const matchingRows = getPokemonLearnsets().filter(([speciesId, moveId, versionGroup, method, level]) => {
       if (speciesId !== species.id || versionGroup !== profile) return false;
       if (requestedMove && moveId !== requestedMove.id) return false;
       if (requestedMethods.size > 0 && !requestedMethods.has(method)) return false;
@@ -1135,6 +1373,349 @@ export function executeChatTool(
     );
   }
 
+  if (toolName === "get_encounters") {
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    if (!profile) {
+      return failure(
+        toolName,
+        "AMBIGUOUS_GAME",
+        "A supported game is required for encounter lookup."
+      );
+    }
+
+    const species = args.species !== undefined ? findSpecies(args.species) : undefined;
+    if (args.species !== undefined && !species) {
+      return failure(toolName, "NOT_FOUND", `Unknown species: "${String(args.species ?? "")}".`);
+    }
+    const locationQuery = typeof args.location === "string" ? normalizePhrase(args.location) : "";
+    const method = normalizeEncounterMethod(args.method);
+    const timeOfDay =
+      args.timeOfDay === "morning" || args.timeOfDay === "day" || args.timeOfDay === "night"
+        ? args.timeOfDay
+        : undefined;
+    if (!species && !locationQuery) {
+      return failure(
+        toolName,
+        "INVALID_ARGUMENT",
+        "Provide at least a species or a location for encounter lookup."
+      );
+    }
+
+    const requestedLimit = parseNumber(args.limit) ?? 12;
+    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 100);
+    const matchingRows = getPokemonEncounters().filter(
+      ([speciesId, gameProfile, , locationArea, encounterMethod, , , , conditions]) => {
+        if (gameProfile !== profile) return false;
+        if (species && speciesId !== species.id) return false;
+        if (locationQuery && !normalizePhrase(locationArea).includes(locationQuery)) return false;
+        if (method && encounterMethod !== method) return false;
+        if (timeOfDay && conditions && !conditions.includes(timeOfDay)) return false;
+        return true;
+      }
+    );
+    const sortedRows = matchingRows.slice().sort(
+      (left, right) =>
+        left[3].localeCompare(right[3]) ||
+        left[5] - right[5] ||
+        right[7] - left[7] ||
+        left[0] - right[0]
+    );
+    const entries = sortedRows
+      .slice(0, limit)
+      .map(([speciesId, , locationAreaId, locationArea, encounterMethod, minLevel, maxLevel, chance, conditions]) => {
+        const encounteredSpecies = getSpeciesById(speciesId);
+        return {
+          speciesId,
+          species: encounteredSpecies.name,
+          locationAreaId,
+          location: humanizeSlug(locationArea),
+          locationArea,
+          method: encounterMethod,
+          minLevel,
+          maxLevel,
+          chance,
+          conditions: conditions ? conditions.split(",").filter(Boolean) : [],
+        };
+      });
+    const locationGroups = new Map<
+      string,
+      {
+        location: string;
+        locationArea: string;
+        methods: Set<string>;
+        levelRanges: Set<string>;
+        bestChance: number;
+        species: Set<string>;
+      }
+    >();
+    for (const [speciesId, , , locationArea, encounterMethod, minLevel, maxLevel, chance] of sortedRows) {
+      const location = humanizeSlug(locationArea);
+      const group = locationGroups.get(locationArea) ?? {
+        location,
+        locationArea,
+        methods: new Set<string>(),
+        levelRanges: new Set<string>(),
+        bestChance: 0,
+        species: new Set<string>(),
+      };
+      group.methods.add(encounterMethod);
+      group.levelRanges.add(minLevel === maxLevel ? String(minLevel) : `${minLevel}-${maxLevel}`);
+      group.bestChance = Math.max(group.bestChance, chance);
+      group.species.add(getSpeciesById(speciesId).name);
+      locationGroups.set(locationArea, group);
+    }
+    const locationSummaries = [...locationGroups.values()]
+      .sort(
+        (left, right) =>
+          right.bestChance - left.bestChance || left.location.localeCompare(right.location)
+      )
+      .slice(0, 10)
+      .map((group) => ({
+        location: group.location,
+        locationArea: group.locationArea,
+        methods: [...group.methods].sort(),
+        levelRanges: [...group.levelRanges].sort(),
+        bestChance: group.bestChance,
+        ...(species ? {} : { species: [...group.species].sort().slice(0, 12) }),
+      }));
+    const methodSummary = [...new Set(sortedRows.map((row) => row[4]))].sort();
+    const topLocationNames = locationSummaries.map((entry) => entry.location).slice(0, 6);
+    const summary =
+      entries.length === 0
+        ? "No matching wild encounter rows were found in the local snapshot."
+        : species
+          ? `${species.name} is available in ${profile} at ${topLocationNames.join(", ")}${
+              locationSummaries.length > topLocationNames.length ? ", and more locations" : ""
+            }. Main methods: ${methodSummary.join(", ")}.`
+          : `The local encounter snapshot found ${matchingRows.length} matching encounter rows in ${profile}. Top locations: ${topLocationNames.join(", ")}.`;
+
+    return success(
+      toolName,
+      {
+        summary,
+        game: profile,
+        requestedSpecies: species ? { id: species.id, name: species.name } : null,
+        requestedLocation: typeof args.location === "string" ? args.location : null,
+        requestedMethod: method ?? null,
+        requestedTimeOfDay: timeOfDay ?? null,
+        totalMatches: matchingRows.length,
+        returnedMatches: entries.length,
+        locationSummaries,
+        entries,
+        answerPolicy:
+          "Use summary and locationSummaries first for the answer. Use entries only for exact levels, methods, chances, and conditions. If this is enough to answer the user, answer directly; otherwise call another relevant tool.",
+      },
+      [
+        species
+          ? getPokeApiSource("pokemon", String(species.id), profile)
+          : {
+              kind: "pokeapi",
+              name: "PokeAPI local encounter snapshot",
+              url: "https://pokeapi.co/api/v2/location-area/",
+              scope: profile,
+            },
+      ],
+      [
+        "Encounters come from a generated local PokeAPI snapshot. PRET-backed exact slot tables, encounter rates, and version-specific edge cases are still planned.",
+      ],
+      profile
+    );
+  }
+
+  if (toolName === "get_item") {
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    const references = getItemReferences(args.item, profile);
+    if (references.length === 0) {
+      return failure(toolName, "NOT_FOUND", `Unknown item: "${String(args.item ?? "")}".`);
+    }
+    const entries = references.slice(0, 12).map((reference) => {
+      const description = getItemDescriptionForReference(reference);
+      const flavorText =
+        (profile ? description?.flavorTexts[profile] : undefined) ?? description?.flavorText;
+      return {
+        id: reference.id,
+        name: reference.name,
+        pocket: reference.pocket,
+        slug: description?.slug ?? reference.slug,
+        profiles: reference.profiles,
+        flavorText,
+        effect: description?.shortEffect,
+        source: description?.source ?? "local",
+      };
+    });
+
+    return success(
+      toolName,
+      {
+        query: args.item,
+        game: profile ?? null,
+        totalMatches: references.length,
+        returnedMatches: entries.length,
+        entries,
+      },
+      [
+        entries.some((entry) => entry.source === "pokeapi" && entry.slug)
+          ? getPokeApiSource("item", String(entries.find((entry) => entry.slug)?.slug), profile)
+          : {
+              kind: "local-fallback",
+              name: "Pokemon Emulator Tracker local item table",
+              scope: profile,
+            },
+      ],
+      [
+        "Item metadata is normalized for Gen 1-3 and may not include every game-specific acquisition rule.",
+      ],
+      profile
+    );
+  }
+
+  if (toolName === "get_item_location") {
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    if (!profile) {
+      return failure(
+        toolName,
+        "AMBIGUOUS_GAME",
+        "A supported game is required for item location lookup."
+      );
+    }
+    const references = getItemReferences(args.item, profile);
+    if (references.length === 0) {
+      return failure(toolName, "NOT_FOUND", `Unknown item: "${String(args.item ?? "")}".`);
+    }
+
+    const itemNames = [...new Set(references.flatMap((reference) => {
+      const description = getItemDescriptionForReference(reference);
+      return [reference.name, ...(description?.names ?? [])].filter(Boolean);
+    }))].slice(0, 8);
+    const canonicalQuery =
+      typeof args.canonicalQuery === "string" && args.canonicalQuery.trim()
+        ? args.canonicalQuery.trim()
+        : `${itemNames[0]} location`;
+    const requestedKnowledgeProfile = GAME_PROFILE_INFO[profile].knowledgeProfile;
+    const requestedCatalog = gameGuideSources.profiles[requestedKnowledgeProfile];
+    const scopeTerms = new Set(
+      tokenizeForSearch(
+        [
+          profile,
+          requestedKnowledgeProfile,
+          requestedCatalog?.game,
+          ...(requestedCatalog?.sources.map((source) => source.title) ?? []),
+        ]
+          .filter(Boolean)
+          .join(" ")
+      )
+    );
+    const retrievalPlan = getGuidanceRetrievalPlan(
+      canonicalQuery,
+      canonicalQuery,
+      itemNames,
+      scopeTerms
+    );
+    const requestedLimit = parseNumber(args.limit) ?? 5;
+    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 8);
+    const inventoryMatches =
+      context?.inventory.filter((entry) =>
+        itemNames.some((name) => normalizeForSearch(entry.name) === normalizeForSearch(name))
+      ) ?? [];
+    if (args.obtainedOnly === true && inventoryMatches.length === 0) {
+      return success(
+        toolName,
+        {
+          item: itemNames[0],
+          game: profile,
+          obtainedOnly: true,
+          inventoryMatches: [],
+          matches: [],
+          answerPolicy:
+            "The active save/live inventory does not contain this item. Do not claim it has been obtained.",
+        },
+        [],
+        ["No inventory match was found in the active context."],
+        profile
+      );
+    }
+
+    const matches = walkthroughIndex.chunks
+      .filter((chunk) => chunk.profiles.includes(requestedKnowledgeProfile))
+      .map((chunk) => {
+        const ranking = scoreSearchableFields(
+          {
+            title: chunk.section.replace(/\([^)]*\)/g, ""),
+            parent: chunk.parentSection,
+            topics: chunk.partTopics.join(" "),
+            body: chunk.text,
+            url: chunk.url,
+          },
+          retrievalPlan,
+          {
+            title: 7,
+            parent: 4,
+            topics: 2,
+            body: 1,
+            url: 2,
+            phrase: 12,
+            exact: 14,
+          }
+        );
+        return {
+          score: ranking.score,
+          retrieval: {
+            matchedTerms: ranking.matchedTerms,
+            matchedPhrases: ranking.matchedPhrases,
+            coverage: ranking.coverage,
+          },
+          game: chunk.games.join(", "),
+          location: chunk.section,
+          description: chunk.text,
+          sourceRefs: [chunk.url],
+          walkthrough: {
+            source: chunk.source,
+            part: chunk.part,
+            section: chunk.section,
+            parentSection: chunk.parentSection,
+            revision: chunk.revision,
+          },
+        };
+      })
+      .filter((entry) => entry.score >= 2 && entry.retrieval.coverage > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, limit)
+      .map(({ score: _score, ...entry }) => entry);
+    const sources = matches
+      .flatMap((entry) =>
+        entry.sourceRefs.map((url) => ({
+          kind: "walkthrough" as const,
+          name: "Reviewed game guide",
+          url,
+          scope: requestedKnowledgeProfile,
+          ...describeSourceUrl(url, "Reviewed game guide"),
+        }))
+      )
+      .filter((source, index, all) => all.findIndex((candidate) => candidate.url === source.url) === index);
+
+    return success(
+      toolName,
+      {
+        item: itemNames[0],
+        aliases: itemNames.slice(1),
+        game: profile,
+        inventoryMatches,
+        matches,
+        answerPolicy:
+          matches.length > 0
+            ? "Use these walkthrough matches first and cite their sources."
+            : "No local walkthrough match was found. The assistant may answer from general model knowledge only if it explicitly says it could not find a local source-backed match.",
+      },
+      sources,
+      [
+        ...(matches.length > 0
+          ? ["Item location guidance comes from reviewed walkthrough text, not yet exact PRET item placement extraction."]
+          : ["No local walkthrough item-location match was found."]),
+      ],
+      profile
+    );
+  }
+
   if (toolName === "search_game_guidance") {
     const query =
       typeof args.query === "string" && args.query.trim()
@@ -1144,7 +1725,10 @@ export function executeChatTool(
           : "";
     if (!query) return failure(toolName, "INVALID_ARGUMENT", "query is required.");
 
-    const requestedProfile = resolveGameProfile(args.game ?? context?.gameTitle);
+    const requestedProfile =
+      resolveGameProfile([args.query, args.canonicalQuery].filter(Boolean).join(" ")) ??
+      resolveGameProfile(args.game) ??
+      resolveGameProfile(context?.gameTitle);
     const knowledgeProfiles = requestedProfile
       ? [GAME_PROFILE_INFO[requestedProfile].knowledgeProfile]
       : Object.values(GAME_PROFILE_INFO).map((entry) => entry.knowledgeProfile);

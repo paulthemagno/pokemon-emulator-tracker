@@ -48,10 +48,13 @@ Implemented reference tools:
 - `get_type_matchup`, with explicit Generation 1 and Generation 2/3 charts;
 - `get_evolution`, backed by a generated local PokeAPI snapshot.
 - `get_learnset`, backed by a generated local PokeAPI snapshot.
+- `get_encounters`, backed by a generated local PokeAPI snapshot.
+- `get_item`, backed by local Gen 1-3 item tables plus generated PokeAPI descriptions.
+- `get_item_location`, backed by reviewed walkthrough retrieval and optional active inventory checks.
 
 Still pending:
 
-- PRET-backed exact game-specific learnset extraction, encounters, and item locations;
+- PRET-backed exact game-specific learnset extraction, encounter slots, and item placement;
 - audited next-story-step prerequisite planning;
 - support for non-Ollama provider APIs.
 
@@ -82,11 +85,15 @@ OLLAMA_MODEL=gemma4:latest
 OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest
 OLLAMA_API_KEY=
 OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
-OLLAMA_MAX_TOKENS=2048
-OLLAMA_TEMPERATURE=0.7
+OLLAMA_MAX_TOKENS=-1
+OLLAMA_TEMPERATURE=0
 OLLAMA_ENABLE_TOOLS=true
 OLLAMA_THINKING=true
 ```
+
+`OLLAMA_MAX_TOKENS=-1` is passed to Ollama as `num_predict: -1`, which means no
+explicit response cap. Positive numeric values are still accepted when you want a
+hard response cap.
 
 `OLLAMA_ENABLE_TOOLS=false` forces prompt-only context mode. If the selected Ollama model
 does not support tool calls, the provider also falls back to compact context mode.
@@ -242,9 +249,9 @@ truth for implemented runtime definitions is `lib/chatbot/tools/registry.ts`.
 | `get_pokemon_details` | Implemented | Yes | Return detailed party Pokémon data by name or party index. | Current save/live context |
 | `get_pokedex_lookup` | Implemented | Yes | Check whether a specific species has been seen or caught. | Current save/live context |
 | `get_inventory_overview` | Implemented | Yes | Return inventory summary and optionally filtered item list. | Current save/live context |
-| `get_encounters` | Planned | No | Query exact per-game wild encounter tables by location/species/method/time. | Planned generated PRET dataset |
-| `get_item` | Planned | No | Look up item metadata by name or ID. | Planned local item dataset |
-| `get_item_location` | Planned | Optional | Find where an item/TM/HM is obtained and optionally compare with current inventory/events. | Planned PRET extraction plus walkthrough retrieval |
+| `get_encounters` | Implemented | No | Query per-game wild encounter availability by location/species/method/time. | Generated local PokeAPI encounter snapshot |
+| `get_item` | Implemented | No | Look up item metadata by name or ID. | Local item tables plus generated PokeAPI item descriptions |
+| `get_item_location` | Implemented | Optional | Find where an item/TM/HM is obtained and optionally compare with current inventory. | Reviewed walkthrough retrieval |
 | `get_next_story_steps` | Planned | Yes | Compute source-backed next story candidates from current progress. | Planned progression prerequisite graph |
 
 ### Pokemon reference
@@ -297,15 +304,13 @@ get_encounters({
   species?: string | number,
   method?: string,
   timeOfDay?: "morning" | "day" | "night",
-  version?: string,
   limit?: number // default: 30, maximum: 100
 })
 ```
 
-These tools must query generated PRET-derived data first. PokeAPI may enrich display names and
-cross-check version metadata. It is not sufficient by itself for exact Gen 1-3 encounter tables.
-`get_learnset` currently uses a generated local PokeAPI snapshot; PRET-backed extraction remains
-the target for stricter source parity.
+`get_learnset` and `get_encounters` currently use generated local PokeAPI snapshots. PRET-backed
+extraction remains the target for stricter source parity, especially exact encounter slot tables,
+map-specific encounter rates, and edge cases that PokeAPI normalizes.
 
 ### Items
 
@@ -318,12 +323,15 @@ get_item({
 get_item_location({
   item: string | number,
   game: GameProfile,
-  obtainedOnly?: boolean // default: false
+  canonicalQuery?: string,
+  obtainedOnly?: boolean, // default: false
+  limit?: number // default: 5, maximum: 8
 })
 ```
 
-`get_item_location` should combine PRET item placement with the current event/inventory state
-when the active game matches the requested game.
+`get_item` uses local Gen 1-3 item IDs and generated PokeAPI descriptions. `get_item_location`
+retrieves reviewed walkthrough sections and, when save/live context is present, can report active
+inventory matches. It does not yet use exact PRET item placement or hidden-item flag extraction.
 
 ### Progression and walkthrough retrieval
 

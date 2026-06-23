@@ -11,6 +11,7 @@
     "audit:pokemon-data": "node scripts/audit-pokemon-data.mjs",
     "generate:pokemon-knowledge": "node scripts/generate-pokemon-knowledge.mjs",
     "generate:pokemon-evolutions": "node scripts/generate-pokemon-evolutions.mjs",
+    "generate:pokemon-encounters": "node scripts/generate-pokemon-encounters.mjs",
     "generate:pokemon-learnsets": "node scripts/generate-pokemon-learnsets.mjs",
     "generate:pokemon-event-guides": "node scripts/generate-pokemon-event-guides.mjs",
     "generate:pokemon-guide-embeddings": "node scripts/generate-pokemon-guide-embeddings.mjs",

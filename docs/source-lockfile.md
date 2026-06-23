@@ -7,7 +7,7 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | Key | Kind | Source | Used for | Pin status |
 | --- | --- | --- | --- | --- |
 | `pokemonOfficial` | official | https://www.pokemon.com/us/pokemon-video-games | Public game identity and user-facing context | URL only |
-| `pokeapi` | pokeapi | https://pokeapi.co/docs/v2 | Generated local item/move descriptions, species growth metadata, National Dex 1-386 evolution chains, and Gen 1-3 learnset snapshots | API endpoint/version only |
+| `pokeapi` | pokeapi | https://pokeapi.co/docs/v2 | Generated local item/move descriptions, species growth metadata, National Dex 1-386 evolution chains, Gen 1-3 learnset snapshots, and Gen 1-3 encounter snapshots | API endpoint/version only |
 | `gen1SaveReference` | secondary | https://github-wiki-see.page/m/sopoforic/cgrr-pokemon/wiki/Pokemon-Generation-1-Save-Files | Gen 1 inventory offsets and HM/TM ID ranges | URL only |
 | `dataCrystalRedBlueRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Red_and_Blue/RAM_map | Red/Blue live WRAM current box and SRAM box bank cross-check | URL only |
 | `dataCrystalYellowRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Yellow/RAM_map | Yellow live WRAM offset relationship to Red/Blue | URL only |
@@ -44,7 +44,8 @@ lib/pokemon/knowledge/event-flags.ts
 lib/pokemon/data/gen3-hoenn-dex.ts
 lib/pokemon/data/gen3-map-landmarks.ts
 lib/pokemon/data/pokemon-evolutions.ts
-lib/pokemon/data/pokemon-learnsets.ts
+lib/pokemon/data/pokemon-encounters.json
+lib/pokemon/data/pokemon-learnsets.json
 live-adapters/generated/gen1-live-offsets.lua
 live-adapters/generated/gen2-live-offsets.lua
 live-adapters/generated/gen3-live-offsets.lua
@@ -80,13 +81,23 @@ corepack pnpm generate:pokemon-evolutions
 `pokemon-evolutions.ts` contains only evolution edges and trigger conditions for National Dex
 1-386. Runtime chatbot requests query this local file and do not call PokeAPI.
 
+Regenerate the compact local PokeAPI encounter snapshot with:
+
+```bash
+corepack pnpm generate:pokemon-encounters
+```
+
+`pokemon-encounters.json` contains location-area encounter rows for National Dex 1-386 and
+supported Gen 1-3 version groups. Runtime chatbot requests query this local file and do not call
+PokeAPI.
+
 Regenerate the compact local PokeAPI learnset snapshot with:
 
 ```bash
 corepack pnpm generate:pokemon-learnsets
 ```
 
-`pokemon-learnsets.ts` contains version-group move learn methods for National Dex 1-386 and
+`pokemon-learnsets.json` contains version-group move learn methods for National Dex 1-386 and
 Gen 1-3 move IDs. Runtime chatbot requests query this local file and do not call PokeAPI.
 
 Regenerate the local Bulbapedia walkthrough section index with:

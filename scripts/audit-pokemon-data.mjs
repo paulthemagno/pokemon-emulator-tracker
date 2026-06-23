@@ -63,7 +63,8 @@ const requiredKnowledgeFiles = [
   "lib/pokemon/knowledge/event-guides.ts",
   "lib/pokemon/knowledge/walkthrough-index.json",
   "lib/pokemon/data/pokemon-evolutions.ts",
-  "lib/pokemon/data/pokemon-learnsets.ts",
+  "lib/pokemon/data/pokemon-encounters.json",
+  "lib/pokemon/data/pokemon-learnsets.json",
   "live-adapters/generated/gen1-live-offsets.lua",
   "live-adapters/generated/gen2-live-offsets.lua",
   "live-adapters/generated/gen3-live-offsets.lua",
@@ -97,7 +98,8 @@ const items = await readText("lib/pokemon/data/items.ts");
 const moves = await readText("lib/pokemon/data/moves.ts");
 const species = await readText("lib/pokemon/data/species.ts");
 const evolutions = await readText("lib/pokemon/data/pokemon-evolutions.ts");
-const learnsets = await readText("lib/pokemon/data/pokemon-learnsets.ts");
+const encounters = await readText("lib/pokemon/data/pokemon-encounters.json");
+const learnsets = await readText("lib/pokemon/data/pokemon-learnsets.json");
 const inventoryKnowledge = await readText("lib/pokemon/knowledge/inventory-layouts.ts");
 const itemRangeKnowledge = await readText("lib/pokemon/knowledge/item-id-ranges.ts");
 const speciesIdMapKnowledge = await readText("lib/pokemon/knowledge/species-id-maps.ts");
@@ -123,6 +125,7 @@ console.log(`Gen 3 item rows: ${countMatches(extractArrayBlock(items, "GEN3_ITEM
 console.log(`Move rows: ${countMatches(moves, /\{\s*id:\s*\d+,\s*name:\s*"/g)}`);
 console.log(`Species rows: ${countMatches(species, /\{\s*id:\s*\d+,\s*name:\s*"/g)}`);
 console.log(`Evolution edges: ${countMatches(evolutions, /"fromId":\s*\d+/g)}`);
+console.log(`Encounter rows: ${countMatches(encounters, /\[\d+,"/g)}`);
 console.log(`Learnset rows: ${countMatches(learnsets, /\[\d+,\d+,"/g)}`);
 
 printSection("Knowledge Coverage");

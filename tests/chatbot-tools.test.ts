@@ -65,9 +65,9 @@ function readGuideEmbeddingVector(predicate: (record: {
   return { model: manifest.model, vector };
 }
 
-test("move reference returns local move data and PokeAPI provenance", () => {
+test("move reference returns local move data and PokeAPI provenance", async () => {
   const provider = new OllamaProvider();
-  const result = provider.executeTool(
+  const result = await provider.executeTool(
     "get_move_reference",
     { moveName: "Thunder Punch", game: "Crystal" },
     crystalContext
@@ -91,8 +91,14 @@ test("shared registry exposes reference tools that work without game state", () 
   assert.ok(names.includes("get_type_matchup"));
   assert.ok(names.includes("get_evolution"));
   assert.ok(names.includes("get_learnset"));
+  assert.ok(names.includes("get_encounters"));
+  assert.ok(names.includes("get_item"));
+  assert.ok(names.includes("get_item_location"));
   assert.equal(canExecuteToolWithoutContext("get_species"), true);
   assert.equal(canExecuteToolWithoutContext("get_learnset"), true);
+  assert.equal(canExecuteToolWithoutContext("get_encounters"), true);
+  assert.equal(canExecuteToolWithoutContext("get_item"), true);
+  assert.equal(canExecuteToolWithoutContext("get_item_location"), true);
   assert.equal(canExecuteToolWithoutContext("get_inventory_overview"), false);
 
   const result = executeChatTool("get_species", { species: "Bulbasaur" });
@@ -194,6 +200,95 @@ test("learnset lookup filters level-up moves by level and requires a game", () =
   assert.equal(errorDetail?.code, "AMBIGUOUS_GAME");
 });
 
+test("item lookup returns local metadata and version-scoped aliases", () => {
+  const result = executeChatTool("get_item", {
+    item: "Exp. Share",
+    game: "Crystal",
+  });
+  const entries = result.entries as Array<{
+    name: string;
+    flavorText?: string;
+    profiles: string[];
+  }>;
+
+  assert.equal(result.ok, true);
+  assert.equal(result.game, "crystal");
+  assert.ok(entries.some((entry) => entry.name === "Exp. Share"));
+  assert.ok(entries.some((entry) => entry.profiles.includes("crystal")));
+  assert.ok(entries.some((entry) => /Exp|experience|battle/i.test(entry.flavorText ?? "")));
+});
+
+test("item location lookup retrieves reviewed walkthrough sections", () => {
+  const result = executeChatTool("get_item_location", {
+    item: "Mach Bike",
+    game: "Emerald",
+    canonicalQuery: "Mach Bike location Pokemon Emerald",
+    limit: 3,
+  });
+  const matches = result.matches as Array<{
+    description: string;
+    sourceRefs: string[];
+  }>;
+
+  assert.equal(result.ok, true);
+  assert.equal(result.game, "emerald");
+  assert.ok(matches.length > 0);
+  assert.ok(
+    matches.some((match) => /Mach Bike|Bike Shop|Rydel/i.test(match.description))
+  );
+  assert.ok(matches.some((match) => match.sourceRefs.some((url) => url.includes("bulbapedia"))));
+});
+
+test("encounter lookup uses the local snapshot and filters by species, location, and method", () => {
+  const result = executeChatTool("get_encounters", {
+    species: "Ralts",
+    game: "Emerald",
+    location: "Route 102",
+    method: "walk",
+  });
+  const entries = result.entries as Array<{
+    species: string;
+    locationArea: string;
+    method: string;
+    minLevel: number;
+    maxLevel: number;
+  }>;
+  const locationSummaries = result.locationSummaries as Array<{
+    locationArea: string;
+    methods: string[];
+    levelRanges: string[];
+  }>;
+
+  assert.equal(result.ok, true);
+  assert.equal(result.game, "emerald");
+  assert.match(String(result.summary), /Ralts.*emerald/i);
+  assert.ok(entries.length > 0);
+  assert.ok(entries.every((entry) => entry.species === "Ralts"));
+  assert.ok(entries.every((entry) => entry.locationArea.includes("route-102")));
+  assert.ok(entries.every((entry) => entry.method === "walk"));
+  assert.ok(entries.some((entry) => entry.minLevel <= entry.maxLevel));
+  assert.ok(locationSummaries.length > 0);
+  assert.ok(locationSummaries.some((entry) => entry.locationArea.includes("route-102")));
+  assert.ok(locationSummaries.some((entry) => entry.methods.includes("walk")));
+});
+
+test("Italian game names in the user query override the loaded save context for guidance", () => {
+  const result = executeChatTool(
+    "search_game_guidance",
+    {
+      query: "dove trovo Wailmer in Smeraldo?",
+      canonicalQuery: "Wailmer encounter location Pokemon Emerald",
+      game: "Pokemon Crystal",
+      limit: 2,
+    },
+    crystalContext
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.gameProfile, "emerald");
+  assert.equal(result.requestedGame, "emerald");
+});
+
 test("state tools fail explicitly without a loaded game", () => {
   const result = executeChatTool("get_inventory_overview", {});
 
@@ -201,9 +296,9 @@ test("state tools fail explicitly without a loaded game", () => {
   assert.equal(result.error, "This tool requires a loaded save or live game state.");
 });
 
-test("game guidance search stays scoped to the loaded game and includes sources", () => {
+test("game guidance search stays scoped to the loaded game and includes sources", async () => {
   const provider = new OllamaProvider();
-  const result = provider.executeTool(
+  const result = await provider.executeTool(
     "search_game_guidance",
     { query: "radio tower", limit: 3 },
     crystalContext
@@ -426,23 +521,21 @@ test("successful guidance is synthesized in an isolated completion with the reso
         .some((source) => source.url?.includes("Pok%C3%A9mon_Emerald/Part_8"))
     );
     assert.equal(chatBodies.length, 2);
-    assert.equal(chatBodies[1].tools, undefined);
-    const synthesisMessages = chatBodies[1].messages as Array<{
+    assert.ok(chatBodies[1].tools);
+    const toolLoopMessages = chatBodies[1].messages as Array<{
       role: string;
       content: string;
     }>;
-    assert.match(synthesisMessages[0].content, /Never ask which game/);
-    assert.match(synthesisMessages[0].content, /application renders sources separately/);
-    assert.match(synthesisMessages[0].content, /using your own knowledge/);
-    assert.match(synthesisMessages[1].content, /Pokemon Emerald/);
-    assert.match(synthesisMessages[1].content, /originalQuestion/);
-    assert.doesNotMatch(synthesisMessages[1].content, /Reviewed game guide|Pinned PRET source|sourceRefs|sources/);
+    assert.match(JSON.stringify(toolLoopMessages), /search_game_guidance/);
+    assert.match(JSON.stringify(toolLoopMessages), /Pokemon Emerald/);
+    assert.match(JSON.stringify(toolLoopMessages), /Mirage Tower/);
+    assert.match(JSON.stringify(toolLoopMessages), /sourceRefs/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("guidance synthesis streams chunks when requested", async () => {
+test("guidance tool result returns one final chunk when streaming is requested", async () => {
   const originalFetch = globalThis.fetch;
   const chatBodies: Array<Record<string, unknown>> = [];
 
@@ -475,24 +568,12 @@ test("guidance synthesis streams chunks when requested", async () => {
       });
     }
 
-    const encoder = new TextEncoder();
-    return new Response(
-      new ReadableStream({
-        start(controller) {
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({ message: { role: "assistant", content: "Usa " } }) + "\n"
-            )
-          );
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({ message: { role: "assistant", content: "la Mach Bike." } }) + "\n"
-            )
-          );
-          controller.close();
-        },
-      })
-    );
+    return Response.json({
+      message: {
+        role: "assistant",
+        content: "Usa la Mach Bike.",
+      },
+    });
   };
 
   try {
@@ -513,8 +594,206 @@ test("guidance synthesis streams chunks when requested", async () => {
     );
 
     assert.equal(reply, "Usa la Mach Bike.");
-    assert.deepEqual(chunks, ["Usa ", "la Mach Bike."]);
-    assert.equal(chatBodies[1].stream, true);
+    assert.deepEqual(chunks, ["Usa la Mach Bike."]);
+    assert.equal(chatBodies[1].stream, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("empty tool-calling final response falls back instead of returning thinking only", async () => {
+  const originalFetch = globalThis.fetch;
+  const chatBodies: Array<Record<string, unknown>> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/api/tags")) {
+      return Response.json({ models: [{ name: "empty-tool-final-test" }] });
+    }
+
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    chatBodies.push(body);
+    if (chatBodies.length === 1) {
+      return Response.json({
+        message: {
+          role: "assistant",
+          thinking: "I should answer, but produced no final text.",
+          content: "",
+        },
+      });
+    }
+
+    return Response.json({
+      message: {
+        role: "assistant",
+        content: "Use the local guide source or ask a narrower game question.",
+      },
+    });
+  };
+
+  try {
+    const provider = new OllamaProvider();
+    await provider.initialize({
+      endpoint: "http://127.0.0.1:11434",
+      modelName: "empty-tool-final-test",
+      thinking: true,
+    });
+
+    const reply = await provider.sendMessage("How do I continue in Pokemon Emerald?", []);
+
+    assert.match(reply, /local guide source|narrower game/i);
+    assert.equal(chatBodies.length, 2);
+    assert.ok(chatBodies[0].tools);
+    assert.equal(chatBodies[1].tools, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("different follow-up tool calls remain available after a useful tool result", async () => {
+  const originalFetch = globalThis.fetch;
+  const chatBodies: Array<Record<string, unknown>> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/api/tags")) {
+      return Response.json({ models: [{ name: "follow-up-tool-test" }] });
+    }
+
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    chatBodies.push(body);
+    if (chatBodies.length === 1) {
+      return Response.json({
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              function: {
+                name: "get_encounters",
+                arguments: {
+                  game: "Emerald",
+                  species: "Wailmer",
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    if (chatBodies.length === 2) {
+      return Response.json({
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              function: {
+                name: "search_game_guidance",
+                arguments: {
+                  query: "how do i use fishing rods in Pokemon Emerald?",
+                  canonicalQuery: "Pokemon Emerald fishing rods",
+                  game: "Pokemon Emerald",
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    return Response.json({
+      message: {
+        role: "assistant",
+        content: "Wailmer is available by fishing with the Good Rod or Super Rod.",
+      },
+    });
+  };
+
+  try {
+    const provider = new OllamaProvider();
+    await provider.initialize({
+      endpoint: "http://127.0.0.1:11434",
+      modelName: "follow-up-tool-test",
+      thinking: false,
+    });
+
+    const reply = await provider.sendMessage("Where can I find Wailmer in Emerald?", []);
+
+    assert.match(reply, /Wailmer/);
+    assert.equal(chatBodies.length, 3);
+    assert.ok(chatBodies[1].tools);
+    assert.ok(chatBodies[2].tools);
+    assert.match(JSON.stringify(chatBodies[1].messages), /Latest tool result/);
+    assert.match(JSON.stringify(chatBodies[1].messages), /Wailmer is available in emerald/);
+    assert.match(JSON.stringify(chatBodies[2].messages), /Pokemon Emerald fishing rods/);
+    assert.ok(
+      provider
+        .getLastSources()
+        .some((source) => source.url === "https://pokeapi.co/api/v2/pokemon/320")
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("max tool rounds synthesize from collected tool results instead of dropping context", async () => {
+  const originalFetch = globalThis.fetch;
+  const chatBodies: Array<Record<string, unknown>> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/api/tags")) {
+      return Response.json({ models: [{ name: "tool-loop-test" }] });
+    }
+
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    chatBodies.push(body);
+    if (chatBodies.length <= 6) {
+      return Response.json({
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              function: {
+                name: "get_encounters",
+                arguments: {
+                  game: "Emerald",
+                  species: "Wailmer",
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    return Response.json({
+      message: {
+        role: "assistant",
+        content: "Wailmer is available by fishing in Hoenn.",
+      },
+    });
+  };
+
+  try {
+    const provider = new OllamaProvider();
+    await provider.initialize({
+      endpoint: "http://127.0.0.1:11434",
+      modelName: "tool-loop-test",
+      thinking: false,
+    });
+
+    const reply = await provider.sendMessage("Where can I find Wailmer in Emerald?", []);
+
+    assert.match(reply, /Wailmer/);
+    assert.equal(chatBodies.length, 7);
+    assert.equal(chatBodies[6].tools, undefined);
+    assert.match(JSON.stringify(chatBodies[6].messages), /Tool calling is disabled/);
+    assert.doesNotMatch(JSON.stringify(chatBodies[6].messages), /DUPLICATE_TOOL_CALL/);
+    assert.match(JSON.stringify(chatBodies[6].messages), /Wailmer is available in emerald/);
   } finally {
     globalThis.fetch = originalFetch;
   }
