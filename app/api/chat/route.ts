@@ -11,6 +11,15 @@ import type {
 const DEFAULT_ENDPOINT = process.env.OLLAMA_ENDPOINT || 'http://127.0.0.1:11434';
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:latest';
 
+function parseMaxTokens(value: string | undefined): number {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) {
+    return -1;
+  }
+  const parsed = Number.parseInt(normalized, 10);
+  return Number.isFinite(parsed) ? parsed : -1;
+}
+
 function validateEndpoint(endpoint: string, isRuntimeOverride = false): string {
   const url = new URL(endpoint);
   if (!['http:', 'https:'].includes(url.protocol)) {
@@ -43,8 +52,8 @@ async function createProvider(runtimeConfig: ChatRuntimeConfig = {}) {
     embeddingModelName:
       runtimeConfig.embeddingModelName?.trim() || process.env.OLLAMA_EMBEDDING_MODEL,
     apiKey: runtimeConfig.apiKey?.trim() || process.env.OLLAMA_API_KEY,
-    maxTokens: parseInt(process.env.OLLAMA_MAX_TOKENS || '2048'),
-    temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0.7'),
+    maxTokens: parseMaxTokens(process.env.OLLAMA_MAX_TOKENS),
+    temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0'),
     thinking: runtimeConfig.thinking ?? process.env.OLLAMA_THINKING !== 'false',
   });
   return provider;
@@ -170,6 +179,7 @@ export async function POST(request: NextRequest) {
       // Streaming response
       const encoder = new TextEncoder();
       let controller: ReadableStreamDefaultController<Uint8Array>;
+      let emittedChunk = false;
 
       const customStream = new ReadableStream({
         async start(ctrl) {
@@ -179,13 +189,14 @@ export async function POST(request: NextRequest) {
             controller.enqueue(
               encoder.encode(JSON.stringify({ meta: providerInfo }) + '\n')
             );
-            await provider.sendMessage(
+            const finalReply = await provider.sendMessage(
               message,
               history,
               gameContext,
               systemPrompt,
               (chunk: string) => {
                 // Send each chunk as a line of JSON
+                emittedChunk = true;
                 controller.enqueue(
                   encoder.encode(JSON.stringify({ chunk }) + '\n')
                 );
@@ -197,6 +208,12 @@ export async function POST(request: NextRequest) {
                 );
               }
             );
+            if (!emittedChunk && finalReply.trim()) {
+              emittedChunk = true;
+              controller.enqueue(
+                encoder.encode(JSON.stringify({ chunk: finalReply }) + '\n')
+              );
+            }
             const knowledgeContext = provider.getLastKnowledgeContext();
             if (knowledgeContext) {
               controller.enqueue(

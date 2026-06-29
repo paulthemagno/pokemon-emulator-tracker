@@ -47,11 +47,15 @@ Implemented reference tools:
 - `get_species`;
 - `get_type_matchup`, with explicit Generation 1 and Generation 2/3 charts;
 - `get_evolution`, backed by a generated local PokeAPI snapshot.
+- `get_learnset`, backed by a generated local PokeAPI snapshot.
+- `get_encounters`, backed by a generated local PokeAPI snapshot.
+- `get_item`, backed by local Gen 1-3 item tables plus generated PokeAPI descriptions.
+- `get_item_location`, backed by reviewed walkthrough retrieval and optional active inventory checks.
 
 Still pending:
 
-- exact game-specific learnsets, encounters, and item locations;
-- audited next-story-step prerequisite planning;
+- PRET-backed exact game-specific learnset extraction, encounter slots, and item placement;
+- richer audited prerequisite planning inside `get_story_context`;
 - support for non-Ollama provider APIs.
 
 ## Runtime Setup
@@ -81,11 +85,15 @@ OLLAMA_MODEL=gemma4:latest
 OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest
 OLLAMA_API_KEY=
 OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
-OLLAMA_MAX_TOKENS=2048
-OLLAMA_TEMPERATURE=0.7
+OLLAMA_MAX_TOKENS=-1
+OLLAMA_TEMPERATURE=0
 OLLAMA_ENABLE_TOOLS=true
 OLLAMA_THINKING=true
 ```
+
+`OLLAMA_MAX_TOKENS=-1` is passed to Ollama as `num_predict: -1`, which means no
+explicit response cap. Positive numeric values are still accepted when you want a
+hard response cap.
 
 `OLLAMA_ENABLE_TOOLS=false` forces prompt-only context mode. If the selected Ollama model
 does not support tool calls, the provider also falls back to compact context mode.
@@ -217,10 +225,129 @@ type KnowledgeToolResult<T> = {
 };
 ```
 
+`data` is the only canonical payload for successful tool-specific fields. Consumers should not
+expect tool-specific fields at the top level.
+
+Runtime enforcement:
+
+- tool call arguments are described to Ollama through each tool's JSON Schema `parameters`;
+- tool results are produced by the app, not by the model, so they are validated locally with Zod
+  before being sent back to Ollama;
+- Ollama's `format` JSON Schema support is reserved for assistant-generated structured
+  responses. The normal chat path does not force final answers into JSON because the UI expects
+  natural-language Markdown.
+
 Tool output must be compact and bounded. Return the rows needed for the answer, not a complete
 database dump. Names should be normalized internally while preserving display names.
 
+### Tool Response Data Shapes
+
+These are the canonical `data` payloads returned inside `KnowledgeToolResult<T>`.
+
+| Tool | Canonical `data` shape |
+| --- | --- |
+| `get_move`, `get_move_reference` | `{ id, name, type, power, accuracy, pp, effect?, flavorText?, appliesTo }` |
+| `get_species` | `{ id, name, introducedGeneration, types, growthRate, baseStats }` |
+| `get_type_matchup` | `{ generation, attackingType, move?, defenderSpecies?, defenderTypes, factors, multiplier, effectiveness }` |
+| `get_evolution` | `{ species: { id, name }, direction, evolvesFrom, evolvesTo }` |
+| `get_learnset` | `{ species: { id, name }, game, methods, requestedMove?, learnsMove?, levelMax?, totalMatches, returnedMatches, entries }` |
+| `get_encounters` | `{ summary, game, requestedSpecies, requestedLocation, requestedMethod, requestedTimeOfDay, totalMatches, returnedMatches, locationSummaries, entries, answerPolicy }` |
+| `get_item` | `{ query, game, totalMatches, returnedMatches, entries }` |
+| `get_item_location` | `{ item, aliases, game, inventoryMatches, matches, answerPolicy }` |
+| `search_game_guidance` | `{ query, canonicalQuery, keywords, requestedGame, game, matchedProfiles, matches, generalGuideSources, retrievalMode, embeddingModel, answerPolicy }` |
+| `get_trainer_status` | `{ trainerName, location, money, badges, pokedexSeen, pokedexOwned, gameTitle, playtime }` |
+| `get_party_overview` | `{ count, party }` |
+| `get_story_context` | `{ facts }` |
+| `get_pokedex_overview` | `{ gameTitle, seen, owned, completionVsSeenPercent }` |
+| `get_pokemon_details` | `{ name, species, level, hp, maxHp, status, types, ability?, nature?, heldItem?, moves }` |
+| `get_inventory_overview` | `{ query, totalUniqueItems, totalItemCount, returnedItems, items }` |
+| `get_pokedex_lookup` | `{ name, nationalDexId, seen, caught }` |
+
+Common nested rows:
+
+```ts
+type LearnsetEntry = {
+  moveId: number;
+  move: string;
+  method: "level-up" | "machine" | "tutor" | "egg" | string;
+  level?: number;
+};
+
+type EncounterLocationSummary = {
+  location: string;
+  locationArea: string;
+  methods: string[];
+  levelRanges: string[];
+  bestChance: number;
+  species?: string[];
+};
+
+type EncounterEntry = {
+  speciesId: number;
+  species: string;
+  locationAreaId: number;
+  location: string;
+  locationArea: string;
+  method: string;
+  minLevel: number;
+  maxLevel: number;
+  chance: number;
+  conditions: string[];
+};
+
+type GuidanceMatch = {
+  retrieval?: {
+    matchedTerms?: string[];
+    matchedPhrases?: string[];
+    coverage?: number;
+    embeddingScore?: number;
+    embeddingModel?: string;
+  };
+  knowledgeProfile: string;
+  game: string;
+  event: string;
+  description?: string;
+  actionHint?: string;
+  location?: string;
+  steps?: string[];
+  prerequisites?: string[];
+  normalMissingReason?: string;
+  sourceRefs: string[];
+  audited: boolean;
+  walkthrough?: {
+    source: string;
+    part: number;
+    section: string;
+    parentSection?: string;
+    revision?: string | number;
+  };
+};
+```
+
 ## Tool Catalog
+
+This catalog includes both currently exposed runtime tools and planned tools. The source of
+truth for implemented runtime definitions is `lib/chatbot/tools/registry.ts`.
+
+| Tool | Status | Requires loaded save/live state | Purpose | Primary source |
+| --- | --- | --- | --- | --- |
+| `get_move` | Implemented | No | Look up Gen 1-3 move type, power, accuracy, PP, effect, and version-group flavor text. | Local move table plus generated PokeAPI move descriptions |
+| `get_move_reference` | Implemented compatibility alias | No | Backward-compatible alias for `get_move` using `moveName`. | Same as `get_move` |
+| `get_species` | Implemented | No | Look up species National Dex ID, types, growth rate, and reference stats. | Local species table |
+| `get_type_matchup` | Implemented | No, if `game` or `generation` is supplied | Calculate Gen 1, 2, or 3 type effectiveness, including Gen 1 differences. | Local type charts |
+| `get_evolution` | Implemented | No | Look up Gen 1-3 evolution relationships and trigger conditions. | Generated local PokeAPI evolution snapshot |
+| `get_learnset` | Implemented | No | Query per-game level-up, TM/HM, tutor, and egg move learnsets. | Generated local PokeAPI learnset snapshot |
+| `search_game_guidance` | Implemented | No | Retrieve source-backed walkthrough/event guidance with lexical or hybrid vector search. | Audited event guidance, generated event guides, Bulbapedia walkthrough index, optional guide embeddings |
+| `get_trainer_status` | Implemented | Yes | Return current trainer, location, money, badges, playtime, and basic progress state. | Current save/live context |
+| `get_party_overview` | Implemented | Yes | Return current party summary with HP, level, status, and types. | Current save/live context |
+| `get_story_context` | Implemented | Yes | Return source-backed permanent choices, current phases, and known next-step facts. Future prerequisite planning should extend this tool instead of adding a separate overlapping story-step tool. | Current save/live context plus generated progress facts |
+| `get_pokedex_overview` | Implemented | Yes | Return seen/caught totals and completion summary. | Current save/live context |
+| `get_pokemon_details` | Implemented | Yes | Return detailed party Pokémon data by name or party index. | Current save/live context |
+| `get_pokedex_lookup` | Implemented | Yes | Check whether a specific species has been seen or caught. | Current save/live context |
+| `get_inventory_overview` | Implemented | Yes | Return inventory summary and optionally filtered item list. | Current save/live context |
+| `get_encounters` | Implemented | No | Query per-game wild encounter availability by location/species/method/time. | Generated local PokeAPI encounter snapshot |
+| `get_item` | Implemented | No | Look up item metadata by name or ID. | Local item tables plus generated PokeAPI item descriptions |
+| `get_item_location` | Implemented | Optional | Find where an item/TM/HM is obtained and optionally compare with current inventory. | Reviewed walkthrough retrieval |
 
 ### Pokemon reference
 
@@ -272,13 +399,13 @@ get_encounters({
   species?: string | number,
   method?: string,
   timeOfDay?: "morning" | "day" | "night",
-  version?: string,
   limit?: number // default: 30, maximum: 100
 })
 ```
 
-These tools must query generated PRET-derived data first. PokeAPI may enrich display names and
-cross-check version metadata. It is not sufficient by itself for exact Gen 1-3 encounter tables.
+`get_learnset` and `get_encounters` currently use generated local PokeAPI snapshots. PRET-backed
+extraction remains the target for stricter source parity, especially exact encounter slot tables,
+map-specific encounter rates, and edge cases that PokeAPI normalizes.
 
 ### Items
 
@@ -291,12 +418,15 @@ get_item({
 get_item_location({
   item: string | number,
   game: GameProfile,
-  obtainedOnly?: boolean // default: false
+  canonicalQuery?: string,
+  obtainedOnly?: boolean, // default: false
+  limit?: number // default: 5, maximum: 8
 })
 ```
 
-`get_item_location` should combine PRET item placement with the current event/inventory state
-when the active game matches the requested game.
+`get_item` uses local Gen 1-3 item IDs and generated PokeAPI descriptions. `get_item_location`
+retrieves reviewed walkthrough sections and, when save/live context is present, can report active
+inventory matches. It does not yet use exact PRET item placement or hidden-item flag extraction.
 
 ### Progression and walkthrough retrieval
 
@@ -308,17 +438,12 @@ search_game_guidance({
   game?: GameProfile,
   limit?: number // default: 5, maximum: 8
 })
-
-get_next_story_steps({
-  game?: GameProfile,
-  maxResults?: number // default: 3, maximum: 5
-})
 ```
 
-`get_next_story_steps` accepts no completed-event list from the model. It reads normalized
-progress from the server context, finds unmet prerequisites, and returns source-backed candidate
-steps. The model may explain or rank those candidates, but it must not create new progression
-facts.
+General walkthrough questions should use `search_game_guidance`. Current-save story questions
+should use `get_story_context`. If we later add prerequisite planning, it should enrich
+`get_story_context` with source-backed candidate steps rather than introduce a second overlapping
+story-progress tool.
 
 `search_game_guidance` is the runtime RAG entry point for general walkthrough
 questions. It first scopes the search by `game` when the model or loaded save
@@ -710,7 +835,7 @@ chain-of-thought, and it is not rendered in the chat UI.
 
 ### Phase 4: exact game data
 
-- expand PRET extraction for learnsets, encounters, and item locations;
+- expand PRET extraction for encounters, item locations, and stricter learnset parity;
 - implement the corresponding tools;
 - use PokeAPI only for normalization and cross-checking.
 
@@ -718,7 +843,8 @@ chain-of-thought, and it is not rendered in the chat UI.
 
 - connect current normalized events to guide chunks;
 - compute unmet prerequisites outside the model;
-- implement `get_next_story_steps`;
+- enrich `get_story_context` with source-backed candidate next steps when prerequisites can be
+  audited;
 - add regression cases for badges, optional routes, version differences, and postgame boundaries.
 
 ### Phase 6: answer trace UI

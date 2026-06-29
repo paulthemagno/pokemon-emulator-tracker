@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import type { GameContextSnapshot } from "../types";
+import { ITEM_DESCRIPTIONS } from "../../pokemon/data/item-descriptions";
 import { MOVE_DESCRIPTIONS } from "../../pokemon/data/move-descriptions";
 import { MOVES } from "../../pokemon/data/moves";
+import { GEN1_ITEMS, GEN2_ITEMS, GEN3_ITEMS } from "../../pokemon/data/items";
 import { POKEMON_EVOLUTIONS } from "../../pokemon/data/pokemon-evolutions";
 import { getSpeciesById, SPECIES } from "../../pokemon/data/species";
 import { GENERATED_EVENT_GUIDES } from "../../pokemon/knowledge/event-guides";
@@ -19,13 +22,382 @@ export type ChatToolDefinition = {
   };
 };
 
-export type ToolExecutionResult = Record<string, unknown>;
+export type ToolErrorCode =
+  | "INVALID_ARGUMENT"
+  | "NOT_FOUND"
+  | "AMBIGUOUS_GAME"
+  | "UNSUPPORTED_GAME";
 
-type ToolSource = {
+export type KnowledgeToolResult<TData extends Record<string, unknown> = Record<string, unknown>> =
+  | {
+      ok: true;
+      tool: string;
+      gameProfile?: string;
+      data: TData;
+      sources: ToolSource[];
+      limitations: string[];
+      confidence: "source-backed" | "cross-checked";
+    }
+  | {
+      ok: false;
+      tool: string;
+      sources: [];
+      limitations: [];
+      confidence: "unresolved";
+      error: string;
+      errorDetail: {
+        code: ToolErrorCode;
+        message: string;
+      };
+    };
+
+export type ToolExecutionResult = KnowledgeToolResult;
+
+export type ToolSource = {
   kind: "save-state" | "pret" | "pokeapi" | "local-fallback" | "walkthrough";
   name: string;
   url?: string;
   scope?: string;
+};
+
+const toolSourceSchema = z.object({
+  kind: z.enum(["save-state", "pret", "pokeapi", "local-fallback", "walkthrough"]),
+  name: z.string(),
+  url: z.string().optional(),
+  scope: z.string().optional(),
+}).passthrough();
+
+const successfulToolResultSchema = z.object({
+  ok: z.literal(true),
+  tool: z.string(),
+  gameProfile: z.string().optional(),
+  data: z.record(z.unknown()),
+  sources: z.array(toolSourceSchema),
+  limitations: z.array(z.string()),
+  confidence: z.enum(["source-backed", "cross-checked"]),
+});
+
+const failedToolResultSchema = z.object({
+  ok: z.literal(false),
+  tool: z.string(),
+  sources: z.tuple([]),
+  limitations: z.tuple([]),
+  confidence: z.literal("unresolved"),
+  error: z.string(),
+  errorDetail: z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+});
+
+const toolResultSchema = z.discriminatedUnion("ok", [
+  successfulToolResultSchema,
+  failedToolResultSchema,
+]);
+
+const nullableStringSchema = z.string().nullable();
+const speciesRefSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+});
+const namedReferenceSchema = z.object({
+  id: z.number().optional(),
+  name: z.string(),
+}).passthrough();
+const answerPolicySchema = z.string();
+
+const moveToolDataSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  type: z.string(),
+  power: z.number().nullable().optional(),
+  accuracy: z.number().nullable().optional(),
+  pp: z.number(),
+  effect: z.string().optional(),
+  flavorText: z.string().optional(),
+  appliesTo: z.string(),
+}).passthrough();
+
+const speciesToolDataSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  introducedGeneration: z.number(),
+  types: z.array(z.string()),
+  growthRate: z.string(),
+  baseStats: z.record(z.unknown()),
+}).passthrough();
+
+const typeMatchupToolDataSchema = z.object({
+  generation: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  attackingType: z.string(),
+  move: z.string().optional(),
+  defenderSpecies: z.string().optional(),
+  defenderTypes: z.array(z.string()),
+  factors: z.array(z.number()),
+  multiplier: z.number(),
+  effectiveness: z.enum(["immune", "super-effective", "not-very-effective", "neutral"]),
+}).passthrough();
+
+const evolutionToolDataSchema = z.object({
+  species: speciesRefSchema,
+  direction: z.enum(["from", "to", "both"]),
+  evolvesFrom: z.array(z.unknown()),
+  evolvesTo: z.array(z.unknown()),
+}).passthrough();
+
+const learnsetEntrySchema = z.object({
+  moveId: z.number(),
+  move: z.string(),
+  method: z.string(),
+  level: z.number().optional(),
+}).passthrough();
+
+const learnsetToolDataSchema = z.object({
+  species: speciesRefSchema,
+  game: z.string(),
+  methods: z.array(z.string()),
+  requestedMove: namedReferenceSchema.optional(),
+  learnsMove: z.boolean().optional(),
+  levelMax: z.number().optional(),
+  totalMatches: z.number(),
+  returnedMatches: z.number(),
+  entries: z.array(learnsetEntrySchema),
+}).passthrough();
+
+const encounterLocationSummarySchema = z.object({
+  location: z.string(),
+  locationArea: z.string(),
+  methods: z.array(z.string()),
+  levelRanges: z.array(z.string()),
+  bestChance: z.number(),
+  species: z.array(z.string()).optional(),
+}).passthrough();
+
+const encounterEntrySchema = z.object({
+  speciesId: z.number(),
+  species: z.string(),
+  locationAreaId: z.number(),
+  location: z.string(),
+  locationArea: z.string(),
+  method: z.string(),
+  minLevel: z.number(),
+  maxLevel: z.number(),
+  chance: z.number(),
+  conditions: z.array(z.string()),
+}).passthrough();
+
+const encountersToolDataSchema = z.object({
+  summary: z.string(),
+  game: z.string(),
+  requestedSpecies: speciesRefSchema.nullable(),
+  requestedLocation: nullableStringSchema,
+  requestedMethod: nullableStringSchema,
+  requestedTimeOfDay: nullableStringSchema,
+  totalMatches: z.number(),
+  returnedMatches: z.number(),
+  locationSummaries: z.array(encounterLocationSummarySchema),
+  entries: z.array(encounterEntrySchema),
+  answerPolicy: answerPolicySchema,
+}).passthrough();
+
+const itemEntrySchema = z.object({
+  id: z.number().optional(),
+  name: z.string(),
+  pocket: z.string().optional(),
+  slug: z.string().optional(),
+  profiles: z.array(z.string()),
+  flavorText: z.string().optional(),
+  effect: z.string().optional(),
+  source: z.string(),
+}).passthrough();
+
+const itemToolDataSchema = z.object({
+  query: z.unknown(),
+  game: nullableStringSchema,
+  totalMatches: z.number(),
+  returnedMatches: z.number(),
+  entries: z.array(itemEntrySchema),
+}).passthrough();
+
+const guidanceMatchSchema = z.object({
+  retrieval: z.object({
+    matchedTerms: z.array(z.string()).optional(),
+    matchedPhrases: z.array(z.string()).optional(),
+    coverage: z.number().optional(),
+    embeddingScore: z.number().optional(),
+    embeddingModel: z.string().optional(),
+  }).passthrough().optional(),
+  knowledgeProfile: z.string(),
+  game: z.string(),
+  event: z.string(),
+  description: z.string().optional(),
+  actionHint: z.string().optional(),
+  location: z.string().optional(),
+  steps: z.array(z.string()).optional(),
+  prerequisites: z.array(z.string()).optional(),
+  normalMissingReason: z.string().optional(),
+  completionMeaning: z.string().optional(),
+  notCompletedMeaning: z.string().optional(),
+  sourceRefs: z.array(z.string()),
+  audited: z.boolean(),
+  walkthrough: z.object({
+    source: z.string(),
+    part: z.number(),
+    section: z.string(),
+    parentSection: z.string().optional(),
+    revision: z.union([z.string(), z.number()]).optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+const itemLocationToolDataSchema = z.object({
+  item: z.string(),
+  aliases: z.array(z.string()).optional(),
+  game: z.string(),
+  obtainedOnly: z.boolean().optional(),
+  inventoryMatches: z.array(z.unknown()),
+  matches: z.array(z.object({
+    retrieval: z.object({
+      matchedTerms: z.array(z.string()).optional(),
+      matchedPhrases: z.array(z.string()).optional(),
+      coverage: z.number().optional(),
+    }).passthrough().optional(),
+    game: z.string(),
+    location: z.string(),
+    description: z.string(),
+    sourceRefs: z.array(z.string()),
+    walkthrough: z.object({
+      source: z.string(),
+      part: z.number(),
+      section: z.string(),
+      parentSection: z.string().optional(),
+      revision: z.union([z.string(), z.number()]).optional(),
+    }).passthrough(),
+  }).passthrough()),
+  answerPolicy: answerPolicySchema,
+}).passthrough();
+
+const gameGuidanceToolDataSchema = z.object({
+  query: z.string(),
+  canonicalQuery: z.string(),
+  keywords: z.array(z.string()),
+  requestedGame: nullableStringSchema,
+  game: nullableStringSchema,
+  matchedProfiles: z.array(z.string()),
+  matches: z.array(guidanceMatchSchema),
+  generalGuideSources: z.array(z.unknown()),
+  retrievalMode: z.enum(["lexical", "hybrid-lexical-vector"]),
+  embeddingModel: nullableStringSchema,
+  answerPolicy: answerPolicySchema,
+}).passthrough();
+
+const trainerStatusToolDataSchema = z.object({
+  trainerName: z.string().optional(),
+  location: z.string().optional(),
+  money: z.number().optional(),
+  badges: z.array(z.unknown()).optional(),
+  pokedexSeen: z.number().optional(),
+  pokedexOwned: z.number().optional(),
+  gameTitle: z.string().optional(),
+  playtime: z.unknown().optional(),
+}).passthrough();
+
+const partyOverviewToolDataSchema = z.object({
+  count: z.number(),
+  party: z.array(z.object({
+    index: z.number(),
+    name: z.string(),
+    species: z.string().optional(),
+    level: z.number().optional(),
+    hp: z.number().optional(),
+    maxHp: z.number().optional(),
+    types: z.array(z.string()).optional(),
+    status: z.string().optional(),
+  }).passthrough()),
+}).passthrough();
+
+const storyContextToolDataSchema = z.object({
+  facts: z.array(z.unknown()),
+}).passthrough();
+
+const pokedexOverviewToolDataSchema = z.object({
+  gameTitle: z.string().optional(),
+  seen: z.number(),
+  owned: z.number(),
+  completionVsSeenPercent: z.number(),
+}).passthrough();
+
+const pokemonDetailsToolDataSchema = z.object({
+  name: z.string(),
+  species: z.string().optional(),
+  level: z.number().optional(),
+  hp: z.number().optional(),
+  maxHp: z.number().optional(),
+  status: z.string().optional(),
+  types: z.array(z.string()).optional(),
+  ability: z.string().optional(),
+  nature: z.string().optional(),
+  heldItem: z.string().optional(),
+  moves: z.array(z.unknown()).optional(),
+}).passthrough();
+
+const inventoryOverviewToolDataSchema = z.object({
+  query: nullableStringSchema,
+  totalUniqueItems: z.number(),
+  totalItemCount: z.number(),
+  returnedItems: z.number(),
+  items: z.array(z.unknown()),
+}).passthrough();
+
+const pokedexLookupToolDataSchema = z.object({
+  name: z.string(),
+  nationalDexId: z.number(),
+  seen: z.boolean(),
+  caught: z.boolean(),
+}).passthrough();
+
+const toolDataSchemas: Record<string, z.ZodTypeAny> = {
+  get_move: moveToolDataSchema,
+  get_move_reference: moveToolDataSchema,
+  get_species: speciesToolDataSchema,
+  get_type_matchup: typeMatchupToolDataSchema,
+  get_evolution: evolutionToolDataSchema,
+  get_learnset: learnsetToolDataSchema,
+  get_encounters: encountersToolDataSchema,
+  get_item: itemToolDataSchema,
+  get_item_location: itemLocationToolDataSchema,
+  search_game_guidance: gameGuidanceToolDataSchema,
+  get_trainer_status: trainerStatusToolDataSchema,
+  get_party_overview: partyOverviewToolDataSchema,
+  get_story_context: storyContextToolDataSchema,
+  get_pokedex_overview: pokedexOverviewToolDataSchema,
+  get_pokemon_details: pokemonDetailsToolDataSchema,
+  get_inventory_overview: inventoryOverviewToolDataSchema,
+  get_pokedex_lookup: pokedexLookupToolDataSchema,
+};
+
+export type MoveToolData = z.infer<typeof moveToolDataSchema>;
+export type SpeciesToolData = z.infer<typeof speciesToolDataSchema>;
+export type TypeMatchupToolData = z.infer<typeof typeMatchupToolDataSchema>;
+export type EvolutionToolData = z.infer<typeof evolutionToolDataSchema>;
+export type LearnsetToolData = z.infer<typeof learnsetToolDataSchema>;
+export type EncountersToolData = z.infer<typeof encountersToolDataSchema>;
+export type ItemToolData = z.infer<typeof itemToolDataSchema>;
+export type ItemLocationToolData = z.infer<typeof itemLocationToolDataSchema>;
+export type GameGuidanceToolData = z.infer<typeof gameGuidanceToolDataSchema>;
+export type TrainerStatusToolData = z.infer<typeof trainerStatusToolDataSchema>;
+export type PartyOverviewToolData = z.infer<typeof partyOverviewToolDataSchema>;
+export type StoryContextToolData = z.infer<typeof storyContextToolDataSchema>;
+export type PokedexOverviewToolData = z.infer<typeof pokedexOverviewToolDataSchema>;
+export type PokemonDetailsToolData = z.infer<typeof pokemonDetailsToolDataSchema>;
+export type InventoryOverviewToolData = z.infer<typeof inventoryOverviewToolDataSchema>;
+export type PokedexLookupToolData = z.infer<typeof pokedexLookupToolDataSchema>;
+
+type ItemReference = {
+  id?: number;
+  name: string;
+  pocket?: string;
+  slug?: string;
+  profiles: GameProfile[];
 };
 
 type GameProfile =
@@ -47,6 +419,50 @@ type KnowledgeProfile =
   | "firered-leafgreen-en";
 
 type TypeChart = Record<string, Record<string, number>>;
+
+type PokemonLearnsetEntry = readonly [
+  speciesId: number,
+  moveId: number,
+  versionGroup: string,
+  method: string,
+  level: number,
+];
+
+type PokemonEncounterEntry = readonly [
+  speciesId: number,
+  gameProfile: string,
+  locationAreaId: number,
+  locationArea: string,
+  method: string,
+  minLevel: number,
+  maxLevel: number,
+  chance: number,
+  conditions: string,
+];
+
+let pokemonLearnsets: readonly PokemonLearnsetEntry[] | null = null;
+let pokemonEncounters: readonly PokemonEncounterEntry[] | null = null;
+
+function readGeneratedRows<T extends readonly unknown[]>(filename: string): readonly T[] {
+  const startedAt = Date.now();
+  const filePath = path.join(process.cwd(), "lib/pokemon/data", filename);
+  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as { rows?: T[] };
+  const rows = parsed.rows ?? [];
+  console.log(
+    `[CHATBOT TOOLS] Loaded ${filename}: rows=${rows.length} in ${Date.now() - startedAt}ms`
+  );
+  return rows;
+}
+
+function getPokemonLearnsets(): readonly PokemonLearnsetEntry[] {
+  pokemonLearnsets ??= readGeneratedRows<PokemonLearnsetEntry>("pokemon-learnsets.json");
+  return pokemonLearnsets;
+}
+
+function getPokemonEncounters(): readonly PokemonEncounterEntry[] {
+  pokemonEncounters ??= readGeneratedRows<PokemonEncounterEntry>("pokemon-encounters.json");
+  return pokemonEncounters;
+}
 
 const GAME_PROFILE_INFO: Record<
   GameProfile,
@@ -462,9 +878,123 @@ function findMove(value: unknown) {
   );
 }
 
+function getItemDescriptionForName(name: string) {
+  const normalized = normalizeForSearch(name);
+  return Object.values(ITEM_DESCRIPTIONS).find((description) =>
+    [description.slug, ...description.names].some(
+      (candidate) => normalizeForSearch(candidate) === normalized
+    )
+  );
+}
+
+function getItemDescriptionForReference(reference: ItemReference) {
+  if (reference.slug) return ITEM_DESCRIPTIONS[reference.slug];
+  return getItemDescriptionForName(reference.name);
+}
+
+function getItemReferences(value: unknown, profile?: GameProfile): ItemReference[] {
+  const numericId = parseNumber(value);
+  const normalized = typeof value === "string" ? normalizeForSearch(value) : "";
+  const references: ItemReference[] = [];
+
+  const addReference = (reference: ItemReference) => {
+    if (profile && !reference.profiles.includes(profile)) return;
+    const duplicate = references.some(
+      (candidate) =>
+        candidate.id === reference.id &&
+        candidate.name === reference.name &&
+        candidate.profiles.join(",") === reference.profiles.join(",")
+    );
+    if (!duplicate) references.push(reference);
+  };
+
+  for (const [idText, name] of Object.entries(GEN1_ITEMS)) {
+    const id = Number(idText);
+    addReference({ id, name, profiles: ["red-blue", "yellow"] });
+  }
+  for (const [idText, name] of Object.entries(GEN2_ITEMS)) {
+    const id = Number(idText);
+    addReference({ id, name, profiles: ["gold-silver", "crystal"] });
+  }
+  for (const item of GEN3_ITEMS) {
+    addReference({
+      id: item.id,
+      name: item.name,
+      pocket: item.pocket,
+      profiles: ["ruby-sapphire", "emerald", "firered-leafgreen"],
+    });
+  }
+  for (const description of Object.values(ITEM_DESCRIPTIONS)) {
+    addReference({
+      name: description.names[0] ?? description.slug.replace(/-/g, " "),
+      slug: description.slug,
+      profiles: Object.keys(GAME_PROFILE_INFO) as GameProfile[],
+    });
+  }
+
+  const matches = references.filter((reference) => {
+    if (numericId !== undefined && reference.id === Math.floor(numericId)) return true;
+    if (!normalized) return false;
+    const names = [
+      reference.name,
+      reference.slug,
+      ...(getItemDescriptionForReference(reference)?.names ?? []),
+    ].filter((name): name is string => Boolean(name));
+    return names.some((name) => {
+      const candidate = normalizeForSearch(name);
+      return (
+        candidate === normalized ||
+        candidate.startsWith(normalized) ||
+        (candidate.startsWith("tm") || candidate.startsWith("hm")
+          ? candidate.includes(normalized)
+          : false)
+      );
+    });
+  });
+
+  return matches.sort((left, right) => {
+    const leftExact = normalizeForSearch(left.name) === normalized ? 0 : 1;
+    const rightExact = normalizeForSearch(right.name) === normalized ? 0 : 1;
+    return leftExact - rightExact || (left.id ?? 9999) - (right.id ?? 9999);
+  });
+}
+
+function humanizeSlug(value: string): string {
+  return value
+    .split("-")
+    .filter(Boolean)
+    .map((part) => {
+      if (/^\d+$/.test(part)) return part;
+      if (part === "hoenn" || part === "kanto" || part === "johto") {
+        return part[0].toUpperCase() + part.slice(1);
+      }
+      return part[0].toUpperCase() + part.slice(1);
+    })
+    .join(" ");
+}
+
+function normalizeEncounterMethod(value: unknown): string | undefined {
+  const normalized = typeof value === "string" ? normalizePhrase(value) : "";
+  if (!normalized) return undefined;
+  if (normalized.includes("old rod")) return "old-rod";
+  if (normalized.includes("good rod")) return "good-rod";
+  if (normalized.includes("super rod")) return "super-rod";
+  if (normalized.includes("rock smash")) return "rock-smash";
+  if (normalized.includes("surf")) return "surf";
+  if (normalized.includes("walk") || normalized.includes("grass")) return "walk";
+  return normalized.replace(/\s+/g, "-");
+}
+
 function resolveGameProfile(value?: unknown): GameProfile | undefined {
   const normalized = typeof value === "string" ? normalizeForSearch(value) : "";
   if (!normalized) return undefined;
+  if (normalized.includes("smeraldo")) return "emerald";
+  if (normalized.includes("cristallo")) return "crystal";
+  if (normalized.includes("oro") || normalized.includes("argento")) return "gold-silver";
+  if (normalized.includes("giallo")) return "yellow";
+  if (normalized.includes("rossofuoco") || normalized.includes("verdefoglia")) return "firered-leafgreen";
+  if (normalized.includes("rosso") || normalized.includes("blu")) return "red-blue";
+  if (normalized.includes("rubino") || normalized.includes("zaffiro")) return "ruby-sapphire";
   if (normalized.includes("firered") || normalized.includes("leafgreen")) return "firered-leafgreen";
   if (normalized.includes("yellow")) return "yellow";
   if (normalized.includes("red") || normalized.includes("blue")) return "red-blue";
@@ -508,27 +1038,27 @@ function success(
   limitations: string[] = [],
   gameProfile?: GameProfile
 ): ToolExecutionResult {
-  return {
+  const parsedData = (toolDataSchemas[tool] ?? z.record(z.unknown())).parse(data) as Record<
+    string,
+    unknown
+  >;
+  return toolResultSchema.parse({
     ok: true,
     tool,
     ...(gameProfile ? { gameProfile } : {}),
-    data,
+    data: parsedData,
     sources,
     limitations,
     confidence: sources.length > 1 ? "cross-checked" : "source-backed",
-    // Compatibility fields for existing prompts and tests.
-    ...data,
-    ...(sources[0] ? { source: sources[0] } : {}),
-    ...(limitations[0] ? { limitation: limitations[0] } : {}),
-  };
+  }) as ToolExecutionResult;
 }
 
 function failure(
   tool: string,
-  code: "INVALID_ARGUMENT" | "NOT_FOUND" | "AMBIGUOUS_GAME" | "UNSUPPORTED_GAME",
+  code: ToolErrorCode,
   message: string
 ): ToolExecutionResult {
-  return {
+  return toolResultSchema.parse({
     ok: false,
     tool,
     sources: [],
@@ -536,7 +1066,7 @@ function failure(
     confidence: "unresolved",
     error: message,
     errorDetail: { code, message },
-  };
+  }) as ToolExecutionResult;
 }
 
 function decodeUrlSegment(value: string): string {
@@ -640,8 +1170,25 @@ const REFERENCE_TOOLS = new Set([
   "get_species",
   "get_type_matchup",
   "get_evolution",
+  "get_learnset",
+  "get_encounters",
+  "get_item",
+  "get_item_location",
   "search_game_guidance",
 ]);
+
+console.log(
+  [
+    "[CHATBOT TOOLS] Registry initialized:",
+    `moves=${MOVES.length}`,
+    `species=${SPECIES.length}`,
+    `evolutions=${POKEMON_EVOLUTIONS.length}`,
+    "learnsets=lazy",
+    "encounters=lazy",
+    `walkthroughChunks=${walkthroughIndex.chunks.length}`,
+    `embeddings=${WALKTHROUGH_EMBEDDINGS ? `${WALKTHROUGH_EMBEDDINGS.manifest.records.length}x${WALKTHROUGH_EMBEDDINGS.manifest.dimensions}` : "none"}`,
+  ].join(" ")
+);
 
 export function canExecuteToolWithoutContext(toolName: string): boolean {
   return REFERENCE_TOOLS.has(toolName);
@@ -726,6 +1273,87 @@ export function getChatToolDefinitions(): ChatToolDefinition[] {
             game: { type: "string", description: "Optional game context." },
           },
           required: ["species"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_learnset",
+        description: "Look up per-game Gen 1-3 level-up, machine, tutor, and egg move learnsets from a local PokeAPI snapshot.",
+        parameters: {
+          type: "object",
+          properties: {
+            species: { type: "string", description: "Species name or National Dex ID." },
+            game: { type: "string", description: "Required game or version group, for example Emerald or Pokemon Crystal." },
+            methods: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: ["level-up", "machine", "tutor", "egg"],
+              },
+              description: "Optional learn methods to include.",
+            },
+            move: { type: "string", description: "Optional move name or numeric ID to check." },
+            levelMax: { type: "number", description: "Optional maximum level for level-up moves." },
+            limit: { type: "number", minimum: 1, maximum: 100 },
+          },
+          required: ["species", "game"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_encounters",
+        description: "Look up Gen 1-3 wild encounter availability by Pokemon, location, method, and time from a local snapshot.",
+        parameters: {
+          type: "object",
+          properties: {
+            game: { type: "string", description: "Required game or version group, for example Emerald or Pokemon Crystal." },
+            location: { type: "string", description: "Optional location name, for example Route 102 or Granite Cave." },
+            species: { type: "string", description: "Optional species name or National Dex ID." },
+            method: { type: "string", description: "Optional encounter method, for example walk, surf, old-rod, good-rod, super-rod, rock-smash." },
+            timeOfDay: { type: "string", enum: ["morning", "day", "night"] },
+            limit: { type: "number", minimum: 1, maximum: 100 },
+          },
+          required: ["game"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_item",
+        description: "Look up Gen 1-3 item metadata, pocket, description, and game availability from local item tables.",
+        parameters: {
+          type: "object",
+          properties: {
+            item: { type: "string", description: "Item name, machine label, or numeric ID, for example Exp. Share or TM24." },
+            game: { type: "string", description: "Optional game context." },
+          },
+          required: ["item"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_item_location",
+        description: "Find walkthrough-backed guidance for where an item, TM, HM, or key item is obtained.",
+        parameters: {
+          type: "object",
+          properties: {
+            item: { type: "string", description: "Item name, TM/HM label, or numeric ID." },
+            game: { type: "string", description: "Required game or version group." },
+            canonicalQuery: {
+              type: "string",
+              description: "Optional concise English source-search query, for example Mach Bike location Pokemon Emerald.",
+            },
+            obtainedOnly: { type: "boolean", description: "When save/live state is available, return only if the item is already in inventory." },
+            limit: { type: "number", minimum: 1, maximum: 8 },
+          },
+          required: ["item", "game"],
         },
       },
     },
@@ -1014,6 +1642,442 @@ export function executeChatTool(
     );
   }
 
+  if (toolName === "get_learnset") {
+    const species = findSpecies(args.species);
+    if (!species) {
+      return failure(toolName, "NOT_FOUND", `Unknown species: "${String(args.species ?? "")}".`);
+    }
+
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    if (!profile) {
+      return failure(
+        toolName,
+        "AMBIGUOUS_GAME",
+        "A supported game is required for learnset lookup."
+      );
+    }
+    const generation = GAME_PROFILE_INFO[profile].generation;
+    const introducedGeneration = species.id <= 151 ? 1 : species.id <= 251 ? 2 : 3;
+    if (generation < introducedGeneration) {
+      return failure(
+        toolName,
+        "NOT_FOUND",
+        `${species.name} is not present in ${profile}; it was introduced in Generation ${introducedGeneration}.`
+      );
+    }
+
+    const requestedMove = args.move !== undefined ? findMove(args.move) : undefined;
+    if (args.move !== undefined && !requestedMove) {
+      return failure(toolName, "NOT_FOUND", `Unknown move: "${String(args.move ?? "")}".`);
+    }
+    const requestedMethods = Array.isArray(args.methods)
+      ? new Set(
+          args.methods.filter(
+            (value): value is string =>
+              value === "level-up" ||
+              value === "machine" ||
+              value === "tutor" ||
+              value === "egg"
+          )
+        )
+      : new Set<string>();
+    const levelMax = parseNumber(args.levelMax);
+    const requestedLimit = parseNumber(args.limit) ?? 50;
+    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 100);
+    const matchingRows = getPokemonLearnsets().filter(([speciesId, moveId, versionGroup, method, level]) => {
+      if (speciesId !== species.id || versionGroup !== profile) return false;
+      if (requestedMove && moveId !== requestedMove.id) return false;
+      if (requestedMethods.size > 0 && !requestedMethods.has(method)) return false;
+      if (levelMax !== undefined && method === "level-up" && level > levelMax) return false;
+      return true;
+    });
+    const sortedRows = [...matchingRows].sort(
+      (left, right) =>
+        left[4] - right[4] ||
+        left[3].localeCompare(right[3]) ||
+        left[1] - right[1]
+    );
+    const entries = sortedRows.slice(0, limit).map(([, moveId, , method, level]) => {
+      const move = MOVES.find((candidate) => candidate.id === moveId);
+      return {
+        moveId,
+        move: move?.name ?? `Move ${moveId}`,
+        method,
+        ...(method === "level-up" ? { level } : {}),
+      };
+    });
+
+    return success(
+      toolName,
+      {
+        species: { id: species.id, name: species.name },
+        game: profile,
+        methods:
+          requestedMethods.size > 0
+            ? [...requestedMethods]
+            : ["level-up", "machine", "tutor", "egg", "other"],
+        ...(requestedMove
+          ? {
+              requestedMove: { id: requestedMove.id, name: requestedMove.name },
+              learnsMove: matchingRows.length > 0,
+            }
+          : {}),
+        ...(levelMax !== undefined ? { levelMax } : {}),
+        totalMatches: matchingRows.length,
+        returnedMatches: entries.length,
+        entries,
+      },
+      [getPokeApiSource("pokemon", String(species.id), profile)],
+      [
+        "Learnsets come from a generated local PokeAPI snapshot filtered by version group. PRET-backed exact learnset extraction is still planned.",
+      ],
+      profile
+    );
+  }
+
+  if (toolName === "get_encounters") {
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    if (!profile) {
+      return failure(
+        toolName,
+        "AMBIGUOUS_GAME",
+        "A supported game is required for encounter lookup."
+      );
+    }
+
+    const species = args.species !== undefined ? findSpecies(args.species) : undefined;
+    if (args.species !== undefined && !species) {
+      return failure(toolName, "NOT_FOUND", `Unknown species: "${String(args.species ?? "")}".`);
+    }
+    const locationQuery = typeof args.location === "string" ? normalizePhrase(args.location) : "";
+    const method = normalizeEncounterMethod(args.method);
+    const timeOfDay =
+      args.timeOfDay === "morning" || args.timeOfDay === "day" || args.timeOfDay === "night"
+        ? args.timeOfDay
+        : undefined;
+    if (!species && !locationQuery) {
+      return failure(
+        toolName,
+        "INVALID_ARGUMENT",
+        "Provide at least a species or a location for encounter lookup."
+      );
+    }
+
+    const requestedLimit = parseNumber(args.limit) ?? 12;
+    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 100);
+    const matchingRows = getPokemonEncounters().filter(
+      ([speciesId, gameProfile, , locationArea, encounterMethod, , , , conditions]) => {
+        if (gameProfile !== profile) return false;
+        if (species && speciesId !== species.id) return false;
+        if (locationQuery && !normalizePhrase(locationArea).includes(locationQuery)) return false;
+        if (method && encounterMethod !== method) return false;
+        if (timeOfDay && conditions && !conditions.includes(timeOfDay)) return false;
+        return true;
+      }
+    );
+    const sortedRows = matchingRows.slice().sort(
+      (left, right) =>
+        left[3].localeCompare(right[3]) ||
+        left[5] - right[5] ||
+        right[7] - left[7] ||
+        left[0] - right[0]
+    );
+    const entries = sortedRows
+      .slice(0, limit)
+      .map(([speciesId, , locationAreaId, locationArea, encounterMethod, minLevel, maxLevel, chance, conditions]) => {
+        const encounteredSpecies = getSpeciesById(speciesId);
+        return {
+          speciesId,
+          species: encounteredSpecies.name,
+          locationAreaId,
+          location: humanizeSlug(locationArea),
+          locationArea,
+          method: encounterMethod,
+          minLevel,
+          maxLevel,
+          chance,
+          conditions: conditions ? conditions.split(",").filter(Boolean) : [],
+        };
+      });
+    const locationGroups = new Map<
+      string,
+      {
+        location: string;
+        locationArea: string;
+        methods: Set<string>;
+        levelRanges: Set<string>;
+        bestChance: number;
+        species: Set<string>;
+      }
+    >();
+    for (const [speciesId, , , locationArea, encounterMethod, minLevel, maxLevel, chance] of sortedRows) {
+      const location = humanizeSlug(locationArea);
+      const group = locationGroups.get(locationArea) ?? {
+        location,
+        locationArea,
+        methods: new Set<string>(),
+        levelRanges: new Set<string>(),
+        bestChance: 0,
+        species: new Set<string>(),
+      };
+      group.methods.add(encounterMethod);
+      group.levelRanges.add(minLevel === maxLevel ? String(minLevel) : `${minLevel}-${maxLevel}`);
+      group.bestChance = Math.max(group.bestChance, chance);
+      group.species.add(getSpeciesById(speciesId).name);
+      locationGroups.set(locationArea, group);
+    }
+    const locationSummaries = [...locationGroups.values()]
+      .sort(
+        (left, right) =>
+          right.bestChance - left.bestChance || left.location.localeCompare(right.location)
+      )
+      .slice(0, 10)
+      .map((group) => ({
+        location: group.location,
+        locationArea: group.locationArea,
+        methods: [...group.methods].sort(),
+        levelRanges: [...group.levelRanges].sort(),
+        bestChance: group.bestChance,
+        ...(species ? {} : { species: [...group.species].sort().slice(0, 12) }),
+      }));
+    const methodSummary = [...new Set(sortedRows.map((row) => row[4]))].sort();
+    const topLocationNames = locationSummaries.map((entry) => entry.location).slice(0, 6);
+    const summary =
+      entries.length === 0
+        ? "No matching wild encounter rows were found in the local snapshot."
+        : species
+          ? `${species.name} is available in ${profile} at ${topLocationNames.join(", ")}${
+              locationSummaries.length > topLocationNames.length ? ", and more locations" : ""
+            }. Main methods: ${methodSummary.join(", ")}.`
+          : `The local encounter snapshot found ${matchingRows.length} matching encounter rows in ${profile}. Top locations: ${topLocationNames.join(", ")}.`;
+
+    return success(
+      toolName,
+      {
+        summary,
+        game: profile,
+        requestedSpecies: species ? { id: species.id, name: species.name } : null,
+        requestedLocation: typeof args.location === "string" ? args.location : null,
+        requestedMethod: method ?? null,
+        requestedTimeOfDay: timeOfDay ?? null,
+        totalMatches: matchingRows.length,
+        returnedMatches: entries.length,
+        locationSummaries,
+        entries,
+        answerPolicy:
+          "Use summary and locationSummaries first for the answer. Use entries only for exact levels, methods, chances, and conditions. If this is enough to answer the user, answer directly; otherwise call another relevant tool.",
+      },
+      [
+        species
+          ? getPokeApiSource("pokemon", String(species.id), profile)
+          : {
+              kind: "pokeapi",
+              name: "PokeAPI local encounter snapshot",
+              url: "https://pokeapi.co/api/v2/location-area/",
+              scope: profile,
+            },
+      ],
+      [
+        "Encounters come from a generated local PokeAPI snapshot. PRET-backed exact slot tables, encounter rates, and version-specific edge cases are still planned.",
+      ],
+      profile
+    );
+  }
+
+  if (toolName === "get_item") {
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    const references = getItemReferences(args.item, profile);
+    if (references.length === 0) {
+      return failure(toolName, "NOT_FOUND", `Unknown item: "${String(args.item ?? "")}".`);
+    }
+    const entries = references.slice(0, 12).map((reference) => {
+      const description = getItemDescriptionForReference(reference);
+      const flavorText =
+        (profile ? description?.flavorTexts[profile] : undefined) ?? description?.flavorText;
+      return {
+        id: reference.id,
+        name: reference.name,
+        pocket: reference.pocket,
+        slug: description?.slug ?? reference.slug,
+        profiles: reference.profiles,
+        flavorText,
+        effect: description?.shortEffect,
+        source: description?.source ?? "local",
+      };
+    });
+
+    return success(
+      toolName,
+      {
+        query: args.item,
+        game: profile ?? null,
+        totalMatches: references.length,
+        returnedMatches: entries.length,
+        entries,
+      },
+      [
+        entries.some((entry) => entry.source === "pokeapi" && entry.slug)
+          ? getPokeApiSource("item", String(entries.find((entry) => entry.slug)?.slug), profile)
+          : {
+              kind: "local-fallback",
+              name: "Pokemon Emulator Tracker local item table",
+              scope: profile,
+            },
+      ],
+      [
+        "Item metadata is normalized for Gen 1-3 and may not include every game-specific acquisition rule.",
+      ],
+      profile
+    );
+  }
+
+  if (toolName === "get_item_location") {
+    const profile = resolveGameProfile(args.game ?? context?.gameTitle);
+    if (!profile) {
+      return failure(
+        toolName,
+        "AMBIGUOUS_GAME",
+        "A supported game is required for item location lookup."
+      );
+    }
+    const references = getItemReferences(args.item, profile);
+    if (references.length === 0) {
+      return failure(toolName, "NOT_FOUND", `Unknown item: "${String(args.item ?? "")}".`);
+    }
+
+    const itemNames = [...new Set(references.flatMap((reference) => {
+      const description = getItemDescriptionForReference(reference);
+      return [reference.name, ...(description?.names ?? [])].filter(Boolean);
+    }))].slice(0, 8);
+    const canonicalQuery =
+      typeof args.canonicalQuery === "string" && args.canonicalQuery.trim()
+        ? args.canonicalQuery.trim()
+        : `${itemNames[0]} location`;
+    const requestedKnowledgeProfile = GAME_PROFILE_INFO[profile].knowledgeProfile;
+    const requestedCatalog = gameGuideSources.profiles[requestedKnowledgeProfile];
+    const scopeTerms = new Set(
+      tokenizeForSearch(
+        [
+          profile,
+          requestedKnowledgeProfile,
+          requestedCatalog?.game,
+          ...(requestedCatalog?.sources.map((source) => source.title) ?? []),
+        ]
+          .filter(Boolean)
+          .join(" ")
+      )
+    );
+    const retrievalPlan = getGuidanceRetrievalPlan(
+      canonicalQuery,
+      canonicalQuery,
+      itemNames,
+      scopeTerms
+    );
+    const requestedLimit = parseNumber(args.limit) ?? 5;
+    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 8);
+    const inventoryMatches =
+      context?.inventory.filter((entry) =>
+        itemNames.some((name) => normalizeForSearch(entry.name) === normalizeForSearch(name))
+      ) ?? [];
+    if (args.obtainedOnly === true && inventoryMatches.length === 0) {
+      return success(
+        toolName,
+        {
+          item: itemNames[0],
+          game: profile,
+          obtainedOnly: true,
+          inventoryMatches: [],
+          matches: [],
+          answerPolicy:
+            "The active save/live inventory does not contain this item. Do not claim it has been obtained.",
+        },
+        [],
+        ["No inventory match was found in the active context."],
+        profile
+      );
+    }
+
+    const matches = walkthroughIndex.chunks
+      .filter((chunk) => chunk.profiles.includes(requestedKnowledgeProfile))
+      .map((chunk) => {
+        const ranking = scoreSearchableFields(
+          {
+            title: chunk.section.replace(/\([^)]*\)/g, ""),
+            parent: chunk.parentSection,
+            topics: chunk.partTopics.join(" "),
+            body: chunk.text,
+            url: chunk.url,
+          },
+          retrievalPlan,
+          {
+            title: 7,
+            parent: 4,
+            topics: 2,
+            body: 1,
+            url: 2,
+            phrase: 12,
+            exact: 14,
+          }
+        );
+        return {
+          score: ranking.score,
+          retrieval: {
+            matchedTerms: ranking.matchedTerms,
+            matchedPhrases: ranking.matchedPhrases,
+            coverage: ranking.coverage,
+          },
+          game: chunk.games.join(", "),
+          location: chunk.section,
+          description: chunk.text,
+          sourceRefs: [chunk.url],
+          walkthrough: {
+            source: chunk.source,
+            part: chunk.part,
+            section: chunk.section,
+            parentSection: chunk.parentSection,
+            revision: chunk.revision,
+          },
+        };
+      })
+      .filter((entry) => entry.score >= 2 && entry.retrieval.coverage > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, limit)
+      .map(({ score: _score, ...entry }) => entry);
+    const sources = matches
+      .flatMap((entry) =>
+        entry.sourceRefs.map((url) => ({
+          kind: "walkthrough" as const,
+          name: "Reviewed game guide",
+          url,
+          scope: requestedKnowledgeProfile,
+          ...describeSourceUrl(url, "Reviewed game guide"),
+        }))
+      )
+      .filter((source, index, all) => all.findIndex((candidate) => candidate.url === source.url) === index);
+
+    return success(
+      toolName,
+      {
+        item: itemNames[0],
+        aliases: itemNames.slice(1),
+        game: profile,
+        inventoryMatches,
+        matches,
+        answerPolicy:
+          matches.length > 0
+            ? "Use these walkthrough matches first and cite their sources."
+            : "No local walkthrough match was found. The assistant may answer from general model knowledge only if it explicitly says it could not find a local source-backed match.",
+      },
+      sources,
+      [
+        ...(matches.length > 0
+          ? ["Item location guidance comes from reviewed walkthrough text, not yet exact PRET item placement extraction."]
+          : ["No local walkthrough item-location match was found."]),
+      ],
+      profile
+    );
+  }
+
   if (toolName === "search_game_guidance") {
     const query =
       typeof args.query === "string" && args.query.trim()
@@ -1023,7 +2087,10 @@ export function executeChatTool(
           : "";
     if (!query) return failure(toolName, "INVALID_ARGUMENT", "query is required.");
 
-    const requestedProfile = resolveGameProfile(args.game ?? context?.gameTitle);
+    const requestedProfile =
+      resolveGameProfile([args.query, args.canonicalQuery].filter(Boolean).join(" ")) ??
+      resolveGameProfile(args.game) ??
+      resolveGameProfile(context?.gameTitle);
     const knowledgeProfiles = requestedProfile
       ? [GAME_PROFILE_INFO[requestedProfile].knowledgeProfile]
       : Object.values(GAME_PROFILE_INFO).map((entry) => entry.knowledgeProfile);
