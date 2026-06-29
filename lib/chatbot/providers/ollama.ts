@@ -514,16 +514,21 @@ Tool policy:
         if (!isDuplicateToolCall) {
           executedToolSignatures.add(toolSignature);
         }
-        const result = isDuplicateToolCall
+        const result: Record<string, unknown> = isDuplicateToolCall
           ? {
               ok: false,
               error:
+                'Duplicate tool call with identical arguments. Use the previous tool result, change the arguments, or answer the user.',
+              tool: name,
+              sources: [],
+              limitations: [],
+              confidence: 'unresolved',
+              errorDetail: {
+                code: 'DUPLICATE_TOOL_CALL',
+                message:
                   'Duplicate tool call with identical arguments. Use the previous tool result, change the arguments, or answer the user.',
-                errorDetail: {
-                  code: 'DUPLICATE_TOOL_CALL',
-                  tool: name,
-                },
-              }
+              },
+            }
           : gameContext || registry.canExecuteToolWithoutContext(name)
             ? registry.executeChatTool(name, args, gameContext)
             : {
@@ -541,9 +546,10 @@ Tool policy:
           if (sources.length > 0 && this.lastSources.length === 0) {
             this.lastSources = sources;
           }
+          const resultData = this.getToolResultData(result);
           this.lastKnowledgeContext = JSON.stringify({
             tool: name,
-            game: result.game,
+            game: resultData.game,
             gameProfile: result.gameProfile,
             data: result.data,
             sources: result.sources,
@@ -617,14 +623,17 @@ Tool policy:
     onStreamChunk?: (chunk: string) => void,
     onThinkingChunk?: (chunk: string) => void
   ): Promise<string> {
-    const compactResults = successfulToolResults.map(({ tool, result }) => ({
-      tool,
-      game: result.game,
-      gameProfile: result.gameProfile,
-      data: result.data,
-      sources: result.sources,
-      limitations: result.limitations,
-    }));
+    const compactResults = successfulToolResults.map(({ tool, result }) => {
+      const resultData = this.getToolResultData(result);
+      return {
+        tool,
+        game: resultData.game,
+        gameProfile: result.gameProfile,
+        data: result.data,
+        sources: result.sources,
+        limitations: result.limitations,
+      };
+    });
     this.lastKnowledgeContext = JSON.stringify({
       originalQuestion,
       toolResults: compactResults,
@@ -819,10 +828,14 @@ If the retained knowledge is insufficient or unrelated, reply with exactly NEED_
 ${JSON.stringify(compactResult)}`;
   }
 
-  private compactToolResultForModel(result: Record<string, unknown>): Record<string, unknown> {
-    const data = result.data && typeof result.data === 'object'
+  private getToolResultData(result: Record<string, unknown>): Record<string, unknown> {
+    return result.data && typeof result.data === 'object'
       ? (result.data as Record<string, unknown>)
       : {};
+  }
+
+  private compactToolResultForModel(result: Record<string, unknown>): Record<string, unknown> {
+    const data = this.getToolResultData(result);
     const compactData = { ...data };
 
     this.compactArrayFieldForModel(compactData, 'entries', 12);
@@ -833,8 +846,8 @@ ${JSON.stringify(compactResult)}`;
       ok: result.ok,
       tool: result.tool,
       gameProfile: result.gameProfile,
-      summary: result.summary ?? compactData.summary,
-      answerPolicy: result.answerPolicy ?? compactData.answerPolicy,
+      summary: compactData.summary,
+      answerPolicy: compactData.answerPolicy,
       data: compactData,
       limitations: result.limitations,
     }) as Record<string, unknown>;

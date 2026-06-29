@@ -65,6 +65,15 @@ function readGuideEmbeddingVector(predicate: (record: {
   return { model: manifest.model, vector };
 }
 
+function toolData<T extends Record<string, unknown>>(result: {
+  ok?: unknown;
+  data?: unknown;
+}): T {
+  assert.equal(result.ok, true);
+  assert.ok(result.data && typeof result.data === "object", "expected successful tool result to include data");
+  return result.data as T;
+}
+
 test("move reference returns local move data and PokeAPI provenance", async () => {
   const provider = new OllamaProvider();
   const result = await provider.executeTool(
@@ -72,11 +81,13 @@ test("move reference returns local move data and PokeAPI provenance", async () =
     { moveName: "Thunder Punch", game: "Crystal" },
     crystalContext
   );
+  const data = toolData(result);
 
-  assert.equal(result.name, "Thunder Punch");
-  assert.equal(result.type, "electric");
-  assert.equal(result.appliesTo, "crystal");
-  assert.deepEqual(result.source, {
+  assert.equal(data.name, "Thunder Punch");
+  assert.equal(data.type, "electric");
+  assert.equal(data.appliesTo, "crystal");
+  const sources = result.sources as Array<Record<string, unknown>>;
+  assert.deepEqual(sources[0], {
     kind: "pokeapi",
     name: "PokeAPI local snapshot",
     url: "https://pokeapi.co/api/v2/move/thunder-punch",
@@ -102,9 +113,10 @@ test("shared registry exposes reference tools that work without game state", () 
   assert.equal(canExecuteToolWithoutContext("get_inventory_overview"), false);
 
   const result = executeChatTool("get_species", { species: "Bulbasaur" });
+  const data = toolData(result);
   assert.equal(result.ok, true);
-  assert.equal(result.name, "Bulbasaur");
-  assert.deepEqual(result.types, ["grass", "poison"]);
+  assert.equal(data.name, "Bulbasaur");
+  assert.deepEqual(data.types, ["grass", "poison"]);
 });
 
 test("type matchup applies generation-specific rules and dual-type multipliers", () => {
@@ -113,22 +125,22 @@ test("type matchup applies generation-specific rules and dual-type multipliers",
     defenderSpecies: "Alakazam",
     generation: 1,
   });
-  assert.equal(gen1Ghost.multiplier, 0);
+  assert.equal(toolData(gen1Ghost).multiplier, 0);
 
   const electricVsGyarados = executeChatTool("get_type_matchup", {
     move: "Thunderbolt",
     defenderSpecies: "Gyarados",
     game: "Crystal",
   });
-  assert.equal(electricVsGyarados.multiplier, 4);
-  assert.equal(electricVsGyarados.effectiveness, "super-effective");
+  assert.equal(toolData(electricVsGyarados).multiplier, 4);
+  assert.equal(toolData(electricVsGyarados).effectiveness, "super-effective");
 
   const groundVsGen1Magnemite = executeChatTool("get_type_matchup", {
     attackingType: "ground",
     defenderSpecies: "Magnemite",
     game: "Yellow",
   });
-  assert.equal(groundVsGen1Magnemite.multiplier, 2);
+  assert.equal(toolData(groundVsGen1Magnemite).multiplier, 2);
 });
 
 test("evolution lookup uses the local snapshot and respects game generation", () => {
@@ -136,7 +148,8 @@ test("evolution lookup uses the local snapshot and respects game generation", ()
     species: "Golbat",
     game: "Crystal",
   });
-  const evolvesTo = result.evolvesTo as Array<{
+  const data = toolData(result);
+  const evolvesTo = data.evolvesTo as Array<{
     to: string;
     details: Array<{ trigger?: string; summary?: string }>;
   }>;
@@ -165,11 +178,12 @@ test("learnset lookup uses the local snapshot and checks game-specific move avai
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.game, "yellow");
-  assert.equal(result.learnsMove, true);
-  assert.equal((result.requestedMove as { name: string }).name, "Thunderbolt");
+  const data = toolData(result);
+  assert.equal(data.game, "yellow");
+  assert.equal(data.learnsMove, true);
+  assert.equal((data.requestedMove as { name: string }).name, "Thunderbolt");
   assert.ok(
-    (result.entries as Array<{ method: string }>).some(
+    (data.entries as Array<{ method: string }>).some(
       (entry) => entry.method === "level-up" || entry.method === "machine"
     )
   );
@@ -184,9 +198,10 @@ test("learnset lookup filters level-up moves by level and requires a game", () =
   });
 
   assert.equal(result.ok, true);
-  assert.ok((result.entries as Array<{ level?: number }>).length > 0);
+  const data = toolData(result);
+  assert.ok((data.entries as Array<{ level?: number }>).length > 0);
   assert.ok(
-    (result.entries as Array<{ level?: number }>).every(
+    (data.entries as Array<{ level?: number }>).every(
       (entry) => typeof entry.level === "number" && entry.level <= 20
     )
   );
@@ -195,9 +210,8 @@ test("learnset lookup filters level-up moves by level and requires a game", () =
     species: "Pikachu",
     move: "Thunderbolt",
   });
-  const errorDetail = missingGame.errorDetail as { code?: string } | undefined;
   assert.equal(missingGame.ok, false);
-  assert.equal(errorDetail?.code, "AMBIGUOUS_GAME");
+  assert.equal(missingGame.errorDetail.code, "AMBIGUOUS_GAME");
 });
 
 test("item lookup returns local metadata and version-scoped aliases", () => {
@@ -205,14 +219,15 @@ test("item lookup returns local metadata and version-scoped aliases", () => {
     item: "Exp. Share",
     game: "Crystal",
   });
-  const entries = result.entries as Array<{
+  const data = toolData(result);
+  const entries = data.entries as Array<{
     name: string;
     flavorText?: string;
     profiles: string[];
   }>;
 
   assert.equal(result.ok, true);
-  assert.equal(result.game, "crystal");
+  assert.equal(data.game, "crystal");
   assert.ok(entries.some((entry) => entry.name === "Exp. Share"));
   assert.ok(entries.some((entry) => entry.profiles.includes("crystal")));
   assert.ok(entries.some((entry) => /Exp|experience|battle/i.test(entry.flavorText ?? "")));
@@ -225,13 +240,14 @@ test("item location lookup retrieves reviewed walkthrough sections", () => {
     canonicalQuery: "Mach Bike location Pokemon Emerald",
     limit: 3,
   });
-  const matches = result.matches as Array<{
+  const data = toolData(result);
+  const matches = data.matches as Array<{
     description: string;
     sourceRefs: string[];
   }>;
 
   assert.equal(result.ok, true);
-  assert.equal(result.game, "emerald");
+  assert.equal(data.game, "emerald");
   assert.ok(matches.length > 0);
   assert.ok(
     matches.some((match) => /Mach Bike|Bike Shop|Rydel/i.test(match.description))
@@ -246,22 +262,23 @@ test("encounter lookup uses the local snapshot and filters by species, location,
     location: "Route 102",
     method: "walk",
   });
-  const entries = result.entries as Array<{
+  const data = toolData(result);
+  const entries = data.entries as Array<{
     species: string;
     locationArea: string;
     method: string;
     minLevel: number;
     maxLevel: number;
   }>;
-  const locationSummaries = result.locationSummaries as Array<{
+  const locationSummaries = data.locationSummaries as Array<{
     locationArea: string;
     methods: string[];
     levelRanges: string[];
   }>;
 
   assert.equal(result.ok, true);
-  assert.equal(result.game, "emerald");
-  assert.match(String(result.summary), /Ralts.*emerald/i);
+  assert.equal(data.game, "emerald");
+  assert.match(String(data.summary), /Ralts.*emerald/i);
   assert.ok(entries.length > 0);
   assert.ok(entries.every((entry) => entry.species === "Ralts"));
   assert.ok(entries.every((entry) => entry.locationArea.includes("route-102")));
@@ -286,7 +303,7 @@ test("Italian game names in the user query override the loaded save context for 
 
   assert.equal(result.ok, true);
   assert.equal(result.gameProfile, "emerald");
-  assert.equal(result.requestedGame, "emerald");
+  assert.equal(toolData(result).requestedGame, "emerald");
 });
 
 test("state tools fail explicitly without a loaded game", () => {
@@ -304,11 +321,12 @@ test("game guidance search stays scoped to the loaded game and includes sources"
     crystalContext
   );
 
-  assert.equal(result.game, "Pokemon Crystal");
-  assert.ok(Array.isArray(result.matches));
-  assert.ok((result.matches as unknown[]).length > 0);
-  assert.ok(Array.isArray(result.generalGuideSources));
-  assert.ok((result.generalGuideSources as unknown[]).length >= 2);
+  const data = toolData(result);
+  assert.equal(data.game, "Pokemon Crystal");
+  assert.ok(Array.isArray(data.matches));
+  assert.ok((data.matches as unknown[]).length > 0);
+  assert.ok(Array.isArray(data.generalGuideSources));
+  assert.ok((data.generalGuideSources as unknown[]).length >= 2);
 });
 
 test("general guidance works without a save using a clean canonical walkthrough query", () => {
@@ -318,7 +336,8 @@ test("general guidance works without a save using a clean canonical walkthrough 
     keywords: ["Mirage Tower"],
     game: "Pokemon Emerald",
   });
-  const matches = result.matches as Array<{
+  const data = toolData(result);
+  const matches = data.matches as Array<{
     event: string;
     knowledgeProfile: string;
     actionHint?: string;
@@ -328,7 +347,7 @@ test("general guidance works without a save using a clean canonical walkthrough 
   }>;
 
   assert.equal(result.ok, true);
-  assert.equal(result.canonicalQuery, "Mirage Tower Pokemon Emerald walkthrough");
+  assert.equal(data.canonicalQuery, "Mirage Tower Pokemon Emerald walkthrough");
   assert.ok(
     matches.some(
       (match) =>
@@ -381,7 +400,7 @@ test("general guidance can be explicitly scoped without a loaded save", () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.gameProfile, "emerald");
-  assert.deepEqual(result.matchedProfiles, ["emerald-en"]);
+  assert.deepEqual(toolData(result).matchedProfiles, ["emerald-en"]);
 });
 
 test("walkthrough guidance returns the correct Emerald fossil revivals", () => {
@@ -392,7 +411,7 @@ test("walkthrough guidance returns the correct Emerald fossil revivals", () => {
     game: "Pokemon Emerald",
     limit: 8,
   });
-  const matches = result.matches as Array<{
+  const matches = toolData(result).matches as Array<{
     event: string;
     description?: string;
     steps?: string[];
@@ -417,7 +436,7 @@ test("walkthrough guidance for Emerald Rayquaza prioritizes Sky Pillar instead o
     game: "Pokemon Emerald",
     limit: 5,
   });
-  const matches = result.matches as Array<{
+  const matches = toolData(result).matches as Array<{
     event: string;
     description?: string;
     location?: string;
@@ -447,14 +466,15 @@ test("walkthrough guidance uses a provided guide embedding vector in hybrid rank
     _queryEmbedding: vector,
     _embeddingModelName: model,
   });
-  const matches = result.matches as Array<{
+  const data = toolData(result);
+  const matches = data.matches as Array<{
     event: string;
     retrieval?: { embeddingScore?: number; embeddingModel?: string };
   }>;
 
   assert.equal(result.ok, true);
-  assert.equal(result.retrievalMode, "hybrid-lexical-vector");
-  assert.equal(result.embeddingModel, model);
+  assert.equal(data.retrievalMode, "hybrid-lexical-vector");
+  assert.equal(data.embeddingModel, model);
   assert.match(matches[0]?.event ?? "", /Battle 1/);
   assert.equal(matches[0]?.retrieval?.embeddingModel, model);
   assert.ok((matches[0]?.retrieval?.embeddingScore ?? 0) > 0.99);

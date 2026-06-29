@@ -44,11 +44,11 @@ Status labels:
 | Dataset | Current state | Next step |
 | --- | --- | --- |
 | Species names/types/growth | Local TypeScript table; growth source documented as PokeAPI | Add provenance metadata and validate Gen 1-3 completeness. |
-| Moves | Local TypeScript table and PokeAPI descriptions | Add per-game learnsets and move mechanics by generation. |
+| Moves | Local TypeScript table, PokeAPI descriptions, and generated local per-game learnset snapshot for LLM tools | Add stricter PRET-backed learnset parity and move mechanics by generation. |
 | Items | Local TypeScript tables and PokeAPI descriptions | Replace manual Gen 1/2/3 tables with generated files from pret where practical. |
-| Locations | Gen 1 town-map landmarks, generated Gen 2 landmarks, and source-backed Gen 3 Hoenn landmarks | Generate full Gen 3 location/encounter datasets for LLM tools. |
+| Locations | Gen 1 town-map landmarks, generated Gen 2 landmarks, source-backed Gen 3 Hoenn landmarks, and generated local location-area encounter rows for LLM tools | Replace broad generated encounter/location rows with PRET-backed exact slot/rate extraction where practical. |
 | Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, Gen 3 Hoenn overview map, and FireRed/LeafGreen Kanto/Sevii overview maps with marker coordinates | Continue validating edge/event maps with real saves before promoting FireRed/LeafGreen. |
-| Encounters | Not first-class local data | Generate per-game encounter datasets from pret for LLM tools. |
+| Encounters | Generated local PokeAPI encounter snapshot exposed through `get_encounters` for Gen 1-3 LLM questions | Add PRET-backed exact encounter slots, rates, and version-specific edge cases. |
 | Story context | Main-story milestone summary for Gen 1-3; starter choices; Oak Lab; Elm Lab, Mahogany Rocket base, and Radio Tower; Littleroot, Petalburg, Sootopolis crisis, and current Hoenn League run | Expand fine-grained chapter phases only from reviewed variables/scenes or source-proven flag combinations; do not expose all raw vars. |
 | Trainers/gyms | Not first-class local data | Add gym leader/rival/E4 datasets after parser foundations are stable. |
 

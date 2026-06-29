@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import type { GameContextSnapshot } from "../types";
 import { ITEM_DESCRIPTIONS } from "../../pokemon/data/item-descriptions";
 import { MOVE_DESCRIPTIONS } from "../../pokemon/data/move-descriptions";
@@ -21,14 +22,375 @@ export type ChatToolDefinition = {
   };
 };
 
-export type ToolExecutionResult = Record<string, unknown>;
+export type ToolErrorCode =
+  | "INVALID_ARGUMENT"
+  | "NOT_FOUND"
+  | "AMBIGUOUS_GAME"
+  | "UNSUPPORTED_GAME";
 
-type ToolSource = {
+export type KnowledgeToolResult<TData extends Record<string, unknown> = Record<string, unknown>> =
+  | {
+      ok: true;
+      tool: string;
+      gameProfile?: string;
+      data: TData;
+      sources: ToolSource[];
+      limitations: string[];
+      confidence: "source-backed" | "cross-checked";
+    }
+  | {
+      ok: false;
+      tool: string;
+      sources: [];
+      limitations: [];
+      confidence: "unresolved";
+      error: string;
+      errorDetail: {
+        code: ToolErrorCode;
+        message: string;
+      };
+    };
+
+export type ToolExecutionResult = KnowledgeToolResult;
+
+export type ToolSource = {
   kind: "save-state" | "pret" | "pokeapi" | "local-fallback" | "walkthrough";
   name: string;
   url?: string;
   scope?: string;
 };
+
+const toolSourceSchema = z.object({
+  kind: z.enum(["save-state", "pret", "pokeapi", "local-fallback", "walkthrough"]),
+  name: z.string(),
+  url: z.string().optional(),
+  scope: z.string().optional(),
+}).passthrough();
+
+const successfulToolResultSchema = z.object({
+  ok: z.literal(true),
+  tool: z.string(),
+  gameProfile: z.string().optional(),
+  data: z.record(z.unknown()),
+  sources: z.array(toolSourceSchema),
+  limitations: z.array(z.string()),
+  confidence: z.enum(["source-backed", "cross-checked"]),
+});
+
+const failedToolResultSchema = z.object({
+  ok: z.literal(false),
+  tool: z.string(),
+  sources: z.tuple([]),
+  limitations: z.tuple([]),
+  confidence: z.literal("unresolved"),
+  error: z.string(),
+  errorDetail: z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+});
+
+const toolResultSchema = z.discriminatedUnion("ok", [
+  successfulToolResultSchema,
+  failedToolResultSchema,
+]);
+
+const nullableStringSchema = z.string().nullable();
+const speciesRefSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+});
+const namedReferenceSchema = z.object({
+  id: z.number().optional(),
+  name: z.string(),
+}).passthrough();
+const answerPolicySchema = z.string();
+
+const moveToolDataSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  type: z.string(),
+  power: z.number().nullable().optional(),
+  accuracy: z.number().nullable().optional(),
+  pp: z.number(),
+  effect: z.string().optional(),
+  flavorText: z.string().optional(),
+  appliesTo: z.string(),
+}).passthrough();
+
+const speciesToolDataSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  introducedGeneration: z.number(),
+  types: z.array(z.string()),
+  growthRate: z.string(),
+  baseStats: z.record(z.unknown()),
+}).passthrough();
+
+const typeMatchupToolDataSchema = z.object({
+  generation: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  attackingType: z.string(),
+  move: z.string().optional(),
+  defenderSpecies: z.string().optional(),
+  defenderTypes: z.array(z.string()),
+  factors: z.array(z.number()),
+  multiplier: z.number(),
+  effectiveness: z.enum(["immune", "super-effective", "not-very-effective", "neutral"]),
+}).passthrough();
+
+const evolutionToolDataSchema = z.object({
+  species: speciesRefSchema,
+  direction: z.enum(["from", "to", "both"]),
+  evolvesFrom: z.array(z.unknown()),
+  evolvesTo: z.array(z.unknown()),
+}).passthrough();
+
+const learnsetEntrySchema = z.object({
+  moveId: z.number(),
+  move: z.string(),
+  method: z.string(),
+  level: z.number().optional(),
+}).passthrough();
+
+const learnsetToolDataSchema = z.object({
+  species: speciesRefSchema,
+  game: z.string(),
+  methods: z.array(z.string()),
+  requestedMove: namedReferenceSchema.optional(),
+  learnsMove: z.boolean().optional(),
+  levelMax: z.number().optional(),
+  totalMatches: z.number(),
+  returnedMatches: z.number(),
+  entries: z.array(learnsetEntrySchema),
+}).passthrough();
+
+const encounterLocationSummarySchema = z.object({
+  location: z.string(),
+  locationArea: z.string(),
+  methods: z.array(z.string()),
+  levelRanges: z.array(z.string()),
+  bestChance: z.number(),
+  species: z.array(z.string()).optional(),
+}).passthrough();
+
+const encounterEntrySchema = z.object({
+  speciesId: z.number(),
+  species: z.string(),
+  locationAreaId: z.number(),
+  location: z.string(),
+  locationArea: z.string(),
+  method: z.string(),
+  minLevel: z.number(),
+  maxLevel: z.number(),
+  chance: z.number(),
+  conditions: z.array(z.string()),
+}).passthrough();
+
+const encountersToolDataSchema = z.object({
+  summary: z.string(),
+  game: z.string(),
+  requestedSpecies: speciesRefSchema.nullable(),
+  requestedLocation: nullableStringSchema,
+  requestedMethod: nullableStringSchema,
+  requestedTimeOfDay: nullableStringSchema,
+  totalMatches: z.number(),
+  returnedMatches: z.number(),
+  locationSummaries: z.array(encounterLocationSummarySchema),
+  entries: z.array(encounterEntrySchema),
+  answerPolicy: answerPolicySchema,
+}).passthrough();
+
+const itemEntrySchema = z.object({
+  id: z.number().optional(),
+  name: z.string(),
+  pocket: z.string().optional(),
+  slug: z.string().optional(),
+  profiles: z.array(z.string()),
+  flavorText: z.string().optional(),
+  effect: z.string().optional(),
+  source: z.string(),
+}).passthrough();
+
+const itemToolDataSchema = z.object({
+  query: z.unknown(),
+  game: nullableStringSchema,
+  totalMatches: z.number(),
+  returnedMatches: z.number(),
+  entries: z.array(itemEntrySchema),
+}).passthrough();
+
+const guidanceMatchSchema = z.object({
+  retrieval: z.object({
+    matchedTerms: z.array(z.string()).optional(),
+    matchedPhrases: z.array(z.string()).optional(),
+    coverage: z.number().optional(),
+    embeddingScore: z.number().optional(),
+    embeddingModel: z.string().optional(),
+  }).passthrough().optional(),
+  knowledgeProfile: z.string(),
+  game: z.string(),
+  event: z.string(),
+  description: z.string().optional(),
+  actionHint: z.string().optional(),
+  location: z.string().optional(),
+  steps: z.array(z.string()).optional(),
+  prerequisites: z.array(z.string()).optional(),
+  normalMissingReason: z.string().optional(),
+  completionMeaning: z.string().optional(),
+  notCompletedMeaning: z.string().optional(),
+  sourceRefs: z.array(z.string()),
+  audited: z.boolean(),
+  walkthrough: z.object({
+    source: z.string(),
+    part: z.number(),
+    section: z.string(),
+    parentSection: z.string().optional(),
+    revision: z.union([z.string(), z.number()]).optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+const itemLocationToolDataSchema = z.object({
+  item: z.string(),
+  aliases: z.array(z.string()).optional(),
+  game: z.string(),
+  obtainedOnly: z.boolean().optional(),
+  inventoryMatches: z.array(z.unknown()),
+  matches: z.array(z.object({
+    retrieval: z.object({
+      matchedTerms: z.array(z.string()).optional(),
+      matchedPhrases: z.array(z.string()).optional(),
+      coverage: z.number().optional(),
+    }).passthrough().optional(),
+    game: z.string(),
+    location: z.string(),
+    description: z.string(),
+    sourceRefs: z.array(z.string()),
+    walkthrough: z.object({
+      source: z.string(),
+      part: z.number(),
+      section: z.string(),
+      parentSection: z.string().optional(),
+      revision: z.union([z.string(), z.number()]).optional(),
+    }).passthrough(),
+  }).passthrough()),
+  answerPolicy: answerPolicySchema,
+}).passthrough();
+
+const gameGuidanceToolDataSchema = z.object({
+  query: z.string(),
+  canonicalQuery: z.string(),
+  keywords: z.array(z.string()),
+  requestedGame: nullableStringSchema,
+  game: nullableStringSchema,
+  matchedProfiles: z.array(z.string()),
+  matches: z.array(guidanceMatchSchema),
+  generalGuideSources: z.array(z.unknown()),
+  retrievalMode: z.enum(["lexical", "hybrid-lexical-vector"]),
+  embeddingModel: nullableStringSchema,
+  answerPolicy: answerPolicySchema,
+}).passthrough();
+
+const trainerStatusToolDataSchema = z.object({
+  trainerName: z.string().optional(),
+  location: z.string().optional(),
+  money: z.number().optional(),
+  badges: z.array(z.unknown()).optional(),
+  pokedexSeen: z.number().optional(),
+  pokedexOwned: z.number().optional(),
+  gameTitle: z.string().optional(),
+  playtime: z.unknown().optional(),
+}).passthrough();
+
+const partyOverviewToolDataSchema = z.object({
+  count: z.number(),
+  party: z.array(z.object({
+    index: z.number(),
+    name: z.string(),
+    species: z.string().optional(),
+    level: z.number().optional(),
+    hp: z.number().optional(),
+    maxHp: z.number().optional(),
+    types: z.array(z.string()).optional(),
+    status: z.string().optional(),
+  }).passthrough()),
+}).passthrough();
+
+const storyContextToolDataSchema = z.object({
+  facts: z.array(z.unknown()),
+}).passthrough();
+
+const pokedexOverviewToolDataSchema = z.object({
+  gameTitle: z.string().optional(),
+  seen: z.number(),
+  owned: z.number(),
+  completionVsSeenPercent: z.number(),
+}).passthrough();
+
+const pokemonDetailsToolDataSchema = z.object({
+  name: z.string(),
+  species: z.string().optional(),
+  level: z.number().optional(),
+  hp: z.number().optional(),
+  maxHp: z.number().optional(),
+  status: z.string().optional(),
+  types: z.array(z.string()).optional(),
+  ability: z.string().optional(),
+  nature: z.string().optional(),
+  heldItem: z.string().optional(),
+  moves: z.array(z.unknown()).optional(),
+}).passthrough();
+
+const inventoryOverviewToolDataSchema = z.object({
+  query: nullableStringSchema,
+  totalUniqueItems: z.number(),
+  totalItemCount: z.number(),
+  returnedItems: z.number(),
+  items: z.array(z.unknown()),
+}).passthrough();
+
+const pokedexLookupToolDataSchema = z.object({
+  name: z.string(),
+  nationalDexId: z.number(),
+  seen: z.boolean(),
+  caught: z.boolean(),
+}).passthrough();
+
+const toolDataSchemas: Record<string, z.ZodTypeAny> = {
+  get_move: moveToolDataSchema,
+  get_move_reference: moveToolDataSchema,
+  get_species: speciesToolDataSchema,
+  get_type_matchup: typeMatchupToolDataSchema,
+  get_evolution: evolutionToolDataSchema,
+  get_learnset: learnsetToolDataSchema,
+  get_encounters: encountersToolDataSchema,
+  get_item: itemToolDataSchema,
+  get_item_location: itemLocationToolDataSchema,
+  search_game_guidance: gameGuidanceToolDataSchema,
+  get_trainer_status: trainerStatusToolDataSchema,
+  get_party_overview: partyOverviewToolDataSchema,
+  get_story_context: storyContextToolDataSchema,
+  get_pokedex_overview: pokedexOverviewToolDataSchema,
+  get_pokemon_details: pokemonDetailsToolDataSchema,
+  get_inventory_overview: inventoryOverviewToolDataSchema,
+  get_pokedex_lookup: pokedexLookupToolDataSchema,
+};
+
+export type MoveToolData = z.infer<typeof moveToolDataSchema>;
+export type SpeciesToolData = z.infer<typeof speciesToolDataSchema>;
+export type TypeMatchupToolData = z.infer<typeof typeMatchupToolDataSchema>;
+export type EvolutionToolData = z.infer<typeof evolutionToolDataSchema>;
+export type LearnsetToolData = z.infer<typeof learnsetToolDataSchema>;
+export type EncountersToolData = z.infer<typeof encountersToolDataSchema>;
+export type ItemToolData = z.infer<typeof itemToolDataSchema>;
+export type ItemLocationToolData = z.infer<typeof itemLocationToolDataSchema>;
+export type GameGuidanceToolData = z.infer<typeof gameGuidanceToolDataSchema>;
+export type TrainerStatusToolData = z.infer<typeof trainerStatusToolDataSchema>;
+export type PartyOverviewToolData = z.infer<typeof partyOverviewToolDataSchema>;
+export type StoryContextToolData = z.infer<typeof storyContextToolDataSchema>;
+export type PokedexOverviewToolData = z.infer<typeof pokedexOverviewToolDataSchema>;
+export type PokemonDetailsToolData = z.infer<typeof pokemonDetailsToolDataSchema>;
+export type InventoryOverviewToolData = z.infer<typeof inventoryOverviewToolDataSchema>;
+export type PokedexLookupToolData = z.infer<typeof pokedexLookupToolDataSchema>;
 
 type ItemReference = {
   id?: number;
@@ -676,27 +1038,27 @@ function success(
   limitations: string[] = [],
   gameProfile?: GameProfile
 ): ToolExecutionResult {
-  return {
+  const parsedData = (toolDataSchemas[tool] ?? z.record(z.unknown())).parse(data) as Record<
+    string,
+    unknown
+  >;
+  return toolResultSchema.parse({
     ok: true,
     tool,
     ...(gameProfile ? { gameProfile } : {}),
-    data,
+    data: parsedData,
     sources,
     limitations,
     confidence: sources.length > 1 ? "cross-checked" : "source-backed",
-    // Compatibility fields for existing prompts and tests.
-    ...data,
-    ...(sources[0] ? { source: sources[0] } : {}),
-    ...(limitations[0] ? { limitation: limitations[0] } : {}),
-  };
+  }) as ToolExecutionResult;
 }
 
 function failure(
   tool: string,
-  code: "INVALID_ARGUMENT" | "NOT_FOUND" | "AMBIGUOUS_GAME" | "UNSUPPORTED_GAME",
+  code: ToolErrorCode,
   message: string
 ): ToolExecutionResult {
-  return {
+  return toolResultSchema.parse({
     ok: false,
     tool,
     sources: [],
@@ -704,7 +1066,7 @@ function failure(
     confidence: "unresolved",
     error: message,
     errorDetail: { code, message },
-  };
+  }) as ToolExecutionResult;
 }
 
 function decodeUrlSegment(value: string): string {
