@@ -16,7 +16,7 @@ Do not solve factual quality by adding large prompts or by fine-tuning facts int
 
 The chatbot already has:
 
-- local or remote Ollama-compatible endpoint support, with optional Bearer API key;
+- Ollama, OpenRouter, and AI SDK BYOK provider support, with optional request API-key overrides;
 - optional image input and provider-specific thinking controls;
 - current save/live state packed into the conversation;
 - tool calling for selected Pokemon and game-state questions;
@@ -29,6 +29,9 @@ Current implementation entry points:
 ```text
 app/api/chat/route.ts
 lib/chatbot/providers/ollama.ts
+lib/chatbot/providers/openrouter.ts
+lib/chatbot/providers/ai-sdk.ts
+lib/chatbot/providers/shared.ts
 lib/chatbot/tools/registry.ts
 lib/chatbot/context-packer.ts
 components/pokemon/chatbot-panel.tsx
@@ -37,8 +40,11 @@ lib/pokemon/knowledge/
 lib/pokemon/knowledge/sources/game-guide-sources.json
 ```
 
-Tool definitions and handlers now live in `lib/chatbot/tools/registry.ts`. Ollama delegates to
-that registry instead of owning provider-specific implementations. Reference tools can run
+Tool definitions and handlers now live in `lib/chatbot/tools/registry.ts`. Ollama,
+OpenRouter, and AI SDK BYOK use shared provider helpers in
+`lib/chatbot/providers/shared.ts` for prompt policy, tool-loop bookkeeping, result compaction,
+retained knowledge, and source normalization. The provider classes own only their
+transport-specific request, response, streaming, and attachment formats. Reference tools can run
 without a loaded save; state, inventory, Pokédex, and guide-progress tools require game context.
 
 Implemented reference tools:
@@ -56,11 +62,11 @@ Still pending:
 
 - PRET-backed exact game-specific learnset extraction, encounter slots, and item placement;
 - richer audited prerequisite planning inside `get_story_context`;
-- support for non-Ollama provider APIs.
+- additional AI SDK vendor prefixes beyond `anthropic/`, `openai/`, and `google/`.
 
 ## Runtime Setup
 
-Start Ollama and pull the chat and embedding models you want to use:
+For local chat, start Ollama and pull the chat and embedding models you want to use:
 
 ```bash
 ollama pull gemma4:latest
@@ -80,20 +86,47 @@ Conversation history is stored client-side in IndexedDB.
 Optional environment variables:
 
 ```text
+CHAT_PROVIDER=ollama
+CHAT_MAX_TOKENS=-1
+CHAT_TEMPERATURE=0
+CHAT_THINKING=true
+
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma4:latest
 OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest
 OLLAMA_API_KEY=
 OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
-OLLAMA_MAX_TOKENS=-1
-OLLAMA_TEMPERATURE=0
 OLLAMA_ENABLE_TOOLS=true
-OLLAMA_THINKING=true
+
+OPENROUTER_API_KEY=
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=google/gemini-2.5-flash-lite
+
+AI_SDK_API_KEY=
+AI_SDK_MODEL=anthropic/claude-sonnet-4-5
 ```
 
-`OLLAMA_MAX_TOKENS=-1` is passed to Ollama as `num_predict: -1`, which means no
-explicit response cap. Positive numeric values are still accepted when you want a
-hard response cap.
+`CHAT_PROVIDER=ollama` keeps the historical local default. Set
+`CHAT_PROVIDER=openrouter` for hosted deployments with an OpenRouter key, or set
+`CHAT_PROVIDER=ai-sdk` for BYOK requests using native provider keys. The chat settings panel can
+override the provider for a single page session.
+
+`CHAT_MAX_TOKENS=-1` is the shared default response cap. For Ollama it is passed
+as `num_predict: -1`, which means no explicit cap. For OpenRouter and AI SDK,
+`-1` means no explicit `max_tokens` / `maxOutputTokens` field is sent. Positive
+numeric values are still accepted when you want a hard response cap.
+
+`CHAT_TEMPERATURE=0` is the shared default sampling temperature.
+
+`CHAT_THINKING=false` requests no model thinking/reasoning where the selected
+provider supports that control. Ollama receives `think: false`; AI SDK receives
+`reasoning: "none"`. OpenRouter support is model/provider dependent, so the app
+does not send an OpenRouter-specific reasoning control yet.
+
+Provider-specific overrides are still supported and take precedence over the
+shared defaults: `OLLAMA_MAX_TOKENS`, `OPENROUTER_MAX_TOKENS`,
+`AI_SDK_MAX_TOKENS`, `OLLAMA_TEMPERATURE`, `OPENROUTER_TEMPERATURE`,
+`AI_SDK_TEMPERATURE`, `OLLAMA_THINKING`, and `AI_SDK_REASONING`.
 
 `OLLAMA_ENABLE_TOOLS=false` forces prompt-only context mode. If the selected Ollama model
 does not support tool calls, the provider also falls back to compact context mode.
@@ -101,6 +134,17 @@ does not support tool calls, the provider also falls back to compact context mod
 `OLLAMA_API_KEY` is sent as a Bearer token. A key entered in chat settings overrides the
 environment value for that request, remains only in React page state, and is not written to
 IndexedDB or returned by `/api/chat`.
+
+`OPENROUTER_API_KEY` is required when using OpenRouter unless a request key is
+entered in chat settings.
+
+`OPENROUTER_BASE_URL` is a server-side endpoint override. The chat UI does not expose an
+OpenRouter endpoint override; request-side endpoint overrides are limited to Ollama.
+
+`AI_SDK_MODEL` must use `provider/model` format. Supported prefixes are currently
+`anthropic/`, `openai/`, and `google/`; the key in `AI_SDK_API_KEY` or the request API key must
+match that provider. Examples: `anthropic/claude-sonnet-4-5`, `openai/gpt-4.1`, and
+`google/gemini-2.5-flash`.
 
 Runtime endpoint overrides are limited to localhost by default. Enable remote overrides only
 with `OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
@@ -116,16 +160,19 @@ corepack pnpm generate:pokemon-guide-embeddings
 `GET /api/chat` returns non-secret provider status and the effective model name. Streaming
 responses begin with the same metadata.
 
-JPEG, PNG, and WebP image attachments use Ollama's base64 `messages[].images` field and are
-limited to 5 MB in the UI. They are stored in `ChatMessage.attachments`, rendered in chat after
-sending, and included in later multimodal turns. Total image history accepted by the API is
-bounded to 24 MB. Vision depends on the selected model advertising image support; the UI does
-not detect that capability yet.
+JPEG, PNG, and WebP image attachments are limited to 5 MB in the UI. Users can choose a file
+with the image button or paste an image directly into the chat input. Ollama sends them through
+base64 `messages[].images`; OpenRouter sends data URLs through image content blocks; AI SDK sends
+provider-normalized image parts. They are
+stored in `ChatMessage.attachments`, rendered in chat after sending, and included in later
+multimodal turns. Total image history accepted by the API is bounded to 24 MB. Vision depends
+on the selected model advertising image support; the UI does not detect that capability yet.
 
-When enabled, Ollama's separate `message.thinking` stream is stored on the assistant message and
-rendered in a collapsed **Model thinking** section. The **Enable model thinking** checkbox sends
-`think: false` when disabled, so Ollama does not enter thinking mode. `OLLAMA_THINKING=false`
-changes the server default.
+When enabled, Ollama's separate `message.thinking` stream and AI SDK reasoning deltas are stored
+on the assistant message and rendered in a collapsed **Model thinking** section. The **Enable
+model thinking** checkbox sends `think: false` to Ollama or `reasoning: "none"` to AI SDK when
+disabled, so supported providers do not enter thinking/reasoning mode. `OLLAMA_THINKING=false`
+and `AI_SDK_REASONING=false` override the shared `CHAT_THINKING` server default.
 
 Audio notes need a dedicated speech-to-text provider before chat ingestion.
 
@@ -461,8 +508,8 @@ keywords such as "Pokemon League" and "Elite Four", but should not include the
 Elite Four member names or their Pokemon unless the user mentioned them. The
 retriever uses a
 hybrid score when `OLLAMA_EMBEDDING_MODEL` is configured and generated
-walkthrough vectors are present: the Ollama provider embeds the query at runtime,
-then `search_game_guidance` combines vector similarity with field-weighted
+walkthrough vectors are present: the provider embeds the query at runtime when
+an Ollama embedding model is available, then `search_game_guidance` combines vector similarity with field-weighted
 lexical scoring over titles, parent headings, part topics, section body text,
 and exact source URLs. Lexical term weights are derived from corpus frequency, so
 common words naturally contribute less without maintaining language-specific
@@ -785,7 +832,7 @@ large source passages through a tool response.
 
 ### Phase 1: shared reference tools
 
-- consolidate provider tool handling behind one registry; **implemented for Ollama**
+- consolidate provider tool handling behind one registry; **implemented for Ollama, OpenRouter, and AI SDK BYOK**
 - add canonical `gameProfile` and `knowledgeProfile` values to the packed game context;
 - implement species, move, type, and evolution tools; **implemented**
 - add the common result envelope; **implemented**

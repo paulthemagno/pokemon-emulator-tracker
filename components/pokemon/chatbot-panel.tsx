@@ -4,7 +4,7 @@
  * Chatbot UI Component - Floating Bubble + Draggable Chat Window
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ClipboardEvent } from 'react';
 import { useConversation } from '@/hooks/use-conversation';
 import { packGameContext } from '@/lib/chatbot/context-packer';
 import type { SaveData } from '@/lib/pokemon/types';
@@ -58,6 +58,12 @@ const PANEL_DEFAULT_HEIGHT = 700;
 const PANEL_MIN_WIDTH = 360;
 const PANEL_MIN_HEIGHT = 420;
 const PANEL_MAX_WIDTH = 960;
+
+function getImageExtension(mediaType: ChatImageAttachment['mediaType']): string {
+  if (mediaType === 'image/jpeg') return 'jpg';
+  if (mediaType === 'image/webp') return 'webp';
+  return 'png';
+}
 
 function clampPanelSize(size: FloatingSize): FloatingSize {
   if (typeof window === 'undefined') {
@@ -226,10 +232,10 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
   const [showSettings, setShowSettings] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [runtimeConfig, setRuntimeConfig] = useState<ChatRuntimeConfig>({
+    provider: undefined,
     endpoint: '',
     modelName: '',
     apiKey: '',
-    thinking: true,
   });
   const [imageAttachment, setImageAttachment] = useState<ChatImageAttachment | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -391,13 +397,31 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
       reader.readAsDataURL(file);
     });
 
+    const mediaType = file.type as ChatImageAttachment['mediaType'];
     setImageAttachment({
       kind: 'image',
-      name: file.name,
-      mediaType: file.type as ChatImageAttachment['mediaType'],
+      name: file.name || `pasted-image.${getImageExtension(mediaType)}`,
+      mediaType,
       data: dataUrl.slice(dataUrl.indexOf(',') + 1),
     });
     conversation.setError(null);
+  };
+
+  const handleInputPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const imageFile =
+      Array.from(event.clipboardData.items)
+        .find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        ?.getAsFile() ||
+      Array.from(event.clipboardData.files).find((file) =>
+        file.type.startsWith('image/')
+      );
+
+    if (!imageFile) {
+      return;
+    }
+
+    event.preventDefault();
+    void handleImageSelection(imageFile);
   };
 
   // Update game context when gameData changes
@@ -483,7 +507,11 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           stream: true,
           attachments: pendingAttachment ? [pendingAttachment] : [],
           runtimeConfig: {
-            endpoint: runtimeConfig.endpoint?.trim() || undefined,
+            provider: runtimeConfig.provider,
+            endpoint:
+              runtimeConfig.provider === 'openrouter' || runtimeConfig.provider === 'ai-sdk'
+                ? undefined
+                : runtimeConfig.endpoint?.trim() || undefined,
             modelName: runtimeConfig.modelName?.trim() || undefined,
             apiKey: runtimeConfig.apiKey?.trim() || undefined,
             thinking: runtimeConfig.thinking,
@@ -610,6 +638,8 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       conversation.setError(errorMessage);
+      setStreamingMessage('');
+      setStreamingThinking('');
       console.error('Chat error:', error);
     } finally {
       conversation.setIsLoading(false);
@@ -698,7 +728,9 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
               {providerReady ? 'ONLINE' : 'OFFLINE'}
             </span>
             <span className="max-w-48 truncate text-xs text-blue-100">
-              {providerInfo?.modelName || runtimeConfig.modelName || 'model unknown'}
+              {providerInfo
+                ? `${providerInfo.provider}: ${providerInfo.modelName}`
+                : runtimeConfig.modelName || 'model unknown'}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -741,12 +773,38 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
         {/* Status */}
         {!providerReady && (
           <div className="border-b bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
-            Ollama is not connected. Run the app locally, start Ollama at http://127.0.0.1:11434, and load a save or live session.
+            Chat provider is not connected. Start local Ollama, configure OpenRouter, or select AI SDK / BYOK and enter a provider/model plus matching API key.
           </div>
         )}
 
         {showSettings && (
           <div className="space-y-3 border-b bg-slate-50 px-4 py-3 text-xs dark:bg-slate-900">
+            <div>
+              <label className="mb-1 block font-medium" htmlFor="chat-provider">
+                Provider override
+              </label>
+              <select
+                id="chat-provider"
+                value={runtimeConfig.provider || ''}
+                onChange={(event) =>
+                  setRuntimeConfig((current) => ({
+                    ...current,
+                    provider:
+                      event.target.value === 'ollama' ||
+                      event.target.value === 'openrouter' ||
+                      event.target.value === 'ai-sdk'
+                        ? event.target.value
+                        : undefined,
+                  }))
+                }
+                className="h-8 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              >
+                <option value="">Server default</option>
+                <option value="ollama">Ollama</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="ai-sdk">AI SDK / BYOK</option>
+              </select>
+            </div>
             <div>
               <label className="mb-1 block font-medium" htmlFor="chat-model">
                 Model override
@@ -760,27 +818,41 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                     modelName: event.target.value,
                   }))
                 }
-                placeholder={providerInfo?.modelName || 'Uses OLLAMA_MODEL'}
-                className="h-8"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block font-medium" htmlFor="chat-endpoint">
-                Ollama endpoint override
-              </label>
-              <Input
-                id="chat-endpoint"
-                value={runtimeConfig.endpoint}
-                onChange={(event) =>
-                  setRuntimeConfig((current) => ({
-                    ...current,
-                    endpoint: event.target.value,
-                  }))
+                placeholder={
+                  providerInfo?.modelName ||
+                  (runtimeConfig.provider === 'openrouter'
+                    ? 'Uses OPENROUTER_MODEL'
+                    : runtimeConfig.provider === 'ai-sdk'
+                      ? 'anthropic/claude-sonnet-4-5'
+                      : 'Uses OLLAMA_MODEL')
                 }
-                placeholder={providerInfo?.endpoint || 'Uses OLLAMA_ENDPOINT'}
                 className="h-8"
               />
+              {runtimeConfig.provider === 'ai-sdk' && (
+                <p className="mt-1 text-slate-500 dark:text-slate-400">
+                  Use provider/model, for example anthropic/claude-sonnet-4-5, openai/gpt-4.1, or google/gemini-2.5-flash.
+                </p>
+              )}
             </div>
+            {runtimeConfig.provider !== 'openrouter' && runtimeConfig.provider !== 'ai-sdk' && (
+              <div>
+                <label className="mb-1 block font-medium" htmlFor="chat-endpoint">
+                  Ollama endpoint override
+                </label>
+                <Input
+                  id="chat-endpoint"
+                  value={runtimeConfig.endpoint}
+                  onChange={(event) =>
+                    setRuntimeConfig((current) => ({
+                      ...current,
+                      endpoint: event.target.value,
+                    }))
+                  }
+                  placeholder={providerInfo?.endpoint || 'Uses OLLAMA_ENDPOINT'}
+                  className="h-8"
+                />
+              </div>
+            )}
             <div>
               <label className="mb-1 block font-medium" htmlFor="chat-api-key">
                 API key override
@@ -799,7 +871,11 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                   placeholder={
                     providerInfo?.credentialSource === 'environment'
                       ? 'Environment secret is configured'
-                      : 'Optional Bearer token'
+                      : runtimeConfig.provider === 'openrouter'
+                        ? 'Optional OpenRouter API key'
+                        : runtimeConfig.provider === 'ai-sdk'
+                          ? 'Provider API key matching provider/model'
+                          : 'Optional Bearer token'
                   }
                   autoComplete="off"
                   className="h-8"
@@ -820,12 +896,13 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
               <span>
                 <span className="block font-medium">Enable model thinking</span>
                 <span className="text-slate-500 dark:text-slate-400">
-                  Off sends think: false, so Ollama skips thinking mode entirely.
+                  Uses the server default until changed. Off sends think: false to Ollama and reasoning: none to AI SDK.
                 </span>
               </span>
               <input
                 type="checkbox"
-                checked={runtimeConfig.thinking}
+                checked={runtimeConfig.thinking ?? true}
+                disabled={runtimeConfig.provider === 'openrouter'}
                 onChange={(event) =>
                   setRuntimeConfig((current) => ({
                     ...current,
@@ -1067,6 +1144,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onPaste={handleInputPaste}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Inspect Pokemon save files, follow mGBA live memory, and query the current run with a local LLM.</strong>
+  <strong>Inspect Pokemon save files, follow mGBA live memory, and query the current run with a tool-backed LLM.</strong>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Save%20Upload-Gen%201--3-4caf50?style=flat-square" alt="Save upload supports Gen 1 to 3" />
   <img src="https://img.shields.io/badge/mGBA%20Live-Local%20Only-1f6feb?style=flat-square" alt="mGBA live is local only" />
-  <img src="https://img.shields.io/badge/Ollama-Optional%20Local%20LLM-f97316?style=flat-square" alt="Ollama is optional and local" />
+  <img src="https://img.shields.io/badge/Ollama%20%2F%20OpenRouter%20%2F%20BYOK-Optional%20LLM-f97316?style=flat-square" alt="Ollama, OpenRouter, and BYOK are optional LLM providers" />
   <img src="https://img.shields.io/badge/Games-RBY%20GSC%20RSE%20FRLG-a855f7?style=flat-square" alt="Supported games include RBY GSC RSE and FRLG" />
 </p>
 
@@ -40,7 +40,7 @@ It supports two main workflows:
 - **Save files:** upload `.sav`, `.srm`, `.sa1`, `.sa2`, `.sn1`, or `.sn2` files and inspect the run.
 - **Live emulator tracking:** connect mGBA through a local Lua adapter and watch the dashboard update while the game is running.
 
-An optional local Ollama assistant can answer questions about the currently loaded save or live session.
+An optional Ollama, OpenRouter, or BYOK assistant can answer questions about the currently loaded save or live session.
 
 ## Contents
 
@@ -78,7 +78,7 @@ http://localhost:3000
 
 You can also try the hosted UI: [pokemon-emulator-tracker.vercel.app](https://pokemon-emulator-tracker.vercel.app/).
 
-The hosted demo supports save upload and UI browsing. Live mGBA mode and Ollama stay local-only because Vercel cannot reach services running on your machine.
+The hosted demo supports save upload and UI browsing. Live mGBA mode and local Ollama stay local-only because Vercel cannot reach services running on your machine. Hosted chat can use OpenRouter or AI SDK BYOK when an API key is configured or entered for the session.
 
 <details>
 <summary>Install and LAN notes</summary>
@@ -164,9 +164,9 @@ If you change a Lua script or any file under `live-adapters/generated/`, reload 
 
 More details and debug endpoints: [live-adapters/README.md](live-adapters/README.md).
 
-## Local LLM Assistant
+## LLM Assistant
 
-The chat assistant is optional. It uses local Ollama and receives a compact context from the current save/live session: trainer, party, inventory, badges, location, Pokédex progress, and related local knowledge.
+The chat assistant is optional. It can use local Ollama, OpenRouter, or AI SDK BYOK and receives a compact context from the current save/live session: trainer, party, inventory, badges, location, Pokédex progress, and related local knowledge.
 
 <p align="center">
   <img src="public/demo/llm-chat.gif" width="640" alt="Pokemon Emulator Tracker local LLM assistant demo" />
@@ -193,7 +193,7 @@ corepack pnpm dev
 
 5. Load a save or start live mode, then open **Chat AI**.
 
-If the selected Ollama model does not support tool calls, the app falls back to prompt/context mode.
+If the selected Ollama model does not support tool calls, the app falls back to prompt/context mode. OpenRouter and AI SDK BYOK use the same tool registry through provider tool-calling APIs.
 
 <details>
 <summary>LLM configuration</summary>
@@ -201,22 +201,44 @@ If the selected Ollama model does not support tool calls, the app falls back to 
 Optional environment variables:
 
 ```bash
+CHAT_PROVIDER=ollama
+CHAT_MAX_TOKENS=-1
+CHAT_TEMPERATURE=0
+CHAT_THINKING=true
+
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma4:latest
 OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest
 OLLAMA_API_KEY=
 OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
-OLLAMA_MAX_TOKENS=2048
-OLLAMA_TEMPERATURE=0.7
 OLLAMA_ENABLE_TOOLS=true
-OLLAMA_THINKING=true
+
+OPENROUTER_API_KEY=
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=google/gemini-2.5-flash-lite
+
+AI_SDK_API_KEY=
+AI_SDK_MODEL=anthropic/claude-sonnet-4-5
 ```
 
-The chat header shows the effective model. Its settings panel can override the
-model, a local endpoint, and an optional Bearer API key for the current page
-session. Blank fields use the server environment values, and request API keys are
-not stored in conversation history. Remote endpoint overrides require
-`OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
+`CHAT_PROVIDER` selects the server default provider. The chat settings panel can
+override the provider, model, Ollama endpoint, and request API key for the
+current page session. Blank fields use the server environment values, and
+request API keys are not stored in conversation history. Remote Ollama endpoint
+overrides require `OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
+
+`CHAT_MAX_TOKENS` and `CHAT_TEMPERATURE` are shared defaults for all chat
+providers. `CHAT_THINKING` is the shared thinking/reasoning default for
+providers that expose a compatible control. Provider-specific overrides are
+still supported when you need them: `OLLAMA_MAX_TOKENS`,
+`OPENROUTER_MAX_TOKENS`, `AI_SDK_MAX_TOKENS`, `OLLAMA_TEMPERATURE`,
+`OPENROUTER_TEMPERATURE`, `AI_SDK_TEMPERATURE`, `OLLAMA_THINKING`, and
+`AI_SDK_REASONING`.
+
+`CHAT_PROVIDER=ai-sdk` enables BYOK routing through Vercel AI SDK. Enter a model
+as `provider/model`, for example `anthropic/claude-sonnet-4-5`,
+`openai/gpt-4.1`, or `google/gemini-2.5-flash`. The API key must match the
+provider prefix.
 
 `OLLAMA_EMBEDDING_MODEL` selects the Ollama embedding model used by guide RAG
 generation and runtime vector retrieval. It has no hidden default; set it before
@@ -227,12 +249,15 @@ so document and query vectors are produced by the same model:
 corepack pnpm generate:pokemon-guide-embeddings
 ```
 
-JPEG, PNG, and WebP attachments work with vision-capable Ollama models. Audio
-notes require a separate speech-to-text step and are not accepted yet.
+JPEG, PNG, and WebP attachments work with vision-capable Ollama, OpenRouter, or AI SDK
+models. Add them with the image button or paste an image directly into the chat input.
+Audio notes require a separate speech-to-text step and are not accepted yet.
 Attached images are rendered in the chat and stored with the client-side
-conversation. Models that support Ollama thinking can stream it into a
-collapsible panel. Disable **Model thinking** in chat settings, or set
-`OLLAMA_THINKING=false`, to request only the final answer.
+conversation. Models that expose Ollama thinking or AI SDK reasoning can stream
+it into a collapsible panel. Disable **Model thinking** in chat settings, set
+`CHAT_THINKING=false`, `OLLAMA_THINKING=false`, or `AI_SDK_REASONING=false` to
+request only the final answer where the selected provider supports disabling
+reasoning.
 
 </details>
 
