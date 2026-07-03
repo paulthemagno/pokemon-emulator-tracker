@@ -144,6 +144,9 @@ separately from final answer text. Images render as data URLs and are resent in
 multimodal history, subject to API size limits. Streaming NDJSON uses distinct
 `chunk` and `thinking` records. The UI renders thinking in a collapsible section
 and can send Ollama `think: false` or AI SDK `reasoning: "none"` per request.
+The assistant UI is a right-side drawer on desktop and a bottom sheet on smaller
+screens; desktop open state applies page padding so the dashboard remains visible
+instead of being covered by a floating window.
 
 Event categories are individually collapsible and use stable emoji labels. Progress filters (`Not completed`, `Completed`, `Everything`) are visually separate from dataset filters (`Key events`, `All save states`). `Key events` must exclude optional legendary encounters, one-off rewards, map-object state, and repeatable/session flags even when their source symbols contain a major character or location name.
 The event panel displays a section-local refinement warning because flag interpretation, categorization, and generated player-facing descriptions are still being audited across supported games.

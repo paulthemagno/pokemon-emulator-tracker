@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Chatbot UI Component - Floating Bubble + Draggable Chat Window
+ * Chatbot UI Component - Right-side assistant drawer
  */
 
 import { useState, useRef, useEffect, type ClipboardEvent } from 'react';
@@ -17,10 +17,14 @@ import {
   Eye,
   EyeOff,
   Brain,
+  Bot,
   ExternalLink,
   ImagePlus,
-  MessageSquare,
+  Maximize2,
+  Minimize2,
+  SendHorizontal,
   Settings,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -34,30 +38,25 @@ import type {
 
 interface ChatbotPanelProps {
   isOpen: boolean;
-  onOpen: () => void;
   onClose: () => void;
+  width?: number;
+  onWidthChange?: (width: number) => void;
   gameData?: SaveData | null;
 }
 
-type FloatingPosition = {
-  x: number;
-  y: number;
-};
+const PANEL_DEFAULT_WIDTH = 440;
+const PANEL_WIDE_WIDTH = 640;
+const PANEL_MIN_WIDTH = 380;
+const PANEL_MAX_WIDTH = 720;
 
-type FloatingSize = {
-  width: number;
-  height: number;
-};
-
-type DragTarget = 'bubble' | 'panel' | 'resize' | null;
-
-const BUBBLE_SIZE = 56;
-const SCREEN_MARGIN = 16;
-const PANEL_DEFAULT_WIDTH = 600;
-const PANEL_DEFAULT_HEIGHT = 700;
-const PANEL_MIN_WIDTH = 360;
-const PANEL_MIN_HEIGHT = 420;
-const PANEL_MAX_WIDTH = 960;
+const SUGGESTED_PROMPTS = [
+  'Where can I catch Wailmer in Pokemon Emerald?',
+  'How do I clear Mirage Tower in Pokemon Emerald?',
+  'Which Pokemon in my current party needs the most help?',
+  'How do I wake Snorlax in Pokemon Crystal?',
+  'What moves can Gardevoir learn in Pokemon Emerald?',
+  'Where do I get the Clear Bell in Pokemon Crystal?',
+];
 
 function getImageExtension(mediaType: ChatImageAttachment['mediaType']): string {
   if (mediaType === 'image/jpeg') return 'jpg';
@@ -65,28 +64,15 @@ function getImageExtension(mediaType: ChatImageAttachment['mediaType']): string 
   return 'png';
 }
 
-function clampPanelSize(size: FloatingSize): FloatingSize {
+function clampPanelWidth(width: number): number {
   if (typeof window === 'undefined') {
-    return size;
+    return Math.min(Math.max(width, PANEL_MIN_WIDTH), PANEL_MAX_WIDTH);
   }
 
-  return {
-    width: Math.min(
-      Math.max(size.width, PANEL_MIN_WIDTH),
-      Math.min(PANEL_MAX_WIDTH, window.innerWidth - SCREEN_MARGIN * 2)
-    ),
-    height: Math.min(
-      Math.max(size.height, PANEL_MIN_HEIGHT),
-      window.innerHeight - SCREEN_MARGIN * 2
-    ),
-  };
-}
-
-function getDefaultPanelSize(): FloatingSize {
-  return clampPanelSize({
-    width: PANEL_DEFAULT_WIDTH,
-    height: Math.floor(typeof window === 'undefined' ? PANEL_DEFAULT_HEIGHT : window.innerHeight * 0.8),
-  });
+  return Math.min(
+    Math.max(width, PANEL_MIN_WIDTH),
+    Math.min(PANEL_MAX_WIDTH, window.innerWidth - 32)
+  );
 }
 
 function safeDecodeUrlText(value: string): string {
@@ -163,65 +149,39 @@ function getSourceDisplay(source: ChatSource, index: number) {
   };
 }
 
-function clampBubblePosition(position: FloatingPosition): FloatingPosition {
-  if (typeof window === 'undefined') {
-    return position;
-  }
-
-  return {
-    x: Math.min(
-      Math.max(position.x, SCREEN_MARGIN),
-      window.innerWidth - BUBBLE_SIZE - SCREEN_MARGIN
-    ),
-    y: Math.min(
-      Math.max(position.y, SCREEN_MARGIN),
-      window.innerHeight - BUBBLE_SIZE - SCREEN_MARGIN
-    ),
-  };
+function getProviderLabel(provider?: ChatRuntimeConfig['provider']): string {
+  if (provider === 'openrouter') return 'OpenRouter';
+  if (provider === 'ai-sdk') return 'AI SDK / BYOK';
+  if (provider === 'ollama') return 'Ollama';
+  return '.env/app config';
 }
 
-function clampPanelPosition(position: FloatingPosition, size: FloatingSize): FloatingPosition {
-  if (typeof window === 'undefined') {
-    return position;
-  }
-
-  return {
-    x: Math.min(
-      Math.max(position.x, SCREEN_MARGIN),
-      window.innerWidth - size.width - SCREEN_MARGIN
-    ),
-    y: Math.min(
-      Math.max(position.y, SCREEN_MARGIN),
-      window.innerHeight - size.height - SCREEN_MARGIN
-    ),
-  };
+function getProviderTone(provider?: string): string {
+  const normalized = provider?.toLowerCase() ?? '';
+  if (normalized.includes('ollama')) return 'from-orange-500/15 to-amber-500/10 text-orange-700 dark:text-orange-200';
+  if (normalized.includes('openrouter')) return 'from-violet-500/15 to-fuchsia-500/10 text-violet-700 dark:text-violet-200';
+  if (normalized.includes('ai sdk')) return 'from-sky-500/15 to-cyan-500/10 text-sky-700 dark:text-sky-200';
+  return 'from-blue-500/15 to-cyan-500/10 text-blue-700 dark:text-blue-200';
 }
 
-function getDefaultBubblePosition(): FloatingPosition {
-  if (typeof window === 'undefined') {
-    return { x: 0, y: 0 };
-  }
-
-  return {
-    x: window.innerWidth - BUBBLE_SIZE - SCREEN_MARGIN,
-    y: window.innerHeight - BUBBLE_SIZE - SCREEN_MARGIN,
-  };
+function providerInfoMatchesSelection(
+  info: ChatProviderInfo | null,
+  provider?: ChatRuntimeConfig['provider']
+): boolean {
+  if (!info || !provider) return Boolean(info);
+  const label = info.provider.toLowerCase();
+  if (provider === 'ollama') return label.includes('ollama');
+  if (provider === 'openrouter') return label.includes('openrouter');
+  return label.includes('ai sdk');
 }
 
-function getDefaultPanelPosition(): FloatingPosition {
-  if (typeof window === 'undefined') {
-    return { x: 0, y: 0 };
-  }
-
-  const panelSize = getDefaultPanelSize();
-
-  return {
-    x: window.innerWidth - panelSize.width - SCREEN_MARGIN,
-    y: Math.max(SCREEN_MARGIN, window.innerHeight - panelSize.height - 80),
-  };
-}
-
-export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanelProps) {
+export function ChatbotPanel({
+  isOpen,
+  onClose,
+  width = PANEL_DEFAULT_WIDTH,
+  onWidthChange,
+  gameData,
+}: ChatbotPanelProps) {
   const conversation = useConversation({ autoSave: true });
   const [inputValue, setInputValue] = useState('');
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -239,92 +199,41 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
   });
   const [imageAttachment, setImageAttachment] = useState<ChatImageAttachment | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [bubblePosition, setBubblePosition] = useState<FloatingPosition>({ x: 0, y: 0 });
-  const [panelPosition, setPanelPosition] = useState<FloatingPosition>({ x: 0, y: 0 });
-  const [panelSize, setPanelSize] = useState<FloatingSize>({
-    width: PANEL_DEFAULT_WIDTH,
-    height: PANEL_DEFAULT_HEIGHT,
-  });
   const dragStateRef = useRef<{
-    target: DragTarget;
     pointerId: number | null;
-    offsetX: number;
-    offsetY: number;
     startX: number;
-    startY: number;
     startWidth: number;
-    startHeight: number;
   }>({
-    target: null,
     pointerId: null,
-    offsetX: 0,
-    offsetY: 0,
     startX: 0,
-    startY: 0,
-    startWidth: PANEL_DEFAULT_WIDTH,
-    startHeight: PANEL_DEFAULT_HEIGHT,
+    startWidth: width,
   });
-  const dragMovedRef = useRef(false);
-  const suppressBubbleClickRef = useRef(false);
-  const isStreaming =
-    conversation.isLoading ||
-    streamingMessage.length > 0 ||
-    streamingThinking.length > 0;
-
-  useEffect(() => {
-    const defaultPanelSize = getDefaultPanelSize();
-    const bubbleDefault = getDefaultBubblePosition();
-    const panelDefault = getDefaultPanelPosition();
-
-    setBubblePosition(clampBubblePosition(bubbleDefault));
-    setPanelSize(defaultPanelSize);
-    setPanelPosition(clampPanelPosition(panelDefault, defaultPanelSize));
-
-    const handleResize = () => {
-      setBubblePosition((current) => clampBubblePosition(current));
-      setPanelSize((current) => {
-        const nextSize = clampPanelSize(current);
-        setPanelPosition((currentPosition) => clampPanelPosition(currentPosition, nextSize));
-        return nextSize;
-      });
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const selectedProviderInfo = providerInfoMatchesSelection(providerInfo, runtimeConfig.provider)
+    ? providerInfo
+    : null;
+  const effectiveProviderName = runtimeConfig.provider
+    ? getProviderLabel(runtimeConfig.provider)
+    : selectedProviderInfo?.provider ?? '.env/app configured provider';
+  const modelOverride = runtimeConfig.modelName?.trim();
+  const effectiveModelName =
+    modelOverride ||
+    selectedProviderInfo?.modelName ||
+    'Resolving configured model...';
+  const modelSource = modelOverride
+    ? 'temporary model override'
+    : selectedProviderInfo
+      ? 'model from .env/app config'
+      : 'checking .env/app config';
+  const providerTone = getProviderTone(effectiveProviderName);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
       const dragState = dragStateRef.current;
-      if (!dragState.target || dragState.pointerId !== event.pointerId) {
+      if (dragState.pointerId !== event.pointerId) {
         return;
       }
 
-      if (dragState.target === 'resize') {
-        const nextSize = clampPanelSize({
-          width: dragState.startWidth + (event.clientX - dragState.startX),
-          height: dragState.startHeight + (event.clientY - dragState.startY),
-        });
-
-        dragMovedRef.current = true;
-        setPanelSize(nextSize);
-        setPanelPosition((current) => clampPanelPosition(current, nextSize));
-        return;
-      }
-
-      const nextPosition = {
-        x: event.clientX - dragState.offsetX,
-        y: event.clientY - dragState.offsetY,
-      };
-
-      dragMovedRef.current = true;
-
-      if (dragState.target === 'bubble') {
-        setBubblePosition(clampBubblePosition(nextPosition));
-        return;
-      }
-
-      setPanelPosition(clampPanelPosition(nextPosition, panelSize));
+      onWidthChange?.(clampPanelWidth(dragState.startWidth - (event.clientX - dragState.startX)));
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -332,21 +241,11 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
         return;
       }
 
-      if (dragStateRef.current.target === 'bubble' && dragMovedRef.current) {
-        suppressBubbleClickRef.current = true;
-      }
-
       dragStateRef.current = {
-        target: null,
         pointerId: null,
-        offsetX: 0,
-        offsetY: 0,
         startX: 0,
-        startY: 0,
-        startWidth: panelSize.width,
-        startHeight: panelSize.height,
+        startWidth: width,
       };
-      dragMovedRef.current = false;
     };
 
     window.addEventListener('pointermove', handlePointerMove);
@@ -358,25 +257,46 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
     };
-  }, [panelSize]);
+  }, [onWidthChange, width]);
 
-  // Check provider status on mount
+  // Check provider status/model whenever the visible provider changes.
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const abortController = new AbortController();
+
     const checkProvider = async () => {
       try {
-        const response = await fetch('/api/chat');
+        setProviderInfo(null);
+        setProviderReady(false);
+        const params = new URLSearchParams();
+        if (runtimeConfig.provider) {
+          params.set('provider', runtimeConfig.provider);
+        }
+        const response = await fetch(
+          params.size > 0 ? `/api/chat?${params.toString()}` : '/api/chat',
+          { signal: abortController.signal }
+        );
         const info = (await response.json()) as ChatProviderInfo;
+        if (abortController.signal.aborted) {
+          return;
+        }
         setProviderInfo(info);
         setProviderReady(response.ok && info.ready);
-      } catch {
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return;
+        }
         setProviderReady(false);
       }
     };
 
-    if (isOpen) {
-      checkProvider();
-    }
-  }, [isOpen]);
+    checkProvider();
+
+    return () => abortController.abort();
+  }, [isOpen, runtimeConfig.provider]);
 
   const handleImageSelection = async (file?: File) => {
     if (!file) return;
@@ -646,126 +566,114 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
     }
   };
 
-  const startDrag = (target: DragTarget, event: React.PointerEvent<HTMLElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    dragMovedRef.current = false;
-
+  const startResize = (event: React.PointerEvent<HTMLElement>) => {
     dragStateRef.current = {
-      target,
       pointerId: event.pointerId,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
       startX: event.clientX,
-      startY: event.clientY,
-      startWidth: panelSize.width,
-      startHeight: panelSize.height,
+      startWidth: width,
     };
 
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const stopHeaderActionPointer = (event: React.PointerEvent<HTMLElement>) => {
-    event.stopPropagation();
-  };
-
-  const handleBubbleClick = () => {
-    if (suppressBubbleClickRef.current) {
-      suppressBubbleClickRef.current = false;
-      return;
-    }
-
-    onOpen();
-  };
-
-  // Floating bubble when closed
-  if (!isOpen) {
-    return (
-      <button
-        onClick={handleBubbleClick}
-        onPointerDown={(event) => startDrag('bubble', event)}
-        style={{ left: bubblePosition.x, top: bubblePosition.y }}
-        className={`fixed z-40 h-14 w-14 rounded-full bg-blue-500 text-white shadow-lg transition-all flex items-center justify-center hover:bg-blue-600 hover:shadow-xl touch-none ${
-          isStreaming ? 'animate-pulse' : ''
-        }`}
-        title="Open Pokémon Assistant"
-      >
-        <MessageSquare className="h-6 w-6" />
-        <span
-          className={`absolute -top-1 -right-1 h-4 min-w-4 rounded-full px-1 text-[10px] leading-4 font-semibold text-white ${
-            providerReady ? 'bg-emerald-500' : 'bg-amber-500'
-          }`}
-        >
-          {providerReady ? 'on' : '!'}
-        </span>
-      </button>
-    );
-  }
-
   return (
-    <div className="pointer-events-none fixed inset-0 z-50">
+    <>
+      <div
+        className={`fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 lg:inset-y-0 lg:left-auto ${
+          isOpen ? 'translate-y-0 lg:translate-x-0' : 'translate-y-full lg:translate-x-full lg:translate-y-0'
+        }`}
+        style={{ width: typeof window === 'undefined' ? width : undefined }}
+      >
       <Card
         style={{
-          left: panelPosition.x,
-          top: panelPosition.y,
-          width: panelSize.width,
-          height: panelSize.height,
+          width: `min(100vw, ${clampPanelWidth(width)}px)`,
         }}
-        className="pointer-events-auto fixed overflow-hidden flex flex-col bg-white dark:bg-slate-950 shadow-2xl"
+        className="ml-auto h-[88vh] overflow-hidden rounded-t-3xl border-border/80 bg-background/95 py-0 shadow-2xl backdrop-blur-xl dark:bg-slate-950/95 lg:h-screen lg:rounded-none lg:border-y-0 lg:border-r-0"
       >
+        <button
+          type="button"
+          aria-label="Resize chat panel"
+          onPointerDown={startResize}
+          className="absolute left-0 top-0 z-10 hidden h-full w-2 cursor-ew-resize touch-none bg-transparent transition hover:bg-primary/20 lg:block"
+        />
         {/* Header */}
-        <div
-          onPointerDown={(event) => startDrag('panel', event)}
-          className="flex cursor-move items-center justify-between border-b px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg touch-none"
-        >
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            <h2 className="text-lg font-semibold">Pokémon Assistant</h2>
-            <span
-              className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                providerReady ? 'bg-emerald-500/90' : 'bg-amber-500/90'
-              }`}
-            >
-              {providerReady ? 'ONLINE' : 'OFFLINE'}
-            </span>
-            <span className="max-w-48 truncate text-xs text-blue-100">
-              {providerInfo
-                ? `${providerInfo.provider}: ${providerInfo.modelName}`
-                : runtimeConfig.modelName || 'model unknown'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="border-b border-border/70 bg-gradient-to-br from-card via-card to-muted/60 px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Bot className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-semibold text-foreground">Pokémon Assistant</h2>
+                  <p className="truncate text-xs text-muted-foreground">Tool-backed gameplay copilot</p>
+                </div>
+              </div>
+              <div className={`mt-3 rounded-2xl bg-gradient-to-r px-3 py-2 ${providerTone}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">
+                      Active model
+                    </p>
+                    <p className="truncate text-sm font-semibold">{effectiveModelName}</p>
+                    <p className="truncate text-[11px] opacity-80">
+                      {effectiveProviderName} · {modelSource}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${
+                      providerReady
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
+                        : 'bg-amber-500/15 text-amber-700 dark:text-amber-200'
+                    }`}
+                  >
+                    {providerReady ? 'ONLINE' : 'OFFLINE'}
+                  </span>
+                </div>
+              </div>
+            </div>
             <Button
               variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              className="shrink-0"
+              title="Close assistant"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              variant={showSettings ? 'secondary' : 'outline'}
               size="sm"
-              onPointerDown={stopHeaderActionPointer}
               onClick={() => setShowSettings((current) => !current)}
-              className="text-white hover:bg-blue-700"
+              className="h-8 flex-1 justify-start"
               title="Model settings"
             >
               <Settings className="h-4 w-4" />
+              Settings
             </Button>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              onPointerDown={stopHeaderActionPointer}
+              onClick={() => onWidthChange?.(width >= PANEL_WIDE_WIDTH ? PANEL_DEFAULT_WIDTH : PANEL_WIDE_WIDTH)}
+              className="h-8"
+              title={width >= PANEL_WIDE_WIDTH ? 'Compact panel' : 'Expand panel'}
+            >
+              {width >= PANEL_WIDE_WIDTH ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={async () => {
                 await conversation.clearConversation();
                 setStreamingMessage('');
                 setStreamingThinking('');
               }}
-              className="text-white hover:bg-blue-700"
+              className="h-8"
               title="Clear chat"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onPointerDown={stopHeaderActionPointer}
-              onClick={onClose}
-              className="text-white hover:bg-blue-700"
-            >
-              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -781,7 +689,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
           <div className="space-y-3 border-b bg-slate-50 px-4 py-3 text-xs dark:bg-slate-900">
             <div>
               <label className="mb-1 block font-medium" htmlFor="chat-provider">
-                Provider override
+                Provider
               </label>
               <select
                 id="chat-provider"
@@ -799,7 +707,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                 }
                 className="h-8 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
               >
-                <option value="">Server default</option>
+                <option value="">Use CHAT_PROVIDER (.env)</option>
                 <option value="ollama">Ollama</option>
                 <option value="openrouter">OpenRouter</option>
                 <option value="ai-sdk">AI SDK / BYOK</option>
@@ -819,12 +727,10 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                   }))
                 }
                 placeholder={
-                  providerInfo?.modelName ||
-                  (runtimeConfig.provider === 'openrouter'
-                    ? 'Uses OPENROUTER_MODEL'
-                    : runtimeConfig.provider === 'ai-sdk'
-                      ? 'anthropic/claude-sonnet-4-5'
-                      : 'Uses OLLAMA_MODEL')
+                  selectedProviderInfo?.modelName ||
+                  (runtimeConfig.provider === 'ai-sdk'
+                    ? 'anthropic/claude-sonnet-4-5'
+                    : 'Optional model override')
                 }
                 className="h-8"
               />
@@ -848,7 +754,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                       endpoint: event.target.value,
                     }))
                   }
-                  placeholder={providerInfo?.endpoint || 'Uses OLLAMA_ENDPOINT'}
+                  placeholder={selectedProviderInfo?.endpoint || 'Optional endpoint override'}
                   className="h-8"
                 />
               </div>
@@ -896,7 +802,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
               <span>
                 <span className="block font-medium">Enable model thinking</span>
                 <span className="text-slate-500 dark:text-slate-400">
-                  Uses the server default until changed. Off sends think: false to Ollama and reasoning: none to AI SDK.
+                  Uses .env/app default until changed. Off sends think: false to Ollama and reasoning: none to AI SDK.
                 </span>
               </span>
               <input
@@ -913,7 +819,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
               />
             </label>
             <p className="text-slate-500 dark:text-slate-400">
-              Blank fields use server environment secrets. Overrides stay in this page state and are sent only with chat requests.
+              Blank fields use .env values when present, otherwise app fallbacks. Overrides stay in this page state and are sent only with chat requests.
             </p>
           </div>
         )}
@@ -925,16 +831,37 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
             {conversation.messages.length === 0 &&
               streamingMessage === '' &&
               streamingThinking === '' && (
-              <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
-                <p className="mb-2 text-lg">Pokemon assistant</p>
-                <p>Ask about the loaded save or live session: party, items, badges, Pokédex, PC boxes, and location.</p>
+              <div className="rounded-3xl border border-border/70 bg-gradient-to-br from-muted/70 to-card p-4 text-sm text-muted-foreground">
+                <div className="mb-4 flex items-start gap-3">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Sparkles className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-foreground">Ask about the current run</p>
+                    <p className="mt-1">
+                      Use save/live state, local tools, guide retrieval, or attach a screenshot.
+                    </p>
+                  </div>
+                </div>
                 {conversation.gameContext && (
-                  <p className="mt-4 text-xs text-gray-400">
+                  <p className="mb-4 rounded-2xl bg-background/70 px-3 py-2 text-xs text-muted-foreground">
                     {conversation.gameContext.trainerName} •{' '}
                     {conversation.gameContext.location}
                   </p>
                 )}
-                <p className="mt-6 text-xs text-gray-400">
+                <div className="grid gap-2">
+                  {SUGGESTED_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => setInputValue(prompt)}
+                      className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2 text-left text-xs text-foreground transition hover:border-primary/50 hover:bg-primary/5"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs text-muted-foreground">
                   Commands: /reset, /clear, /help
                 </p>
               </div>
@@ -946,10 +873,10 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-xs rounded-lg px-4 py-2 text-sm ${
+                  className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
                     msg.role === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-border/70 bg-card text-card-foreground'
                   }`}
                 >
                   {msg.attachments?.map((attachment) => (
@@ -968,7 +895,7 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                       </figcaption>
                     </figure>
                   ))}
-                  {runtimeConfig.thinking && msg.thinking && (
+                  {runtimeConfig.thinking !== false && msg.thinking && (
                     <details className="mb-2 rounded border border-slate-400/30 bg-black/5 px-2 py-1 dark:bg-white/5">
                       <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium">
                         <Brain className="h-3.5 w-3.5" />
@@ -1052,8 +979,8 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
 
             {(streamingMessage || streamingThinking) && (
               <div className="flex justify-start">
-                <div className="max-w-xs rounded-lg px-4 py-2 text-sm bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100">
-                  {runtimeConfig.thinking && streamingThinking && (
+                <div className="max-w-[86%] rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm text-card-foreground shadow-sm">
+                  {runtimeConfig.thinking !== false && streamingThinking && (
                     <details open className="mb-2 rounded border border-slate-400/30 bg-black/5 px-2 py-1 dark:bg-white/5">
                       <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium">
                         <Brain className="h-3.5 w-3.5" />
@@ -1101,7 +1028,22 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
         </div>
 
         {/* Input */}
-        <div className="border-t px-4 py-3 bg-gray-50 dark:bg-slate-900 rounded-b-lg">
+        <div className="border-t bg-card/90 px-4 py-3 backdrop-blur">
+          {conversation.messages.length > 0 && (
+            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+              {SUGGESTED_PROMPTS.slice(0, 4).map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => setInputValue(prompt)}
+                  disabled={conversation.isLoading}
+                  className="shrink-0 rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground disabled:opacity-50"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          )}
           {imageAttachment && (
             <div className="mb-2 flex items-center gap-3 rounded border bg-white px-3 py-2 text-xs dark:bg-slate-950">
               <img
@@ -1151,30 +1093,24 @@ export function ChatbotPanel({ isOpen, onOpen, onClose, gameData }: ChatbotPanel
                   handleSendMessage();
                 }
               }}
-              placeholder="Type a message... (/help for commands)"
+              placeholder="Ask about the run, a guide, a move, or paste a screenshot..."
               disabled={conversation.isLoading}
-              className="flex-1"
+              className="h-11 flex-1 rounded-2xl"
             />
             <Button
               onClick={handleSendMessage}
               disabled={
                 (!inputValue.trim() && !imageAttachment) || conversation.isLoading
               }
-              className="bg-blue-500 hover:bg-blue-600"
+              className="h-11 rounded-2xl bg-primary hover:bg-primary/90"
             >
-              Send
+              <SendHorizontal className="h-4 w-4" />
+              <span className="sr-only">Send</span>
             </Button>
           </div>
         </div>
-        <button
-          type="button"
-          aria-label="Resize chat window"
-          onPointerDown={(event) => startDrag('resize', event)}
-          className="absolute bottom-0 right-0 h-5 w-5 cursor-se-resize touch-none bg-gradient-to-tl from-blue-500/35 to-transparent"
-        >
-          <span className="absolute bottom-1 right-1 block h-2 w-2 rounded-sm border-r-2 border-b-2 border-blue-600/80" />
-        </button>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

@@ -191,7 +191,9 @@ ollama serve
 corepack pnpm dev
 ```
 
-5. Load a save or start live mode, then open **Chat AI**.
+5. Load a save or start live mode, then open **Chat AI**. The assistant opens as
+   a right-side drawer on desktop, resizing the dashboard while it is visible;
+   on smaller screens it behaves like a bottom sheet.
 
 If the selected Ollama model does not support tool calls, the app falls back to prompt/context mode. OpenRouter and AI SDK BYOK use the same tool registry through provider tool-calling APIs.
 

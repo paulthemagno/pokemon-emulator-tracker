@@ -208,12 +208,21 @@ function getFallbackProviderInfo(
   };
 }
 
-export async function GET() {
-  const providerName = DEFAULT_PROVIDER;
+export async function GET(request: NextRequest) {
+  const requestedProvider = request.nextUrl.searchParams.get('provider')?.trim();
+  const runtimeConfig: ChatRuntimeConfig = {
+    provider:
+      requestedProvider === 'ollama' ||
+      requestedProvider === 'openrouter' ||
+      requestedProvider === 'ai-sdk'
+        ? requestedProvider
+        : undefined,
+  };
+  const providerName = resolveProviderName(runtimeConfig);
   try {
-    const provider = await createProvider();
+    const provider = await createProvider(runtimeConfig);
     return NextResponse.json(
-      getProviderInfo(provider, getCredentialSource(providerName))
+      getProviderInfo(provider, getCredentialSource(providerName, runtimeConfig))
     );
   } catch (error) {
     return NextResponse.json(
