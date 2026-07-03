@@ -130,17 +130,23 @@ scoped to the loaded game. `get_move_reference` reads the generated local
 PokeAPI-derived move descriptions. Neither tool performs runtime web requests.
 
 `GET /api/chat` exposes non-secret provider status. `POST /api/chat` accepts
-request-only Ollama model, endpoint, and API-key overrides plus bounded base64
-image attachments. The API key is applied as a Bearer token and is never returned.
-Remote runtime endpoint overrides require `OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
+request-only provider, model, API-key, and Ollama endpoint overrides plus bounded
+base64 image attachments. Request API keys are applied only to the selected
+provider and are never returned. Remote Ollama endpoint overrides require
+`OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`. AI SDK BYOK models use `provider/model`
+names and route to the matching native provider with the request or environment
+API key.
 Audio is not part of the chat payload and requires a separate transcription
 endpoint.
 
-`ChatMessage` stores image attachments and optional Ollama thinking separately
-from final answer text. Images render as data URLs and are resent in multimodal
-history, subject to API size limits. Streaming NDJSON uses distinct `chunk` and
-`thinking` records. The UI renders thinking in a collapsible section and can send
-`think: false` per request.
+`ChatMessage` stores image attachments and optional model thinking/reasoning
+separately from final answer text. Images render as data URLs and are resent in
+multimodal history, subject to API size limits. Streaming NDJSON uses distinct
+`chunk` and `thinking` records. The UI renders thinking in a collapsible section
+and can send Ollama `think: false` or AI SDK `reasoning: "none"` per request.
+The assistant UI is a right-side drawer on desktop and a bottom sheet on smaller
+screens; desktop open state applies page padding so the dashboard remains visible
+instead of being covered by a floating window.
 
 Event categories are individually collapsible and use stable emoji labels. Progress filters (`Not completed`, `Completed`, `Everything`) are visually separate from dataset filters (`Key events`, `All save states`). `Key events` must exclude optional legendary encounters, one-off rewards, map-object state, and repeatable/session flags even when their source symbols contain a major character or location name.
 The event panel displays a section-local refinement warning because flag interpretation, categorization, and generated player-facing descriptions are still being audited across supported games.

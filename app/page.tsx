@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { FileUpload } from "@/components/pokemon/file-upload";
 import { LiveSourceCard } from "@/components/pokemon/live-source-card";
@@ -46,6 +46,8 @@ export default function Home() {
   const live = useLiveData(250);
   const [showInfo, setShowInfo] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const [chatPanelWidth, setChatPanelWidth] = useState(440);
+  const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const hasActiveLiveData = live.isPolling && Boolean(live.data);
   const activeSaveData = useMemo(() => {
     if (!hasActiveLiveData || !live.data) return saveData;
@@ -64,12 +66,24 @@ export default function Home() {
     live.clear();
     clearData();
   }, [clearData, live]);
-  const handleOpenChatbot = useCallback(() => {
-    setShowChatbot(true);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateDesktopLayout = () => setIsDesktopLayout(mediaQuery.matches);
+    updateDesktopLayout();
+    mediaQuery.addEventListener("change", updateDesktopLayout);
+    return () => mediaQuery.removeEventListener("change", updateDesktopLayout);
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background">
+    <main
+      className="relative min-h-screen overflow-hidden bg-background transition-[padding] duration-300"
+      style={
+        {
+          paddingRight: showChatbot && isDesktopLayout ? chatPanelWidth : 0,
+        } as CSSProperties
+      }
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-0 bg-no-repeat opacity-20"
@@ -97,14 +111,14 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant="secondary"
+                variant={showChatbot ? 'default' : 'secondary'}
                 size="sm"
-                onClick={handleOpenChatbot}
+                onClick={() => setShowChatbot((current) => !current)}
                 className="gap-2"
-                title="Open Pokémon Assistant"
+                title={showChatbot ? 'Close Pokémon Assistant' : 'Open Pokémon Assistant'}
               >
                 <MessageSquare className="h-4 w-4" />
-                Chat AI
+                {showChatbot ? 'Hide AI' : 'Chat AI'}
               </Button>
               <Button
                 variant="ghost"
@@ -148,7 +162,7 @@ export default function Home() {
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card/50 p-3">
                     <p className="mb-1 font-semibold text-foreground">3. Optional Chat AI</p>
-                    <p>Start Ollama locally and ask questions about the loaded save or live session.</p>
+                    <p>Use Ollama, OpenRouter, or BYOK provider keys to ask questions about the loaded save or live session.</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -214,7 +228,7 @@ export default function Home() {
                 <Bot className="mb-3 h-5 w-5 text-primary" />
                 <h3 className="font-semibold text-foreground">Chat AI</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Local Ollama assistant that answers with the current save/live context.
+                  Ollama, OpenRouter, or BYOK assistant that answers with the current save/live context.
                 </p>
               </div>
             </div>
@@ -273,7 +287,7 @@ export default function Home() {
             </div>
             <div className="mt-8 text-center">
               <p className="text-xs text-muted-foreground">
-                Supports Gen 1-3 saves. Live mode and Chat AI require local services.
+                Supports Gen 1-3 saves. Live mode requires local services; Chat AI can use local or hosted providers.
               </p>
             </div>
           </div>
@@ -322,8 +336,9 @@ export default function Home() {
       {/* Chatbot Panel */}
       <ChatbotPanel
         isOpen={showChatbot}
-        onOpen={handleOpenChatbot}
         onClose={() => setShowChatbot(false)}
+        width={chatPanelWidth}
+        onWidthChange={setChatPanelWidth}
         gameData={activeSaveData}
       />
 

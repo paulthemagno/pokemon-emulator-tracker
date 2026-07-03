@@ -1,15 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { AiSdkByokProvider } from '@/lib/chatbot/providers/ai-sdk';
 import { OllamaProvider } from '@/lib/chatbot/providers/ollama';
+import { OpenRouterProvider } from '@/lib/chatbot/providers/openrouter';
 import type {
   ChatImageAttachment,
   ChatMessage,
+  ChatProvider,
   ChatProviderInfo,
   ChatRuntimeConfig,
   GameContextSnapshot,
 } from '@/lib/chatbot/types';
 
-const DEFAULT_ENDPOINT = process.env.OLLAMA_ENDPOINT || 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'gemma4:latest';
+type ChatProviderName = NonNullable<ChatRuntimeConfig['provider']>;
+
+const DEFAULT_PROVIDER: ChatProviderName =
+  process.env.CHAT_PROVIDER === 'openrouter' || process.env.CHAT_PROVIDER === 'ai-sdk'
+    ? process.env.CHAT_PROVIDER
+    : 'ollama';
+const DEFAULT_OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || 'http://127.0.0.1:11434';
+const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma4:latest';
+const DEFAULT_OPENROUTER_ENDPOINT =
+  process.env.OPENROUTER_BASE_URL?.replace(/\/+$/, '') || 'https://openrouter.ai/api/v1';
+const DEFAULT_OPENROUTER_MODEL =
+  process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite';
+const DEFAULT_AI_SDK_MODEL =
+  process.env.AI_SDK_MODEL || 'anthropic/claude-sonnet-4-5';
+
+function resolveEnvValue(
+  providerValue: string | undefined,
+  sharedValue: string | undefined
+): string | undefined {
+  return providerValue?.trim() ? providerValue : sharedValue;
+}
 
 function parseMaxTokens(value: string | undefined): number {
   const normalized = value?.trim().toLowerCase();
@@ -41,26 +63,90 @@ function validateEndpoint(endpoint: string, isRuntimeOverride = false): string {
   return endpoint.replace(/\/+$/, '');
 }
 
-async function createProvider(runtimeConfig: ChatRuntimeConfig = {}) {
+function parseTemperature(value: string | undefined): number {
+  const parsed = Number.parseFloat(value || '0');
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseBoolean(value: string | undefined, fallback: boolean): boolean {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  return fallback;
+}
+
+function resolveProviderName(runtimeConfig: ChatRuntimeConfig = {}): ChatProviderName {
+  return runtimeConfig.provider === 'ollama' ||
+    runtimeConfig.provider === 'openrouter' ||
+    runtimeConfig.provider === 'ai-sdk'
+    ? runtimeConfig.provider
+    : DEFAULT_PROVIDER;
+}
+
+async function createProvider(runtimeConfig: ChatRuntimeConfig = {}): Promise<ChatProvider> {
+  const providerName = resolveProviderName(runtimeConfig);
+  if (providerName === 'ai-sdk') {
+    const provider = new AiSdkByokProvider();
+    await provider.initialize({
+      modelName: runtimeConfig.modelName?.trim() || DEFAULT_AI_SDK_MODEL,
+      apiKey: runtimeConfig.apiKey?.trim() || process.env.AI_SDK_API_KEY,
+      maxTokens: parseMaxTokens(
+        resolveEnvValue(process.env.AI_SDK_MAX_TOKENS, process.env.CHAT_MAX_TOKENS)
+      ),
+      temperature: parseTemperature(
+        resolveEnvValue(process.env.AI_SDK_TEMPERATURE, process.env.CHAT_TEMPERATURE)
+      ),
+      thinking:
+        runtimeConfig.thinking ??
+        parseBoolean(
+          resolveEnvValue(process.env.AI_SDK_REASONING, process.env.CHAT_THINKING),
+          true
+        ),
+    });
+    return provider;
+  }
+
+  if (providerName === 'openrouter') {
+    const provider = new OpenRouterProvider();
+    await provider.initialize({
+      modelName: runtimeConfig.modelName?.trim() || DEFAULT_OPENROUTER_MODEL,
+      apiKey: runtimeConfig.apiKey?.trim() || process.env.OPENROUTER_API_KEY,
+      maxTokens: parseMaxTokens(
+        resolveEnvValue(process.env.OPENROUTER_MAX_TOKENS, process.env.CHAT_MAX_TOKENS)
+      ),
+      temperature: parseTemperature(
+        resolveEnvValue(process.env.OPENROUTER_TEMPERATURE, process.env.CHAT_TEMPERATURE)
+      ),
+    });
+    return provider;
+  }
+
   const provider = new OllamaProvider();
   await provider.initialize({
     endpoint: validateEndpoint(
-      runtimeConfig.endpoint || DEFAULT_ENDPOINT,
+      runtimeConfig.endpoint || DEFAULT_OLLAMA_ENDPOINT,
       Boolean(runtimeConfig.endpoint)
     ),
-    modelName: runtimeConfig.modelName?.trim() || DEFAULT_MODEL,
+    modelName: runtimeConfig.modelName?.trim() || DEFAULT_OLLAMA_MODEL,
     embeddingModelName:
       runtimeConfig.embeddingModelName?.trim() || process.env.OLLAMA_EMBEDDING_MODEL,
     apiKey: runtimeConfig.apiKey?.trim() || process.env.OLLAMA_API_KEY,
-    maxTokens: parseMaxTokens(process.env.OLLAMA_MAX_TOKENS),
-    temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0'),
-    thinking: runtimeConfig.thinking ?? process.env.OLLAMA_THINKING !== 'false',
+    maxTokens: parseMaxTokens(
+      resolveEnvValue(process.env.OLLAMA_MAX_TOKENS, process.env.CHAT_MAX_TOKENS)
+    ),
+    temperature: parseTemperature(
+      resolveEnvValue(process.env.OLLAMA_TEMPERATURE, process.env.CHAT_TEMPERATURE)
+    ),
+    thinking:
+      runtimeConfig.thinking ??
+      parseBoolean(resolveEnvValue(process.env.OLLAMA_THINKING, process.env.CHAT_THINKING), true),
   });
   return provider;
 }
 
 function getProviderInfo(
-  provider: OllamaProvider,
+  provider: ChatProvider,
   credentialSource: ChatProviderInfo['credentialSource']
 ): ChatProviderInfo {
   return {
@@ -69,23 +155,78 @@ function getProviderInfo(
   };
 }
 
-export async function GET() {
+function getCredentialSource(
+  providerName: ChatProviderName,
+  runtimeConfig: ChatRuntimeConfig = {}
+): ChatProviderInfo['credentialSource'] {
+  if (runtimeConfig.apiKey?.trim()) {
+    return 'request';
+  }
+  if (providerName === 'openrouter') {
+    return process.env.OPENROUTER_API_KEY ? 'environment' : 'none';
+  }
+  if (providerName === 'ai-sdk') {
+    return process.env.AI_SDK_API_KEY ? 'environment' : 'none';
+  }
+  return process.env.OLLAMA_API_KEY ? 'environment' : 'none';
+}
+
+function getFallbackProviderInfo(
+  providerName: ChatProviderName,
+  error: unknown
+): ChatProviderInfo & { error: string } {
+  if (providerName === 'openrouter') {
+    return {
+      provider: 'OpenRouter',
+      modelName: DEFAULT_OPENROUTER_MODEL,
+      endpoint: DEFAULT_OPENROUTER_ENDPOINT,
+      ready: false,
+      credentialSource: process.env.OPENROUTER_API_KEY ? 'environment' : 'none',
+      error: error instanceof Error ? error.message : 'Provider check failed.',
+    };
+  }
+
+  if (providerName === 'ai-sdk') {
+    return {
+      provider: 'AI SDK BYOK',
+      modelName: DEFAULT_AI_SDK_MODEL,
+      endpoint: 'native-provider-api',
+      ready: false,
+      credentialSource: process.env.AI_SDK_API_KEY ? 'environment' : 'none',
+      error: error instanceof Error ? error.message : 'Provider check failed.',
+    };
+  }
+
+  return {
+    provider: 'Ollama (Local)',
+    modelName: DEFAULT_OLLAMA_MODEL,
+    embeddingModelName: process.env.OLLAMA_EMBEDDING_MODEL,
+    endpoint: DEFAULT_OLLAMA_ENDPOINT,
+    ready: false,
+    credentialSource: process.env.OLLAMA_API_KEY ? 'environment' : 'none',
+    error: error instanceof Error ? error.message : 'Provider check failed.',
+  };
+}
+
+export async function GET(request: NextRequest) {
+  const requestedProvider = request.nextUrl.searchParams.get('provider')?.trim();
+  const runtimeConfig: ChatRuntimeConfig = {
+    provider:
+      requestedProvider === 'ollama' ||
+      requestedProvider === 'openrouter' ||
+      requestedProvider === 'ai-sdk'
+        ? requestedProvider
+        : undefined,
+  };
+  const providerName = resolveProviderName(runtimeConfig);
   try {
-    const provider = await createProvider();
+    const provider = await createProvider(runtimeConfig);
     return NextResponse.json(
-      getProviderInfo(provider, process.env.OLLAMA_API_KEY ? 'environment' : 'none')
+      getProviderInfo(provider, getCredentialSource(providerName, runtimeConfig))
     );
   } catch (error) {
     return NextResponse.json(
-      {
-        provider: 'Ollama (Local)',
-        modelName: DEFAULT_MODEL,
-        embeddingModelName: process.env.OLLAMA_EMBEDDING_MODEL,
-        endpoint: DEFAULT_ENDPOINT,
-        ready: false,
-        credentialSource: process.env.OLLAMA_API_KEY ? 'environment' : 'none',
-        error: error instanceof Error ? error.message : 'Provider check failed.',
-      },
+      getFallbackProviderInfo(providerName, error),
       { status: 503 }
     );
   }
@@ -103,11 +244,17 @@ export async function POST(request: NextRequest) {
       runtimeConfig?: ChatRuntimeConfig;
     };
     const provider = await createProvider(body.runtimeConfig);
+    const providerName = resolveProviderName(body.runtimeConfig);
 
     if (!provider.isReady()) {
       return NextResponse.json(
         {
-          error: 'Chatbot provider not ready. Ensure Ollama is running at the configured endpoint.',
+          error:
+            providerName === 'openrouter'
+              ? 'Chat provider not ready. Configure OPENROUTER_API_KEY or enter an OpenRouter API key in chat settings.'
+              : providerName === 'ai-sdk'
+                ? 'Chat provider not ready. Enter an AI SDK provider/model value like anthropic/claude-sonnet-4-5 and a matching provider API key.'
+                : 'Chat provider not ready. Ensure Ollama is running at the configured endpoint.',
         },
         { status: 503 }
       );
@@ -124,17 +271,15 @@ export async function POST(request: NextRequest) {
     } = body;
     const providerInfo = getProviderInfo(
       provider,
-      runtimeConfig?.apiKey?.trim()
-        ? 'request'
-        : process.env.OLLAMA_API_KEY
-          ? 'environment'
-          : 'none'
+      getCredentialSource(providerName, runtimeConfig)
     );
 
     // DEBUG: Log incoming request
     console.log('[API CHAT DEBUG] Incoming request');
     console.log('[API CHAT DEBUG] Message:', message);
     console.log('[API CHAT DEBUG] History length:', history.length);
+    console.log('[API CHAT DEBUG] Provider:', providerName);
+    console.log('[API CHAT DEBUG] Thinking override:', runtimeConfig?.thinking);
     console.log('[API CHAT DEBUG] Has gameContext:', !!gameContext);
     if (gameContext) {
       console.log('[API CHAT DEBUG] Context trainer:', gameContext.trainerName);

@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { AiSdkByokProvider } from "../lib/chatbot/providers/ai-sdk";
 import { OllamaProvider } from "../lib/chatbot/providers/ollama";
+import { OpenRouterProvider } from "../lib/chatbot/providers/openrouter";
 import type { GameContextSnapshot } from "../lib/chatbot/types";
 import {
   canExecuteToolWithoutContext,
@@ -93,6 +95,151 @@ test("move reference returns local move data and PokeAPI provenance", async () =
     url: "https://pokeapi.co/api/v2/move/thunder-punch",
     scope: "crystal",
   });
+});
+
+test("OpenRouter provider uses the shared tool loop", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<Record<string, unknown>> = [];
+  let callCount = 0;
+
+  globalThis.fetch = async (_input, init) => {
+    callCount += 1;
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    requests.push(body);
+
+    if (callCount === 1) {
+      assert.ok(Array.isArray(body.tools), "expected OpenRouter request to include tools");
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: "",
+                tool_calls: [
+                  {
+                    id: "call_1",
+                    type: "function",
+                    function: {
+                      name: "get_encounters",
+                      arguments: JSON.stringify({
+                        species: "Wailmer",
+                        game: "Emerald",
+                      }),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    const messages = body.messages as Array<{ role?: string; content?: string }>;
+    assert.ok(
+      messages.some(
+        (message) =>
+          message.role === "tool" && message.content?.includes('"requestedSpecies"')
+      ),
+      "expected second OpenRouter request to include the tool result"
+    );
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: "Wailmer is available in Emerald by fishing with a Good Rod or Super Rod.",
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const provider = new OpenRouterProvider();
+    await provider.initialize({
+      apiKey: "test-key",
+      modelName: "test/model",
+      temperature: 0,
+    });
+
+    const reply = await provider.sendMessage(
+      "Where can I find Wailmer in Pokemon Emerald?",
+      []
+    );
+
+    assert.equal(
+      reply,
+      "Wailmer is available in Emerald by fishing with a Good Rod or Super Rod."
+    );
+    assert.equal(callCount, 2);
+    assert.ok(provider.getLastKnowledgeContext()?.includes('"tool":"get_encounters"'));
+    assert.ok(provider.getLastSources().length > 0);
+    assert.equal(requests[0].model, "test/model");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("AI SDK BYOK provider resolves provider/model names without custom endpoints", async () => {
+  const provider = new AiSdkByokProvider();
+  await provider.initialize({
+    apiKey: "test-key",
+    modelName: "openai/test-model",
+    temperature: 0,
+    thinking: false,
+  });
+
+  const info = provider.getInfo();
+  assert.equal(provider.isReady(), true);
+  assert.equal(info.provider, "AI SDK BYOK");
+  assert.equal(info.modelName, "openai/test-model");
+  assert.equal(info.endpoint, "native-provider-api");
+});
+
+test("AI SDK BYOK tool schemas stringify numeric enums for Gemini compatibility", () => {
+  const provider = new AiSdkByokProvider();
+  const typeMatchupTool = getChatToolDefinitions().find(
+    (definition) => definition.function.name === "get_type_matchup"
+  );
+  assert.ok(typeMatchupTool);
+
+  const normalizedSchema = (
+    provider as unknown as {
+      normalizeInputSchemaForAiSdk: (
+        schema: Record<string, unknown>
+      ) => Record<string, unknown>;
+      normalizeToolArgsForExecution: (
+        args: Record<string, unknown>,
+        schema: Record<string, unknown>
+      ) => Record<string, unknown>;
+    }
+  ).normalizeInputSchemaForAiSdk(typeMatchupTool.function.parameters);
+  const properties = normalizedSchema.properties as Record<
+    string,
+    Record<string, unknown>
+  >;
+
+  assert.equal(properties.generation.type, "string");
+  assert.deepEqual(properties.generation.enum, ["1", "2", "3"]);
+
+  const executionArgs = (
+    provider as unknown as {
+      normalizeToolArgsForExecution: (
+        args: Record<string, unknown>,
+        schema: Record<string, unknown>
+      ) => Record<string, unknown>;
+    }
+  ).normalizeToolArgsForExecution(
+    { attackingType: "Electric", defendingType: "Water", generation: "3" },
+    typeMatchupTool.function.parameters
+  );
+  assert.equal(executionArgs.generation, 3);
 });
 
 test("shared registry exposes reference tools that work without game state", () => {

@@ -31,6 +31,7 @@ export interface ChatImageAttachment {
 }
 
 export interface ChatRuntimeConfig {
+  provider?: 'ollama' | 'openrouter' | 'ai-sdk';
   endpoint?: string;
   modelName?: string;
   embeddingModelName?: string;
@@ -132,6 +133,9 @@ export interface ChatProvider {
   ): Promise<string>;
   validateConfig(): Promise<boolean>;
   isReady(): boolean;
+  getInfo(): Omit<ChatProviderInfo, 'credentialSource'>;
+  getLastKnowledgeContext(): string | undefined;
+  getLastSources(): ChatSource[];
 }
 
 export interface ProviderConfig {
