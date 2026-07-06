@@ -156,6 +156,16 @@ function getProviderLabel(provider?: ChatRuntimeConfig['provider']): string {
   return '.env/app config';
 }
 
+function getProviderValueFromInfo(
+  info: ChatProviderInfo | null
+): ChatRuntimeConfig['provider'] | undefined {
+  const label = info?.provider.toLowerCase() ?? '';
+  if (label.includes('openrouter')) return 'openrouter';
+  if (label.includes('ai sdk')) return 'ai-sdk';
+  if (label.includes('ollama')) return 'ollama';
+  return undefined;
+}
+
 function getProviderTone(provider?: string): string {
   const normalized = provider?.toLowerCase() ?? '';
   if (normalized.includes('ollama')) return 'from-orange-500/15 to-amber-500/10 text-orange-700 dark:text-orange-200';
@@ -211,6 +221,8 @@ export function ChatbotPanel({
   const selectedProviderInfo = providerInfoMatchesSelection(providerInfo, runtimeConfig.provider)
     ? providerInfo
     : null;
+  const envProvider = runtimeConfig.provider ? undefined : getProviderValueFromInfo(providerInfo);
+  const selectedProviderValue = runtimeConfig.provider || envProvider || '';
   const effectiveProviderName = runtimeConfig.provider
     ? getProviderLabel(runtimeConfig.provider)
     : selectedProviderInfo?.provider ?? '.env/app configured provider';
@@ -693,21 +705,25 @@ export function ChatbotPanel({
               </label>
               <select
                 id="chat-provider"
-                value={runtimeConfig.provider || ''}
-                onChange={(event) =>
+                value={selectedProviderValue}
+                onChange={(event) => {
+                  const selectedProvider =
+                    event.target.value === 'ollama' ||
+                    event.target.value === 'openrouter' ||
+                    event.target.value === 'ai-sdk'
+                      ? event.target.value
+                      : undefined;
+                  const currentEnvProvider = getProviderValueFromInfo(providerInfo);
                   setRuntimeConfig((current) => ({
                     ...current,
-                    provider:
-                      event.target.value === 'ollama' ||
-                      event.target.value === 'openrouter' ||
-                      event.target.value === 'ai-sdk'
-                        ? event.target.value
-                        : undefined,
-                  }))
-                }
+                    provider: selectedProvider === currentEnvProvider ? undefined : selectedProvider,
+                  }));
+                }}
                 className="h-8 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
               >
-                <option value="">Use CHAT_PROVIDER (.env)</option>
+                <option value="" disabled hidden>
+                  Loading provider...
+                </option>
                 <option value="ollama">Ollama</option>
                 <option value="openrouter">OpenRouter</option>
                 <option value="ai-sdk">AI SDK / BYOK</option>
