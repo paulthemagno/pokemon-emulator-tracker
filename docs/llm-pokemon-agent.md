@@ -90,13 +90,13 @@ CHAT_PROVIDER=ollama
 CHAT_MAX_TOKENS=-1
 CHAT_TEMPERATURE=0
 CHAT_THINKING=true
+CHAT_ENABLE_TOOLS=true
 
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma4:latest
 OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest
 OLLAMA_API_KEY=
 OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
-OLLAMA_ENABLE_TOOLS=true
 
 OPENROUTER_API_KEY=
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
@@ -128,8 +128,9 @@ shared defaults: `OLLAMA_MAX_TOKENS`, `OPENROUTER_MAX_TOKENS`,
 `AI_SDK_MAX_TOKENS`, `OLLAMA_TEMPERATURE`, `OPENROUTER_TEMPERATURE`,
 `AI_SDK_TEMPERATURE`, `OLLAMA_THINKING`, and `AI_SDK_REASONING`.
 
-`OLLAMA_ENABLE_TOOLS=false` forces prompt-only context mode. If the selected Ollama model
-does not support tool calls, the provider also falls back to compact context mode.
+`CHAT_ENABLE_TOOLS=false` disables tool calling for Ollama, OpenRouter, and AI SDK BYOK,
+and sends the compact game context directly to the selected model. If an Ollama model does
+not support tool calls while tools are enabled, that provider also falls back to context mode.
 
 `OLLAMA_API_KEY` is sent as a Bearer token. A key entered in chat settings overrides the
 environment value for that request, remains only in React page state, and is not written to

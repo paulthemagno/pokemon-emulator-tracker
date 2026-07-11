@@ -21,6 +21,7 @@ import type {
   ProviderConfig,
 } from '../types';
 import {
+  areChatToolsEnabled,
   buildKnowledgeContext,
   CHAT_TOOL_POLICY,
   DEFAULT_CHAT_SYSTEM_PROMPT,
@@ -131,6 +132,34 @@ export class AiSdkByokProvider implements ChatProvider {
         onStreamChunk?.(retainedReply);
         return retainedReply;
       }
+    }
+
+    if (!areChatToolsEnabled()) {
+      logToolProviderEvent('AI SDK', 'Skipping tool-calling: disabled via CHAT_ENABLE_TOOLS');
+      const fallbackSystemPrompt = gameContext
+        ? `${fullSystemPrompt}\n\n## Current Game State:\n${formatGameContext(gameContext)}`
+        : fullSystemPrompt;
+      if (onStreamChunk) {
+        return this.streamWithoutTools(
+          resolvedModel.model,
+          fallbackSystemPrompt,
+          messages,
+          onStreamChunk,
+          onThinkingChunk
+        );
+      }
+      const fallback = await generateText({
+        model: resolvedModel.model,
+        messages,
+        system: fallbackSystemPrompt,
+        temperature: this.temperature,
+        reasoning: this.getReasoningOption(),
+        ...(this.maxTokens > 0 ? { maxOutputTokens: this.maxTokens } : {}),
+      });
+      if (fallback.reasoningText) {
+        onThinkingChunk?.(fallback.reasoningText);
+      }
+      return fallback.text;
     }
 
     logToolProviderEvent(
@@ -394,6 +423,38 @@ export class AiSdkByokProvider implements ChatProvider {
       system,
       tools,
       stopWhen: isStepCount(6),
+      temperature: this.temperature,
+      reasoning: this.getReasoningOption(),
+      ...(this.maxTokens > 0 ? { maxOutputTokens: this.maxTokens } : {}),
+    });
+
+    let fullReply = '';
+    for await (const part of result.fullStream) {
+      if (part.type === 'error') {
+        throw new Error(this.formatStreamError(part.error));
+      }
+      if (part.type === 'text-delta') {
+        fullReply += part.text;
+        onStreamChunk(part.text);
+      }
+      if (part.type === 'reasoning-delta') {
+        onThinkingChunk?.(part.text);
+      }
+    }
+    return fullReply;
+  }
+
+  private async streamWithoutTools(
+    model: LanguageModel,
+    system: string,
+    messages: ModelMessage[],
+    onStreamChunk: (chunk: string) => void,
+    onThinkingChunk?: (chunk: string) => void
+  ): Promise<string> {
+    const result = streamText({
+      model,
+      messages,
+      system,
       temperature: this.temperature,
       reasoning: this.getReasoningOption(),
       ...(this.maxTokens > 0 ? { maxOutputTokens: this.maxTokens } : {}),

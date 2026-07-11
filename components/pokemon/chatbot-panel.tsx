@@ -222,7 +222,8 @@ export function ChatbotPanel({
     ? providerInfo
     : null;
   const envProvider = runtimeConfig.provider ? undefined : getProviderValueFromInfo(providerInfo);
-  const selectedProviderValue = runtimeConfig.provider || envProvider || '';
+  const effectiveProvider = runtimeConfig.provider || envProvider;
+  const selectedProviderValue = effectiveProvider || '';
   const effectiveProviderName = runtimeConfig.provider
     ? getProviderLabel(runtimeConfig.provider)
     : selectedProviderInfo?.provider ?? '.env/app configured provider';
@@ -441,9 +442,9 @@ export function ChatbotPanel({
           runtimeConfig: {
             provider: runtimeConfig.provider,
             endpoint:
-              runtimeConfig.provider === 'openrouter' || runtimeConfig.provider === 'ai-sdk'
-                ? undefined
-                : runtimeConfig.endpoint?.trim() || undefined,
+              effectiveProvider === 'ollama'
+                ? runtimeConfig.endpoint?.trim() || undefined
+                : undefined,
             modelName: runtimeConfig.modelName?.trim() || undefined,
             apiKey: runtimeConfig.apiKey?.trim() || undefined,
             thinking: runtimeConfig.thinking,
@@ -744,19 +745,19 @@ export function ChatbotPanel({
                 }
                 placeholder={
                   selectedProviderInfo?.modelName ||
-                  (runtimeConfig.provider === 'ai-sdk'
+                  (effectiveProvider === 'ai-sdk'
                     ? 'anthropic/claude-sonnet-4-5'
                     : 'Optional model override')
                 }
                 className="h-8"
               />
-              {runtimeConfig.provider === 'ai-sdk' && (
+              {effectiveProvider === 'ai-sdk' && (
                 <p className="mt-1 text-slate-500 dark:text-slate-400">
                   Use provider/model, for example anthropic/claude-sonnet-4-5, openai/gpt-4.1, or google/gemini-2.5-flash.
                 </p>
               )}
             </div>
-            {runtimeConfig.provider !== 'openrouter' && runtimeConfig.provider !== 'ai-sdk' && (
+            {effectiveProvider === 'ollama' && (
               <div>
                 <label className="mb-1 block font-medium" htmlFor="chat-endpoint">
                   Ollama endpoint override
@@ -793,9 +794,9 @@ export function ChatbotPanel({
                   placeholder={
                     providerInfo?.credentialSource === 'environment'
                       ? 'Environment secret is configured'
-                      : runtimeConfig.provider === 'openrouter'
+                      : effectiveProvider === 'openrouter'
                         ? 'Optional OpenRouter API key'
-                        : runtimeConfig.provider === 'ai-sdk'
+                        : effectiveProvider === 'ai-sdk'
                           ? 'Provider API key matching provider/model'
                           : 'Optional Bearer token'
                   }
@@ -824,7 +825,7 @@ export function ChatbotPanel({
               <input
                 type="checkbox"
                 checked={runtimeConfig.thinking ?? true}
-                disabled={runtimeConfig.provider === 'openrouter'}
+                disabled={effectiveProvider === 'openrouter'}
                 onChange={(event) =>
                   setRuntimeConfig((current) => ({
                     ...current,

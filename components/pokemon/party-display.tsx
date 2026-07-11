@@ -9,9 +9,10 @@ interface PartyDisplayProps {
   party: Pokemon[];
   generation?: number;
   className?: string;
+  overview?: boolean;
 }
 
-export function PartyDisplay({ party, generation, className }: PartyDisplayProps) {
+export function PartyDisplay({ party, generation, className, overview = false }: PartyDisplayProps) {
   if (party.length === 0) {
     return (
       <section className={cn("space-y-3", className)}>
@@ -27,9 +28,9 @@ export function PartyDisplay({ party, generation, className }: PartyDisplayProps
   }
 
   return (
-    <section className={cn("space-y-3", className)}>
+    <section className={cn(overview ? "space-y-2" : "space-y-3", className)}>
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
+        <h2 className={cn("flex items-center gap-2 font-bold text-foreground", overview ? "text-lg" : "text-xl")}>
           <Users className="h-5 w-5 text-primary" />
           Party
         </h2>
@@ -37,9 +38,22 @@ export function PartyDisplay({ party, generation, className }: PartyDisplayProps
           {party.length}/6
         </span>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,330px),1fr))] gap-4">
+      <div
+        className={cn(
+          "grid",
+          overview
+            ? "gap-2 md:grid-cols-2 2xl:grid-cols-3"
+            : "grid-cols-[repeat(auto-fit,minmax(min(100%,330px),1fr))] gap-4"
+        )}
+      >
         {party.map((pokemon, index) => (
-          <PokemonCard key={index} pokemon={pokemon} index={index} generation={generation} />
+          <PokemonCard
+            key={index}
+            pokemon={pokemon}
+            index={index}
+            generation={generation}
+            dense={overview}
+          />
         ))}
       </div>
     </section>

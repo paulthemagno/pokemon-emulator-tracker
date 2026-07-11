@@ -11,7 +11,7 @@ import { PokedexPanel } from "./pokedex-panel";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Boxes, ChevronDown, Clock, ListChecks, Package, Users } from "lucide-react";
+import { BookOpen, Boxes, ChevronDown, Clock, ListChecks, Package } from "lucide-react";
 
 interface DashboardProps {
   saveData: SaveData;
@@ -29,18 +29,20 @@ function DashboardSection({
   title,
   summary,
   defaultOpen = true,
+  compact = false,
   children,
 }: {
   title: string;
   summary?: string;
   defaultOpen?: boolean;
+  compact?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="space-y-3">
-      <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/45 px-4 py-3 text-left transition hover:bg-card/70">
+    <Collapsible open={open} onOpenChange={setOpen} className={compact ? "space-y-2" : "space-y-3"}>
+      <CollapsibleTrigger className={`flex w-full items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/45 px-4 text-left transition hover:bg-card/70 ${compact ? "py-2" : "py-3"}`}>
         <div>
           <p className="text-sm font-bold text-foreground">{title}</p>
           {summary && <p className="mt-0.5 text-xs text-muted-foreground">{summary}</p>}
@@ -86,30 +88,30 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
 
       <DashboardSection
         title="Overview"
-        summary="Trainer, badges, and current Pokégear map."
+        summary="Party, trainer status, badges, and current map."
+        compact
       >
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(380px,440px)]">
-          <TrainerCard
-            trainer={saveData.trainer}
-            generation={saveData.generation}
-            game={saveData.game}
-            compact
-          />
-          <TrainerMapCard location={saveData.location} generation={saveData.generation} game={saveData.game} />
+        <div className="grid items-start gap-3 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+            <TrainerCard
+              trainer={saveData.trainer}
+              generation={saveData.generation}
+              game={saveData.game}
+              compact
+              sidebar
+            />
+            <TrainerMapCard location={saveData.location} generation={saveData.generation} game={saveData.game} />
+          </div>
+          <PartyDisplay party={saveData.party} generation={saveData.generation} overview />
         </div>
       </DashboardSection>
 
       <DashboardSection
-        title="Game Data"
-        summary="Switch between party, Pokédex, PC boxes, and inventory."
+        title="More Data"
+        summary="Pokédex, PC boxes, inventory, and story progress."
       >
-        <Tabs defaultValue="party" className="gap-4">
+        <Tabs defaultValue="pokedex" className="gap-4">
           <TabsList className="h-auto w-full flex-wrap justify-start rounded-xl border border-border/70 bg-card/45 p-1">
-            <TabsTrigger value="party" className="h-9 gap-2 px-3">
-              <Users className="h-4 w-4" />
-              Party
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{saveData.party.length}</span>
-            </TabsTrigger>
             <TabsTrigger value="pokedex" className="h-9 gap-2 px-3">
               <BookOpen className="h-4 w-4" />
               Pokédex
@@ -132,9 +134,6 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="party" className="mt-0">
-            <PartyDisplay party={saveData.party} generation={saveData.generation} />
-          </TabsContent>
           <TabsContent value="pokedex" className="mt-0">
             <PokedexPanel saveData={saveData} />
           </TabsContent>

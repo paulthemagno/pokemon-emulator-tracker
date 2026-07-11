@@ -5,6 +5,7 @@ import test from "node:test";
 import { AiSdkByokProvider } from "../lib/chatbot/providers/ai-sdk";
 import { OllamaProvider } from "../lib/chatbot/providers/ollama";
 import { OpenRouterProvider } from "../lib/chatbot/providers/openrouter";
+import { areChatToolsEnabled } from "../lib/chatbot/providers/shared";
 import type { GameContextSnapshot } from "../lib/chatbot/types";
 import {
   canExecuteToolWithoutContext,
@@ -75,6 +76,28 @@ function toolData<T extends Record<string, unknown>>(result: {
   assert.ok(result.data && typeof result.data === "object", "expected successful tool result to include data");
   return result.data as T;
 }
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
+
+test("CHAT_ENABLE_TOOLS is enabled by default and false disables it", () => {
+  const originalValue = process.env.CHAT_ENABLE_TOOLS;
+  try {
+    delete process.env.CHAT_ENABLE_TOOLS;
+    assert.equal(areChatToolsEnabled(), true);
+    process.env.CHAT_ENABLE_TOOLS = "true";
+    assert.equal(areChatToolsEnabled(), true);
+    process.env.CHAT_ENABLE_TOOLS = "false";
+    assert.equal(areChatToolsEnabled(), false);
+  } finally {
+    restoreEnv("CHAT_ENABLE_TOOLS", originalValue);
+  }
+});
 
 test("move reference returns local move data and PokeAPI provenance", async () => {
   const provider = new OllamaProvider();
@@ -186,6 +209,65 @@ test("OpenRouter provider uses the shared tool loop", async () => {
   }
 });
 
+test("OpenRouter skips tools and includes game context when CHAT_ENABLE_TOOLS is false", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalToolsValue = process.env.CHAT_ENABLE_TOOLS;
+  let requestBody: Record<string, unknown> | undefined;
+  process.env.CHAT_ENABLE_TOOLS = "false";
+
+  globalThis.fetch = async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    return Response.json({
+      choices: [{ message: { role: "assistant", content: "Context-only reply." } }],
+    });
+  };
+
+  try {
+    const provider = new OpenRouterProvider();
+    await provider.initialize({ apiKey: "test-key", modelName: "test/model" });
+    const reply = await provider.sendMessage("What should I do next?", [], crystalContext);
+
+    assert.equal(reply, "Context-only reply.");
+    assert.equal(requestBody?.tools, undefined);
+    assert.match(JSON.stringify(requestBody?.messages), /Goldenrod City/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("CHAT_ENABLE_TOOLS", originalToolsValue);
+  }
+});
+
+test("Ollama skips tools and includes game context when CHAT_ENABLE_TOOLS is false", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalToolsValue = process.env.CHAT_ENABLE_TOOLS;
+  let chatBody: Record<string, unknown> | undefined;
+  process.env.CHAT_ENABLE_TOOLS = "false";
+
+  globalThis.fetch = async (input, init) => {
+    if (String(input).endsWith("/api/tags")) {
+      return Response.json({ models: [{ name: "context-test" }] });
+    }
+    chatBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    return Response.json({ message: { role: "assistant", content: "Context-only reply." } });
+  };
+
+  try {
+    const provider = new OllamaProvider();
+    await provider.initialize({
+      endpoint: "http://127.0.0.1:11434",
+      modelName: "context-test",
+      thinking: false,
+    });
+    const reply = await provider.sendMessage("What should I do next?", [], crystalContext);
+
+    assert.equal(reply, "Context-only reply.");
+    assert.equal(chatBody?.tools, undefined);
+    assert.match(JSON.stringify(chatBody?.messages), /Goldenrod City/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("CHAT_ENABLE_TOOLS", originalToolsValue);
+  }
+});
+
 test("AI SDK BYOK provider resolves provider/model names without custom endpoints", async () => {
   const provider = new AiSdkByokProvider();
   await provider.initialize({
@@ -200,6 +282,67 @@ test("AI SDK BYOK provider resolves provider/model names without custom endpoint
   assert.equal(info.provider, "AI SDK BYOK");
   assert.equal(info.modelName, "openai/test-model");
   assert.equal(info.endpoint, "native-provider-api");
+});
+
+test("AI SDK BYOK streams without building tools when CHAT_ENABLE_TOOLS is false", async () => {
+  const originalToolsValue = process.env.CHAT_ENABLE_TOOLS;
+  process.env.CHAT_ENABLE_TOOLS = "false";
+
+  try {
+    const provider = new AiSdkByokProvider();
+    await provider.initialize({
+      apiKey: "test-key",
+      modelName: "openai/test-model",
+      thinking: false,
+    });
+
+    const testProvider = provider as unknown as {
+      resolveModel: () => { model: unknown };
+      buildTools: () => Promise<never>;
+      streamWithoutTools: (
+        model: unknown,
+        system: string,
+        messages: unknown[],
+        onStreamChunk: (chunk: string) => void,
+        onThinkingChunk?: (chunk: string) => void
+      ) => Promise<string>;
+    };
+    testProvider.resolveModel = () => ({ model: {} });
+    testProvider.buildTools = async () => {
+      throw new Error("buildTools must not run when tools are disabled");
+    };
+    testProvider.streamWithoutTools = async (
+      _model,
+      system,
+      _messages,
+      onStreamChunk,
+      onThinkingChunk
+    ) => {
+      assert.match(system, /Goldenrod City/);
+      onThinkingChunk?.("Thinking");
+      onStreamChunk("Context-");
+      onStreamChunk("only reply.");
+      return "Context-only reply.";
+    };
+
+    const chunks: string[] = [];
+    const thinkingChunks: string[] = [];
+    const reply = await provider.sendMessage(
+      "What should I do next?",
+      [],
+      crystalContext,
+      undefined,
+      (chunk) => chunks.push(chunk),
+      [],
+      (chunk) => thinkingChunks.push(chunk)
+    );
+
+    assert.equal(reply, "Context-only reply.");
+    assert.deepEqual(chunks, ["Context-", "only reply."]);
+    assert.deepEqual(thinkingChunks, ["Thinking"]);
+  } finally {
+    restoreEnv("CHAT_ENABLE_TOOLS", originalToolsValue);
+  }
 });
 
 test("AI SDK BYOK tool schemas stringify numeric enums for Gemini compatibility", () => {

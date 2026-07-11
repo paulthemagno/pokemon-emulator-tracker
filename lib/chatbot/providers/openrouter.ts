@@ -7,6 +7,7 @@ import type {
   ProviderConfig,
 } from '../types';
 import {
+  areChatToolsEnabled,
   buildKnowledgeContext,
   buildToolLoopKnowledgeContext,
   CHAT_TOOL_POLICY,
@@ -167,6 +168,11 @@ export class OpenRouterProvider implements ChatProvider {
     gameContext?: GameContextSnapshot,
     onStreamChunk?: (chunk: string) => void
   ): Promise<string | null> {
+    if (!areChatToolsEnabled()) {
+      logToolProviderEvent('OPENROUTER', 'Skipping tool-calling: disabled via CHAT_ENABLE_TOOLS');
+      return null;
+    }
+
     const registry = await loadChatToolRegistry();
     const tools = registry.getChatToolDefinitions().filter(
       (tool) => gameContext || registry.canExecuteToolWithoutContext(tool.function.name)
