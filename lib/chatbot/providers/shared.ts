@@ -11,6 +11,10 @@ let toolRegistryPromise: Promise<ToolRegistry> | null = null;
 
 const DEBUG_JSON_PREVIEW_CHARS = 2000;
 
+export function areChatToolsEnabled(): boolean {
+  return process.env.CHAT_ENABLE_TOOLS !== 'false';
+}
+
 export async function loadChatToolRegistry(
   log?: (message: string) => void
 ): Promise<ToolRegistry> {

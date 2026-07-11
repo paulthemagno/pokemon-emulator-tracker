@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import type { ChatToolDefinition } from '../tools/registry';
 import {
+  areChatToolsEnabled,
   buildKnowledgeContext,
   buildToolLoopKnowledgeContext,
   CHAT_TOOL_POLICY,
@@ -75,7 +76,6 @@ export class OllamaProvider implements ChatProvider {
   private maxTokens: number = -1;
   private temperature: number = 0;
   private ready: boolean = false;
-  private enableTools: boolean = true;
   private modelSupportsTools: boolean | null = null;
   private apiKey?: string;
   private thinking: boolean = true;
@@ -101,8 +101,6 @@ export class OllamaProvider implements ChatProvider {
     }
     this.apiKey = ollamaConfig.apiKey;
     this.thinking = ollamaConfig.thinking !== false;
-    this.enableTools = process.env.OLLAMA_ENABLE_TOOLS !== 'false';
-
     // Test connection
     await this.validateConfig();
   }
@@ -254,7 +252,7 @@ export class OllamaProvider implements ChatProvider {
     this.logPromptForDebug('BASE SYSTEM PROMPT (before tool/fallback layers)', fullSystemPrompt);
     console.log('\n[OLLAMA DEBUG] USER MESSAGE:\n', message);
     console.log('[OLLAMA DEBUG] CONVERSATION HISTORY LENGTH:', conversationHistory.length);
-    console.log('[OLLAMA DEBUG] TOOLS ENABLED:', this.enableTools);
+    console.log('[OLLAMA DEBUG] TOOLS ENABLED:', areChatToolsEnabled());
     console.log('[OLLAMA DEBUG] MODEL SUPPORTS TOOLS (cached):', this.modelSupportsTools);
     console.log('[OLLAMA DEBUG] ==========\n');
 
@@ -389,8 +387,8 @@ export class OllamaProvider implements ChatProvider {
     onStreamChunk?: (chunk: string) => void,
     onThinkingChunk?: (chunk: string) => void
   ): Promise<string | null> {
-    if (!this.enableTools) {
-      logToolProviderEvent('OLLAMA', 'Skipping tool-calling: disabled via OLLAMA_ENABLE_TOOLS');
+    if (!areChatToolsEnabled()) {
+      logToolProviderEvent('OLLAMA', 'Skipping tool-calling: disabled via CHAT_ENABLE_TOOLS');
       return null;
     }
 

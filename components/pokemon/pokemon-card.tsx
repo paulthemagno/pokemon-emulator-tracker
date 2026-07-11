@@ -21,6 +21,7 @@ interface PokemonCardProps {
   index?: number;
   generation?: number;
   compact?: boolean;
+  dense?: boolean;
   className?: string;
 }
 
@@ -113,6 +114,7 @@ export function PokemonCard({
   index,
   generation,
   compact = false,
+  dense = false,
   className,
 }: PokemonCardProps) {
   const statusText = getStatusText(pokemon.status);
@@ -158,6 +160,10 @@ export function PokemonCard({
           { label: "Spe", value: pokemon.stats.speed },
         ];
   const statBarReference = Math.max(BASE_STAT_REFERENCE, ...statRows.map((stat) => stat.value));
+  const knownMoves = pokemon.moves
+    ?.map((move, i) => ({ move, i }))
+    .filter(({ move }) => (move?.id ?? 0) > 0)
+    .slice(0, 4) ?? [];
 
   if (compact) {
     return (
@@ -228,6 +234,251 @@ export function PokemonCard({
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (dense) {
+    return (
+      <Card
+        className={cn(
+          "group overflow-hidden border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+          isFainted && "border-red-500/75 shadow-[0_0_0_1px_rgba(239,68,68,0.24)]",
+          className
+        )}
+        style={getCardBackground(primaryType, secondaryType)}
+      >
+        <CardContent className="p-0">
+          <div className="relative overflow-hidden">
+            <div className="pointer-events-none absolute inset-0" style={getTypeAuraStyle(primaryType, secondaryType)} />
+            <div
+              className="absolute inset-x-0 top-0 z-10 h-1"
+              style={{
+                background: secondaryType
+                  ? `linear-gradient(90deg, ${primaryTypeColor}, ${getTypeColor(secondaryType)})`
+                  : primaryTypeColor,
+              }}
+            />
+            {isFainted && <div className="absolute inset-x-0 top-1 z-10 h-1 bg-red-500/80" />}
+
+            <div className="relative z-10 p-2">
+              <div className="absolute left-2 top-2 z-20">
+                <div
+                  className="relative h-[50px] w-[50px] shrink-0 overflow-hidden rounded-md border p-1 shadow-inner backdrop-blur-[1px]"
+                  style={{
+                    background:
+                      `radial-gradient(circle at 30% 20%, rgba(255,255,255,0.2), transparent 26%), ` +
+                      `linear-gradient(145deg, ${primaryTypeColor}24, rgba(0,0,0,0.12))`,
+                    borderColor: `${primaryTypeColor}66`,
+                  }}
+                >
+                  {pokemon.species > 0 && (
+                    <Image
+                      src={getPokemonSpriteUrl(pokemon)}
+                      alt={pokemon.speciesName}
+                      fill
+                      className={cn(
+                        "pixelated object-contain p-0.5 drop-shadow-[0_8px_14px_rgba(0,0,0,0.3)] transition-transform duration-200 group-hover:scale-110",
+                        pokemon.isEgg && "translate-x-2 translate-y-2 scale-90 opacity-55",
+                        isFainted && "grayscale"
+                      )}
+                      unoptimized
+                    />
+                  )}
+                  {pokemon.isEgg && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Image
+                        src={getEggSpriteUrl()}
+                        alt="Egg"
+                        width={42}
+                        height={42}
+                        className="pixelated -translate-x-1 -translate-y-1 drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]"
+                        unoptimized
+                      />
+                    </div>
+                  )}
+                  {isFainted && (
+                    <div className="absolute -right-1 -top-1 rounded-full border border-background bg-red-500 p-0.5 text-white shadow">
+                      <Skull className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -left-1">
+                  {index !== undefined && (
+                    <div
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-background shadow"
+                      style={{ backgroundColor: primaryTypeColor }}
+                    >
+                      {index + 1}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0 space-y-1.5 xl:grid xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:content-start xl:gap-x-2 xl:gap-y-1.5 xl:space-y-0 2xl:block 2xl:space-y-2">
+                <div className="flex min-h-[28px] min-w-0 flex-wrap items-start justify-between gap-x-2 gap-y-1 pl-[58px] xl:col-span-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span className="truncate text-sm font-black text-foreground 2xl:text-base">{displayName}</span>
+                      {pokemon.isShiny && <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
+                    </div>
+                    {subtitle && <p className="truncate text-[11px] text-muted-foreground 2xl:text-xs">{subtitle}</p>}
+                  </div>
+                  <Badge variant="secondary" className="shrink-0 rounded-md px-1.5 py-0 text-[11px] font-bold 2xl:text-xs">
+                    Lv. {pokemon.level}
+                  </Badge>
+                </div>
+
+                <div className="flex min-h-[20px] flex-wrap items-center gap-1 pl-[58px] xl:col-span-2">
+                  {pokemonTypes.map((type) => (
+                    <TypeBadge key={type} type={type} size="xs" />
+                  ))}
+                  {statusText && (
+                    <Badge className={cn("rounded-md px-2 py-0.5 text-[11px]", getStatusColor(statusText))}>
+                      {statusText}
+                    </Badge>
+                  )}
+                  {isFainted && (
+                    <Badge className="rounded-md border border-red-400/50 bg-red-500/15 px-2 py-0.5 text-[10px] font-black uppercase text-red-300">
+                      FNT
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5 xl:col-start-1 xl:row-start-3">
+                  <div>
+                    {maxHP > 0 && (
+                      <div>
+                        <div className="mb-1 flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-muted-foreground">HP</span>
+                          <span className="font-mono text-foreground">{currentHP}/{maxHP}</span>
+                        </div>
+                        <Progress
+                          value={hpPercentage}
+                          className="h-1.5 bg-background/60"
+                          indicatorClassName={getHpColor(currentHP, maxHP)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+                      <span className="text-muted-foreground">EXP</span>
+                      <span className="truncate font-mono">
+                        {pokemon.level >= 100 ? "MAX" : `${Math.max(0, nextLevelExp - pokemon.experience).toLocaleString()} left`}
+                      </span>
+                    </div>
+                    <Progress value={expProgress} className="h-1.5 bg-background/60" indicatorClassName="bg-blue-500" />
+                    <div className="mt-1 flex justify-between gap-2 text-[9px] text-muted-foreground">
+                      <span className="truncate">{pokemon.experience.toLocaleString()} EXP</span>
+                      <span className="shrink-0">{pokemon.level >= 100 ? "Lv. MAX" : `Lv. ${pokemon.level + 1}`}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-5 gap-1 xl:col-start-1 xl:row-start-4 xl:grid-cols-3 2xl:grid-cols-5">
+                  {statRows.map((stat) => (
+                    <div key={stat.label} className="min-w-0 rounded-md border border-border/60 bg-background/45 px-1.5 py-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] font-semibold text-muted-foreground">{stat.label}</span>
+                        <span className="truncate font-mono text-[11px] font-bold text-foreground 2xl:text-xs">{stat.value}</span>
+                      </div>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.max(8, Math.min(100, (stat.value / statBarReference) * 100))}%`,
+                            backgroundColor: primaryTypeColor,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {knownMoves.length > 0 && (
+                  <div className="xl:col-start-2 xl:row-span-2 xl:row-start-3">
+                    <p className="mb-0.5 text-[9px] font-semibold text-muted-foreground">Moves</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {knownMoves.map(({ move, i }) => {
+                        const moveData = getMoveById(move?.id ?? 0);
+                        const moveName =
+                          (move?.name && !move.name.startsWith("Move ") ? move.name : moveData.name) || `Move ${i + 1}`;
+                        const moveType = move?.type ?? moveData.type;
+                        const movePower = move?.power ?? moveData.power;
+                        const moveAccuracy = move?.accuracy ?? moveData.accuracy;
+                        const maxPP = move?.maxPP || moveData.pp;
+                        const currentPP = move?.pp ?? 0;
+                        const moveColor = getTypeColor(moveType ?? "???");
+
+                        return (
+                          <MoveInfoTooltip
+                            key={`${move?.id ?? 0}-${i}`}
+                            moveId={move?.id}
+                            moveName={moveName}
+                            generation={generation}
+                          >
+                            <div
+                              className="min-w-0 cursor-help overflow-hidden rounded-md border border-border/60 bg-background/45 px-1.5 py-1"
+                              style={{ boxShadow: `inset 3px 0 0 ${moveColor}` }}
+                              title={`${moveName} ${currentPP}/${maxPP} PP`}
+                            >
+                              <div className="flex min-w-0 items-center justify-between gap-1.5">
+                                <span className="truncate text-[11px] font-bold text-foreground 2xl:text-sm">{moveName}</span>
+                                <span className="shrink-0 font-mono text-[10px] text-muted-foreground 2xl:text-xs">
+                                  {currentPP}/{maxPP}
+                                </span>
+                              </div>
+                              <div className="mt-0.5">
+                                <TypeBadge className="shrink-0" size="xs" type={moveType ?? "???"} />
+                              </div>
+                              <div className="mt-0.5 flex items-center justify-between gap-2 text-[9px] text-muted-foreground 2xl:mt-1 2xl:text-[11px]">
+                                <span className="shrink-0">
+                                  {movePower !== undefined && movePower !== null ? `${movePower} pow` : "status"}
+                                </span>
+                                <span className="shrink-0 text-right">
+                                  {moveAccuracy ? `${moveAccuracy}% acc` : "--"}
+                                </span>
+                              </div>
+                            </div>
+                          </MoveInfoTooltip>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border/60 bg-background/45 px-1.5 py-1 text-[10px] xl:col-span-2 xl:row-start-5 2xl:text-xs">
+                  <div className="min-w-0">
+                    <p className="mb-0.5 text-[9px] text-muted-foreground">Holding</p>
+                    <ItemInfoTooltip itemName={heldItemName} generation={generation}>
+                      <div className="flex cursor-help items-center gap-1.5">
+                        <ItemIcon itemName={heldItemName} generation={generation} />
+                        <span className="truncate font-semibold text-amber-400">{heldItemName ?? "None"}</span>
+                      </div>
+                    </ItemInfoTooltip>
+                  </div>
+                  {pokemon.happiness !== undefined && (
+                    <div className="min-w-0">
+                        <div className="mb-0.5 flex items-center justify-between gap-1 text-[9px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Heart className="h-3 w-3 text-rose-400" />
+                            Happy
+                          </span>
+                          <span className="font-mono">{pokemon.happiness}/255</span>
+                        </div>
+                        <Progress
+                          value={Math.min(100, Math.max(0, (pokemon.happiness / 255) * 100))}
+                          className="h-1 bg-background/60"
+                          indicatorClassName={getHappinessColor(pokemon.happiness)}
+                        />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -424,11 +675,7 @@ export function PokemonCard({
             <div>
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">Moves</p>
               <div className="grid grid-cols-2 gap-2">
-                {pokemon.moves
-                  .map((move, i) => ({ move, i }))
-                  .filter(({ move }) => (move?.id ?? 0) > 0)
-                  .slice(0, 4)
-                  .map(({ move, i }) => {
+                {knownMoves.map(({ move, i }) => {
                     const moveData = getMoveById(move?.id ?? 0);
                     const moveName =
                       (move?.name && !move.name.startsWith("Move ") ? move.name : moveData.name) || `Move ${i + 1}`;

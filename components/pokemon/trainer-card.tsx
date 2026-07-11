@@ -47,6 +47,7 @@ interface TrainerCardProps {
   game?: GameVersion;
   location?: LocationInfo | string;
   compact?: boolean;
+  sidebar?: boolean;
 }
 
 function formatPlayTime(time: { hours: number; minutes: number; seconds?: number }): string {
@@ -97,17 +98,19 @@ function GameVersionTile({
   generation,
   game,
   compact = false,
+  sidebar = false,
 }: {
   generation: Generation;
   game?: GameVersion;
   compact?: boolean;
+  sidebar?: boolean;
 }) {
   const label = getGameDisplayName(generation, game);
   const cover = game ? GAME_COVERS[game] : undefined;
 
   return (
-    <div className={`flex items-center gap-3 rounded-lg bg-muted/50 ${compact ? "px-3 py-2" : "p-3"}`}>
-      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
+    <div className={`flex items-center rounded-lg bg-muted/50 ${compact ? "px-3 py-2" : "p-3"} ${sidebar ? "gap-2" : "gap-3"}`}>
+      <div className={`relative shrink-0 overflow-hidden rounded-md border border-border/70 bg-background shadow-sm ${sidebar ? "h-10 w-10" : "h-12 w-12"}`}>
         {cover ? (
           <Image
             alt=""
@@ -125,7 +128,12 @@ function GameVersionTile({
       </div>
       <div className="min-w-0">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Game</p>
-        <p className="truncate text-sm font-semibold text-foreground">{label}</p>
+        <p
+          className={`font-semibold leading-tight text-foreground ${sidebar ? "whitespace-normal break-words text-xs" : "truncate text-sm"}`}
+          title={label}
+        >
+          {label}
+        </p>
       </div>
     </div>
   );
@@ -400,7 +408,7 @@ export function TrainerMapCard({
   return <MiniMap location={location} generation={generation} game={game} compact />;
 }
 
-export function TrainerCard({ trainer, generation, game, location, compact = false }: TrainerCardProps) {
+export function TrainerCard({ trainer, generation, game, location, compact = false, sidebar = false }: TrainerCardProps) {
   const locationName = typeof location === "string" ? location : location?.name;
   const trainerGender = trainer.gender?.trim();
   const totalBadges = Array.isArray(trainer.badges) ? trainer.badges.length : 8;
@@ -423,7 +431,13 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
               </Badge>
             </div>
 
-            <div className="grid gap-2 md:grid-cols-[minmax(170px,1fr)_minmax(150px,0.8fr)_minmax(180px,0.9fr)_minmax(135px,0.6fr)]">
+            <div
+              className={
+                sidebar
+                  ? "grid grid-cols-2 gap-2"
+                  : "grid gap-2 md:grid-cols-[minmax(170px,1fr)_minmax(150px,0.8fr)_minmax(180px,0.9fr)_minmax(135px,0.6fr)]"
+              }
+            >
               <div className="flex min-h-[54px] items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2">
                 <div>
                   <p className="text-xl font-black leading-none text-foreground">{trainer.name}</p>
@@ -439,9 +453,9 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                 )}
               </div>
 
-              <GameVersionTile compact generation={generation} game={game} />
+              <GameVersionTile compact generation={generation} game={game} sidebar={sidebar} />
 
-              <div className="grid min-h-[54px] grid-cols-2 gap-2">
+              <div className={sidebar ? "col-span-2 grid min-h-[54px] grid-cols-2 gap-2" : "grid min-h-[54px] grid-cols-2 gap-2"}>
                 <div className="rounded-lg bg-muted/50 px-3 py-2">
                   <p className="text-xs text-muted-foreground">Money</p>
                   <p className="font-mono text-sm font-bold">{POKE_DOLLAR_SYMBOL}{formatMoney(trainer.money)}</p>
@@ -452,7 +466,7 @@ export function TrainerCard({ trainer, generation, game, location, compact = fal
                 </div>
               </div>
 
-              <div className="flex min-h-[54px] items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2 md:col-span-4">
+              <div className={`flex min-h-[54px] items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2 ${sidebar ? "col-span-2" : "md:col-span-4"}`}>
                 <div className="flex min-w-0 items-center gap-2">
                   <Award className="h-4 w-4 shrink-0 text-amber-500" />
                   <span className="text-xs text-muted-foreground">Badges</span>

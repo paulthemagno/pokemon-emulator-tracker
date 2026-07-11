@@ -169,31 +169,47 @@ More details and debug endpoints: [live-adapters/README.md](live-adapters/README
 The chat assistant is optional. It can use local Ollama, OpenRouter, or AI SDK BYOK and receives a compact context from the current save/live session: trainer, party, inventory, badges, location, Pokédex progress, and related local knowledge.
 
 <p align="center">
-  <img src="public/demo/llm-chat.gif" width="640" alt="Pokemon Emulator Tracker local LLM assistant demo" />
+  <img src="public/demo/llm-chat.gif" width="640" alt="Pokemon Emulator Tracker AI SDK BYOK assistant demo" />
 </p>
 
-1. Install Ollama.
-2. Pull the default model:
+The assistant supports three provider modes:
+
+| Mode | Connection | Minimum setup |
+| --- | --- | --- |
+| **Ollama** | Fully local Ollama endpoint | Run Ollama, pull a model, and use `CHAT_PROVIDER=ollama` |
+| **OpenRouter** | Hosted models through the OpenRouter gateway | Set `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, and `CHAT_PROVIDER=openrouter` |
+| **AI SDK / BYOK** | Native Anthropic, OpenAI, or Google APIs through Vercel AI SDK | Set `AI_SDK_MODEL=provider/model`, provide the matching vendor key, and use `CHAT_PROVIDER=ai-sdk` |
+
+The demo above uses **AI SDK / BYOK** with Google Gemini. Set the default through
+`CHAT_PROVIDER`, or switch provider, model, and request API key from **Chat AI → Settings**
+for the current page session.
+
+For every mode, start the app, load a save or start live mode, then open **Chat AI**.
+The assistant opens as a right-side drawer on desktop, resizing the dashboard while it is
+visible; on smaller screens it behaves like a bottom sheet.
+
+<details>
+<summary>Local Ollama setup</summary>
+
+1. Install Ollama and pull the default model:
 
 ```bash
 ollama pull gemma4:latest
 ```
 
-3. Start Ollama:
+2. Start Ollama:
 
 ```bash
 ollama serve
 ```
 
-4. Start the app:
+3. Start the app:
 
 ```bash
 corepack pnpm dev
 ```
 
-5. Load a save or start live mode, then open **Chat AI**. The assistant opens as
-   a right-side drawer on desktop, resizing the dashboard while it is visible;
-   on smaller screens it behaves like a bottom sheet.
+</details>
 
 If the selected Ollama model does not support tool calls, the app falls back to prompt/context mode. OpenRouter and AI SDK BYOK use the same tool registry through provider tool-calling APIs.
 
@@ -207,13 +223,13 @@ CHAT_PROVIDER=ollama
 CHAT_MAX_TOKENS=-1
 CHAT_TEMPERATURE=0
 CHAT_THINKING=true
+CHAT_ENABLE_TOOLS=true
 
 OLLAMA_ENDPOINT=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma4:latest
 OLLAMA_EMBEDDING_MODEL=embeddinggemma:latest
 OLLAMA_API_KEY=
 OLLAMA_ALLOW_RUNTIME_ENDPOINT=false
-OLLAMA_ENABLE_TOOLS=true
 
 OPENROUTER_API_KEY=
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
@@ -231,7 +247,8 @@ overrides require `OLLAMA_ALLOW_RUNTIME_ENDPOINT=true`.
 
 `CHAT_MAX_TOKENS` and `CHAT_TEMPERATURE` are shared defaults for all chat
 providers. `CHAT_THINKING` is the shared thinking/reasoning default for
-providers that expose a compatible control. Provider-specific overrides are
+providers that expose a compatible control. Set `CHAT_ENABLE_TOOLS=false` to
+disable tool calling for every provider and use prompt/context mode. Provider-specific overrides are
 still supported when you need them: `OLLAMA_MAX_TOKENS`,
 `OPENROUTER_MAX_TOKENS`, `AI_SDK_MAX_TOKENS`, `OLLAMA_TEMPERATURE`,
 `OPENROUTER_TEMPERATURE`, `AI_SDK_TEMPERATURE`, `OLLAMA_THINKING`, and
