@@ -20,6 +20,7 @@ import {
 } from "../utils";
 import { getSpeciesName } from "../data/species";
 import { getMoveName } from "../data/moves";
+import { decodePackedMovePP } from "../data/move-pp";
 import { getGen2ItemName } from "../data/items";
 import { getGen2Location } from "../data/locations";
 import { parseEventProgress } from "../events";
@@ -74,6 +75,10 @@ const OFFSETS = {
     INVENTORY_LAYOUT: GEN2_INVENTORY_LAYOUTS.crystal,
   },
 };
+
+function parseGen2Move(id: number, rawPP: number): Move {
+  return { id, name: getMoveName(id), ...decodePackedMovePP(rawPP, id, 2) };
+}
 
 const GEN2_NUM_SPECIES = 251;
 const GEN2_POKEDEX_FLAG_BYTES = Math.ceil(GEN2_NUM_SPECIES / 8);
@@ -157,10 +162,10 @@ function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
   const formName = species === UNOWN_SPECIES ? getUnownFormLabel(form) : undefined;
 
   const moves: Move[] = [];
-  if (move1) moves.push({ id: move1, name: getMoveName(move1), pp: pp1 & 0x3f, maxPP: 35 });
-  if (move2) moves.push({ id: move2, name: getMoveName(move2), pp: pp2 & 0x3f, maxPP: 35 });
-  if (move3) moves.push({ id: move3, name: getMoveName(move3), pp: pp3 & 0x3f, maxPP: 35 });
-  if (move4) moves.push({ id: move4, name: getMoveName(move4), pp: pp4 & 0x3f, maxPP: 35 });
+  if (move1) moves.push(parseGen2Move(move1, pp1));
+  if (move2) moves.push(parseGen2Move(move2, pp2));
+  if (move3) moves.push(parseGen2Move(move3, pp3));
+  if (move4) moves.push(parseGen2Move(move4, pp4));
 
   return {
     species,
@@ -225,7 +230,7 @@ function parseBoxPokemon(
     const moveId = data[offset + 2 + i];
     const pp = data[offset + 23 + i];
     if (moveId) {
-      moves.push({ id: moveId, name: getMoveName(moveId), pp: pp & 0x3f, maxPP: 35 });
+      moves.push(parseGen2Move(moveId, pp));
     }
   }
 

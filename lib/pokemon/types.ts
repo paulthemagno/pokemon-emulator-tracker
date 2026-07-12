@@ -33,6 +33,7 @@ export interface Move {
   name: string;
   pp: number;
   maxPP: number;
+  ppUps?: number;
   type?: string;
   power?: number | null;
   accuracy?: number | null;

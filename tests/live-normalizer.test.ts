@@ -194,6 +194,26 @@ test("normalizeLiveSnapshot maps live Pokemon fields, moves, status, and held it
   assert.equal(crobat.moves[0].name, "Fly");
 });
 
+test("normalizeLiveSnapshot applies per-Pokemon PP Ups to generation-specific base PP", () => {
+  const onePPUp = normalizeLiveSnapshot({
+    generation: 1,
+    game: "red",
+    player: {},
+    party: [{ species: 65, moves: [{ id: 94, pp: 12, ppUps: 1 }] }],
+    pcBoxes: [],
+  });
+  const twoPPUps = normalizeLiveSnapshot({
+    generation: 1,
+    game: "red",
+    player: {},
+    party: [{ species: 65, moves: [{ id: 94, pp: 14, ppUps: 2 }] }],
+    pcBoxes: [],
+  });
+
+  assert.equal(onePPUp.party[0].moves[0].maxPP, 12);
+  assert.equal(twoPPUps.party[0].moves[0].maxPP, 14);
+});
+
 test("normalizeLiveSnapshot normalizes live inventory pockets", () => {
   const data = normalizeLiveSnapshot({
     player: {},

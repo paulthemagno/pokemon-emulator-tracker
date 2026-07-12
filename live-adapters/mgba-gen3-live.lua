@@ -556,9 +556,16 @@ local function parse_pokemon(address, size, isParty)
     },
   }
   if mon.heldItem == 0 then mon.heldItem = nil end
+  local ppBonuses = decrypted[growth + 9]
   for i = 0, 3 do
     local moveId = u16(decrypted, attacks + i * 2)
-    if moveId > 0 then mon.moves[#mon.moves + 1] = { id = moveId, pp = decrypted[attacks + 8 + i + 1] } end
+    if moveId > 0 then
+      mon.moves[#mon.moves + 1] = {
+        id = moveId,
+        pp = decrypted[attacks + 8 + i + 1],
+        ppUps = band(rshift(ppBonuses, i * 2), 0x03),
+      }
+    end
   end
   if isParty and size >= 100 then
     mon.statusByte = u32(raw, 0x50)
