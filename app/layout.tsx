@@ -2,18 +2,30 @@ import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
 export const metadata: Metadata = {
   // Required so Next can resolve OG/Twitter images from relative paths without warnings.
   // Supports both local runs and hosted deployments (set NEXT_PUBLIC_SITE_URL when hosted).
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL
-      ?? "http://localhost:3000"
-  ),
+  metadataBase: new URL(siteUrl),
   title: 'Pokemon Emulator Tracker',
-  description: 'Live emulator and save progress dashboard for Pokemon games',
+  description: 'Track Pokemon Red, Blue, Yellow, Gold, Silver, Crystal, Ruby, Sapphire, Emerald, FireRed, and LeafGreen saves and live mGBA memory.',
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
   openGraph: {
+    type: 'website',
+    url: '/',
+    siteName: 'Pokemon Emulator Tracker',
     title: 'Pokemon Emulator Tracker',
-    description: 'Live emulator and save progress dashboard for Pokemon games',
+    description: 'Inspect Pokemon save files and track live mGBA memory across supported Gen 1-3 games.',
     images: [
       {
         url: '/pokemon-emulator-tracker-wallpaper.png',
@@ -26,7 +38,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Pokemon Emulator Tracker',
-    description: 'Live emulator and save progress dashboard for Pokemon games',
+    description: 'Inspect Pokemon save files and track live mGBA memory across supported Gen 1-3 games.',
     images: ['/pokemon-emulator-tracker-wallpaper.png'],
   },
   icons: {

@@ -83,6 +83,11 @@ You can also try the hosted UI: [pokemon-emulator-tracker.vercel.app](https://po
 
 The hosted demo supports save upload and UI browsing. Live mGBA mode and local Ollama stay local-only because Vercel cannot reach services running on your machine. Hosted chat can use OpenRouter or AI SDK BYOK when an API key is configured or entered for the session.
 
+For production deployments, set `NEXT_PUBLIC_SITE_URL` to the canonical public
+origin. The app uses it for canonical, Open Graph, `robots.txt`, and
+`sitemap.xml` URLs. To verify the site with Google Search Console, optionally set
+`GOOGLE_SITE_VERIFICATION` to the verification token supplied by Google.
+
 <details>
 <summary>Install and LAN notes</summary>
 
