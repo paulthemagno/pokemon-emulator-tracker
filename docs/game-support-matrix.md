@@ -43,7 +43,7 @@ Status labels:
 | Dataset | Current state | Next step |
 | --- | --- | --- |
 | Species names/types/growth | Local TypeScript table; growth source documented as PokeAPI | Add provenance metadata and validate Gen 1-3 completeness. |
-| Moves | Local TypeScript table, PokeAPI descriptions, and generated local per-game learnset snapshot for LLM tools | Add stricter PRET-backed learnset parity and move mechanics by generation. |
+| Moves | Local TypeScript table, PokeAPI descriptions, generated local per-game learnset snapshot, and PRET-backed Gen 1-3 base PP with per-Pokemon PP Up decoding in save/live mode | Add stricter PRET-backed learnset parity and remaining move mechanics by generation. |
 | Items | Local TypeScript tables and PokeAPI descriptions | Replace manual Gen 1/2/3 tables with generated files from pret where practical. |
 | Locations | Gen 1 town-map landmarks, generated Gen 2 landmarks, source-backed Gen 3 Hoenn landmarks, and generated local location-area encounter rows for LLM tools | Replace broad generated encounter/location rows with PRET-backed exact slot/rate extraction where practical. |
 | Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, Gen 3 Hoenn overview map, and FireRed/LeafGreen Kanto/Sevii overview maps with marker coordinates | Continue validating edge/event maps with real saves before promoting FireRed/LeafGreen. |
@@ -64,6 +64,7 @@ Current local ground-truth modules:
 | `lib/pokemon/knowledge/species-id-maps.ts` | Gen 3 internal species ID to National Dex mapping. |
 | `lib/pokemon/data/gen3-hoenn-dex.ts` | Gen 3 Hoenn Dex order extracted from `pret/pokeemerald` `sHoennToNationalOrder`. |
 | `lib/pokemon/data/gen3-kanto-dex.ts` | FireRed/LeafGreen Kanto Dex count/order from `pret/pokefirered` `KANTO_DEX_COUNT` and `GetKantoPokedexCount`. |
+| `lib/pokemon/data/move-pp.ts` | Generation-specific Gen 1-3 base PP from pinned PRET move tables plus effective PP calculation. |
 | `live-adapters/generated/gen1-live-offsets.lua` | Generated Gen 1 live WRAM profiles loaded by the mGBA adapter. |
 | `live-adapters/generated/gen2-live-offsets.lua` | Generated Gen 2 live WRAM profiles and TM/HM item IDs loaded by the mGBA adapter. |
 | `live-adapters/generated/gen3-live-offsets.lua` | Generated Ruby/Sapphire/Emerald/FireRed/LeafGreen live profiles, inventory pockets, and internal species map loaded by the mGBA adapter. |

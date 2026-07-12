@@ -20,6 +20,7 @@ import {
 } from "../utils";
 import { getSpeciesName } from "../data/species";
 import { getMoveName } from "../data/moves";
+import { decodePackedMovePP } from "../data/move-pp";
 import { getGen1ItemName } from "../data/items";
 import { getGen1MapLandmark } from "../data/gen1-map-landmarks";
 import { getGen1Location } from "../data/locations";
@@ -35,6 +36,10 @@ const BOX_POKEMON_SIZE = 33;
 const GEN1_NUM_SPECIES = 151;
 const BOX_CAPACITY = 20;
 const BOX_RECORD_SIZE = 0x462;
+
+function parseGen1Move(id: number, rawPP: number): Move {
+  return { id, name: getMoveName(id), ...decodePackedMovePP(rawPP, id, 1) };
+}
 
 // Species index conversion (Gen 1 uses internal indices)
 const GEN1_INDEX_TO_NATIONAL: Record<number, number> = {
@@ -251,10 +256,10 @@ function parsePartyPokemon(data: Uint8Array, offset: number): Pokemon | null {
   const special = readUint16BE(data, offset + 42);
 
   const moves: Move[] = [];
-  if (move1) moves.push({ id: move1, name: getMoveName(move1), pp: pp1 & 0x3f, maxPP: 35 });
-  if (move2) moves.push({ id: move2, name: getMoveName(move2), pp: pp2 & 0x3f, maxPP: 35 });
-  if (move3) moves.push({ id: move3, name: getMoveName(move3), pp: pp3 & 0x3f, maxPP: 35 });
-  if (move4) moves.push({ id: move4, name: getMoveName(move4), pp: pp4 & 0x3f, maxPP: 35 });
+  if (move1) moves.push(parseGen1Move(move1, pp1));
+  if (move2) moves.push(parseGen1Move(move2, pp2));
+  if (move3) moves.push(parseGen1Move(move3, pp3));
+  if (move4) moves.push(parseGen1Move(move4, pp4));
 
   return {
     species,
@@ -315,10 +320,10 @@ function parseBoxPokemon(data: Uint8Array, offset: number): Pokemon | null {
   const pp4 = data[offset + 32];
 
   const moves: Move[] = [];
-  if (move1) moves.push({ id: move1, name: getMoveName(move1), pp: pp1 & 0x3f, maxPP: 35 });
-  if (move2) moves.push({ id: move2, name: getMoveName(move2), pp: pp2 & 0x3f, maxPP: 35 });
-  if (move3) moves.push({ id: move3, name: getMoveName(move3), pp: pp3 & 0x3f, maxPP: 35 });
-  if (move4) moves.push({ id: move4, name: getMoveName(move4), pp: pp4 & 0x3f, maxPP: 35 });
+  if (move1) moves.push(parseGen1Move(move1, pp1));
+  if (move2) moves.push(parseGen1Move(move2, pp2));
+  if (move3) moves.push(parseGen1Move(move3, pp3));
+  if (move4) moves.push(parseGen1Move(move4, pp4));
 
   return {
     species,

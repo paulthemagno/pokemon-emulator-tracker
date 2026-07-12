@@ -8,6 +8,7 @@ import { GEN3_HOENN_DEX_COUNT } from "./data/gen3-hoenn-dex";
 import { GEN3_KANTO_DEX_COUNT } from "./data/gen3-kanto-dex";
 import { getGen1Location, getGen3FRLGLocation, getGen3RSELocation } from "./data/locations";
 import { getMoveById } from "./data/moves";
+import { getMaxMovePP } from "./data/move-pp";
 import { getSpeciesById } from "./data/species";
 import { normalizeEventProgress, normalizeLiveEventBytes } from "./events";
 import { buildProgressFacts, normalizeProgressRaw } from "./progress-facts";
@@ -33,18 +34,20 @@ function normalizeTrainerGender(value: unknown): "male" | "female" | undefined {
   return undefined;
 }
 
-function normalizeMoves(pokemon: AnyRecord) {
+function normalizeMoves(pokemon: AnyRecord, generation: number) {
   const moveList = asArray(pokemon.moves);
   if (moveList.length > 0) {
     return moveList
       .map((move, index) => {
         const id = Number(move.id ?? move.moveId ?? move.moveID ?? 0);
         const moveData = getMoveById(id);
+        const ppUps = Number(move.ppUps ?? move.ppUpCount ?? 0);
         return {
           id,
           name: String(move.name ?? move.moveName ?? moveData.name ?? `Move ${index + 1}`),
           pp: Number(move.pp ?? move.currentPP ?? 0),
-          maxPP: Number(move.maxPP ?? move.maxPp ?? moveData.pp ?? move.pp ?? 0),
+          maxPP: Number(move.maxPP ?? move.maxPp ?? getMaxMovePP(id, generation, ppUps)),
+          ppUps,
           type: move.type ?? moveData.type,
           power: move.power ?? moveData.power,
           accuracy: move.accuracy ?? moveData.accuracy,
@@ -59,11 +62,13 @@ function normalizeMoves(pokemon: AnyRecord) {
     .map((move, index) => {
       const id = Number(move?.id ?? move?.moveId ?? move);
       const moveData = getMoveById(id);
+      const ppUps = Number(move?.ppUps ?? move?.ppUpCount ?? 0);
       return {
         id,
         name: String(move?.name ?? move?.moveName ?? moveData.name ?? `Move ${index + 1}`),
         pp: Number(move?.pp ?? 0),
-        maxPP: Number(move?.maxPP ?? move?.pp ?? moveData.pp ?? 0),
+        maxPP: Number(move?.maxPP ?? getMaxMovePP(id, generation, ppUps)),
+        ppUps,
         type: move?.type ?? moveData.type,
         power: move?.power ?? moveData.power,
         accuracy: move?.accuracy ?? moveData.accuracy,
@@ -96,7 +101,7 @@ function normalizePokemon(pokemon: AnyRecord, generation = 2): Pokemon | null {
     currentHP,
     maxHP,
     experience,
-    moves: normalizeMoves(pokemon),
+    moves: normalizeMoves(pokemon, generation),
     stats: {
       hp: maxHP,
       attack: Number(pokemon.attack ?? pokemon.stats?.attack ?? 0),

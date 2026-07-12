@@ -111,6 +111,23 @@ test("parseGen1Save parses stored Gen 1 PC boxes and marks the current box", () 
   assert.equal(parsed.pcBoxes[1].pokemon[0]?.moves[0]?.name, "Thunder Shock");
 });
 
+test("parseGen1Save decodes PP Ups instead of assigning every move 35 max PP", () => {
+  const data = new Uint8Array(SAVE_SIZE);
+  writeText(data, 0x2598, "ASH", 11);
+  data[0x284c] = 1;
+  writeBoxRecord(data, 0x30c0, 0x26, "KADABRA");
+
+  const pokemonDataOffset = 0x30c0 + 0x16;
+  data[pokemonDataOffset + 8] = 94; // Psychic, 10 base PP in Gen 1.
+  data[pokemonDataOffset + 29] = 14 | (2 << 6);
+
+  const parsed = parseGen1Save(data, "pokemon-red.sav");
+  const psychic = parsed.pcBoxes[1].pokemon[0]?.moves[0];
+  assert.equal(psychic?.pp, 14);
+  assert.equal(psychic?.ppUps, 2);
+  assert.equal(psychic?.maxPP, 14);
+});
+
 test("parseGen1Save maps Gen 1 indoor map ids to town map landmarks", () => {
   const data = new Uint8Array(SAVE_SIZE);
   writeText(data, 0x2598, "ASH", 11);

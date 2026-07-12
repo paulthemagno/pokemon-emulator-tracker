@@ -11,7 +11,7 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | `gen1SaveReference` | secondary | https://github-wiki-see.page/m/sopoforic/cgrr-pokemon/wiki/Pokemon-Generation-1-Save-Files | Gen 1 inventory offsets and HM/TM ID ranges | URL only |
 | `dataCrystalRedBlueRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Red_and_Blue/RAM_map | Red/Blue live WRAM current box and SRAM box bank cross-check | URL only |
 | `dataCrystalYellowRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_Yellow/RAM_map | Yellow live WRAM offset relationship to Red/Blue | URL only |
-| `pretPokered` | pret | https://github.com/pret/pokered | Red/Blue Gen 1 inventory offsets and HM/TM ID ranges | `3c814341c81307b3193a9ea890ff3a197b09b4e3` |
+| `pretPokered` | pret | https://github.com/pret/pokered | Red/Blue Gen 1 inventory offsets, HM/TM ID ranges, and move base PP | `3c814341c81307b3193a9ea890ff3a197b09b4e3` |
 | `pretPokeyellow` | pret | https://github.com/pret/pokeyellow | Yellow source pin and symbolic cross-checks | `bfa7170107eea23b89febb60bfb2ce39173bf2e1` |
 | `bulbapediaGen1Save` | secondary | https://bulbapedia.bulbagarden.net/wiki/Save_data_structure_(Generation_I) | Gen 1 SRAM/save cross-check | URL only |
 | `bulbapediaGen1PokemonData` | secondary | https://bulbapedia.bulbagarden.net/wiki/Pokemon_data_structure_in_Generation_I | Gen 1 party/current-box WRAM structure starts | URL only |
@@ -19,9 +19,9 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | `bulbapediaGen3PokemonData` | secondary | https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_data_structure_(Generation_III) | Gen 3 active party RAM starts and 100-byte party Pokemon structure | URL only |
 | `dataCrystalFireRedLeafGreenRamMap` | secondary | https://datacrystal.tcrf.net/wiki/Pok%C3%A9mon_FireRed_and_LeafGreen%3ARAM_map | FireRed/LeafGreen US live RAM party records and runtime SaveBlock pointers | URL only |
 | `pretPokeruby` | pret | https://github.com/pret/pokeruby | Ruby/Sapphire SaveBlock1/SaveBlock2 offsets, flags, and PC storage layout | `63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1` |
-| `pretPokeemerald` | pret | https://github.com/pret/pokeemerald | Emerald SaveBlock1/SaveBlock2 offsets, flags, item quantity encryption, PC storage layout, Gen 3 character map, and Hoenn Dex/map data | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
+| `pretPokeemerald` | pret | https://github.com/pret/pokeemerald | Emerald SaveBlock1/SaveBlock2 offsets, flags, item quantity encryption, PC storage layout, Gen 3 character map, move base PP, and Hoenn Dex/map data | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
 | `pretPokefirered` | pret | https://github.com/pret/pokefirered | FireRed/LeafGreen SaveBlock1/SaveBlock2 offsets, live ASLR move range and runtime pointer model, flags, item quantity encryption, PC storage layout, Kanto Dex order/count, map group count, and Kanto/Sevii region-map data | `e060ab955b5dc9ac1c4904c2cd141683615cf477` |
-| `pokecrystal` | pret | https://github.com/pret/pokecrystal | Gen 2 inventory offsets and TM/HM item IDs | `8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217` |
+| `pokecrystal` | pret | https://github.com/pret/pokecrystal | Gen 2 inventory offsets, TM/HM item IDs, and move base PP | `8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217` |
 | `pretPokegold` | pret | https://github.com/pret/pokegold | Gold/Silver Gen 2 save and live offset profiles | `09d2148d6d26b20840fb4997916321666ca1e953` |
 | `hoennMapImage` | media | https://github.com/pret/pokeemerald/tree/master/graphics/pokenav/region_map | Gen 3 Hoenn overview map asset for save uploads, rendered from `map.png` tileset plus `map.bin` tilemap | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |
 | `hoennBadgeSprites` | media | https://github.com/pret/pokeemerald/blob/master/graphics/trainer_card/badges.png | Gen 3 trainer card badge sprites split into local 16x16 files | `0d3100185e0b13faabfc589fc402dd46f83c1d6a` |

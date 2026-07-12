@@ -37,6 +37,7 @@ import {
   GEN3_KANTO_DEX_NATIONAL_ORDER,
 } from "../data/gen3-kanto-dex";
 import { getGen3UnownFormFromPersonality, getUnownFormLabel } from "../forms";
+import { getMaxMovePP } from "../data/move-pp";
 
 // Gen 3 save structure constants
 const SECTION_SIZE = 0x1000; // 4KB per section
@@ -556,6 +557,7 @@ function parsePokemonRecord(
     moves.push(view.getUint16(attacksOffset + i * 2, true));
     pp.push(view.getUint8(attacksOffset + 8 + i));
   }
+  const ppBonuses = view.getUint8(growthOffset + 8);
 
   // EVs/Condition substructure
   const evs = {
@@ -623,7 +625,8 @@ function parsePokemonRecord(
       id: m,
       name: getMoveName(m, generation.gen),
       pp: pp[i],
-      maxPP: 0, // Would need move data to calculate
+      ppUps: (ppBonuses >> (i * 2)) & 0x03,
+      maxPP: getMaxMovePP(m, 3, (ppBonuses >> (i * 2)) & 0x03),
     })),
     ability: abilityBit,
     nature: pid % 25,

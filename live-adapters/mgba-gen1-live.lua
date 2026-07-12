@@ -499,7 +499,8 @@ local function read_pokemon_at(offset, nickname, originalTrainer, storage, expec
   for i = 0, 3 do
     local moveId = read(offset + 8 + i)
     if moveId > 0 then
-      table.insert(moves, { id = moveId, pp = low_bits(read(offset + 29 + i), 0x3f) })
+      local rawPP = read(offset + 29 + i)
+      table.insert(moves, { id = moveId, pp = low_bits(rawPP, 0x3f), ppUps = math.floor(rawPP / 0x40) })
     end
   end
 

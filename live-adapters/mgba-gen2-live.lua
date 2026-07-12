@@ -663,10 +663,10 @@ read_party = function()
         happiness = read8(address + 0x1B),
         originalTrainerID = read16be(address + 0x06),
         moves = {
-          { id = read8(address + 0x02), pp = read8(address + 0x17) % 64 },
-          { id = read8(address + 0x03), pp = read8(address + 0x18) % 64 },
-          { id = read8(address + 0x04), pp = read8(address + 0x19) % 64 },
-          { id = read8(address + 0x05), pp = read8(address + 0x1A) % 64 },
+          { id = read8(address + 0x02), pp = read8(address + 0x17) % 64, ppUps = math.floor(read8(address + 0x17) / 64) },
+          { id = read8(address + 0x03), pp = read8(address + 0x18) % 64, ppUps = math.floor(read8(address + 0x18) / 64) },
+          { id = read8(address + 0x04), pp = read8(address + 0x19) % 64, ppUps = math.floor(read8(address + 0x19) / 64) },
+          { id = read8(address + 0x05), pp = read8(address + 0x1A) % 64, ppUps = math.floor(read8(address + 0x1A) / 64) },
         },
       })
     end
@@ -943,10 +943,10 @@ local function read_box_pokemon_at_offset(address, nickname, originalTrainer)
     formName = formName,
     heldItem = read_sram_offset8(address + 0x01),
     moves = {
-      { id = read_sram_offset8(address + 0x02), pp = read_sram_offset8(address + 0x17) % 64 },
-      { id = read_sram_offset8(address + 0x03), pp = read_sram_offset8(address + 0x18) % 64 },
-      { id = read_sram_offset8(address + 0x04), pp = read_sram_offset8(address + 0x19) % 64 },
-      { id = read_sram_offset8(address + 0x05), pp = read_sram_offset8(address + 0x1A) % 64 },
+      { id = read_sram_offset8(address + 0x02), pp = read_sram_offset8(address + 0x17) % 64, ppUps = math.floor(read_sram_offset8(address + 0x17) / 64) },
+      { id = read_sram_offset8(address + 0x03), pp = read_sram_offset8(address + 0x18) % 64, ppUps = math.floor(read_sram_offset8(address + 0x18) / 64) },
+      { id = read_sram_offset8(address + 0x04), pp = read_sram_offset8(address + 0x19) % 64, ppUps = math.floor(read_sram_offset8(address + 0x19) / 64) },
+      { id = read_sram_offset8(address + 0x05), pp = read_sram_offset8(address + 0x1A) % 64, ppUps = math.floor(read_sram_offset8(address + 0x1A) / 64) },
     },
     originalTrainerID = read_sram_offset16be(address + 0x06),
     experience = read_sram_offset24be(address + 0x08),
