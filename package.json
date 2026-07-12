@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "tsc -p tsconfig.test.json && node --test .tmp/test-build/tests/*.test.js",
+    "test": "next typegen && tsc -p tsconfig.test.json && node --test .tmp/test-build/tests/*.test.js",
     "audit:pokemon-data": "node scripts/audit-pokemon-data.mjs",
     "generate:pokemon-knowledge": "node scripts/generate-pokemon-knowledge.mjs",
     "generate:pokemon-evolutions": "node scripts/generate-pokemon-evolutions.mjs",

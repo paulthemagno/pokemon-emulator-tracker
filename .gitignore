@@ -11,6 +11,7 @@ __v0_jsx-dev-runtime.ts
 
 # Common ignores
 node_modules
+next-env.d.ts
 .next/
 .tmp/
 .cache/

@@ -9,6 +9,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/paulthemagno/pokemon-emulator-tracker">
+    <img src="https://img.shields.io/badge/Source-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="Source code on GitHub" />
+  </a>
   <a href="https://pokemon-emulator-tracker.vercel.app/">
     <img src="https://img.shields.io/badge/Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Hosted demo on Vercel" />
   </a>
@@ -110,8 +113,8 @@ http://192.168.1.83:3000
 | --- | --- | --- | --- |
 | Gen 1 | Red, Blue, Yellow | Supported | Supported |
 | Gen 2 | Gold, Silver, Crystal | Supported | Supported |
-| Gen 3 | Ruby, Sapphire, Emerald | Partial but usable | Partial but usable |
-| Gen 3 | FireRed, LeafGreen | Partial but usable | Partial but usable |
+| Gen 3 | Ruby, Sapphire, Emerald | Fully supported | Fully supported |
+| Gen 3 | FireRed, LeafGreen | Fully supported | Fully supported |
 
 See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the detailed support matrix and current caveats.
 

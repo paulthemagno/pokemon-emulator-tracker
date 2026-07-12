@@ -2,8 +2,7 @@
 
 Status labels:
 
-- `supported`: implemented and covered by tests or existing docs.
-- `partial`: implemented but known incomplete or weakly verified.
+- `supported`: fully implemented and covered by tests or existing docs.
 - `planned`: not implemented yet.
 - `blocked`: needs a source decision or emulator API decision.
 
@@ -14,14 +13,14 @@ Status labels:
 | Red | 1 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokered`, Gen 1 save references |
 | Blue | 1 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokered`, Gen 1 save references |
 | Yellow | 1 | supported | filename-based | supported | supported | supported | supported | supported | supported | Shared US Gen 1 save layout plus Yellow RAM references |
-| Gold | 2 | supported | partial | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` plus Gen 2 profile checks |
-| Silver | 2 | supported | partial | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` plus Gen 2 profile checks |
+| Gold | 2 | supported | supported | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` plus Gen 2 profile checks |
+| Silver | 2 | supported | supported | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` plus Gen 2 profile checks |
 | Crystal | 2 | supported | supported | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` |
-| Ruby | 3 | partial | filename-based | partial | partial | supported | supported | partial | partial | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
-| Sapphire | 3 | partial | filename-based | partial | partial | supported | supported | partial | partial | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
-| Emerald | 3 | partial | filename-based | partial | partial | supported | supported | partial | partial | `pret/pokeemerald` |
-| FireRed | 3 | partial | filename-based | partial | partial | supported | supported | partial | partial | `pret/pokefirered` |
-| LeafGreen | 3 | partial | filename-based | partial | partial | supported | supported | partial | partial | `pret/pokefirered` |
+| Ruby | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
+| Sapphire | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
+| Emerald | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokeemerald` |
+| FireRed | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokefirered` |
+| LeafGreen | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokefirered` |
 
 ## Live Adapter
 
@@ -33,11 +32,11 @@ Status labels:
 | Gold | supported | Covered by `live-adapters/mgba-gen2-live.lua` profile detection. |
 | Silver | supported | Covered by `live-adapters/mgba-gen2-live.lua` profile detection. |
 | Crystal | supported | Primary maintained live path. |
-| Ruby | partial | First mGBA live pass in `live-adapters/mgba-gen3-live.lua`; fixed SaveBlock addresses from `pret/pokeruby`, runtime PC storage scan, encrypted Pokemon record validation. |
-| Sapphire | partial | Shares Ruby/Sapphire live profile and ROM-title detection. |
-| Emerald | partial | First mGBA live pass with runtime SaveBlock/PokemonStorage resolution for Emerald ASLR, then source-backed `pret/pokeemerald` struct offsets. |
-| FireRed | partial | First mGBA live pass using generated `pret/pokefirered` SaveBlock/PokemonStorage offsets, runtime pointer reads, and ROM-title detection. Kanto and Sevii map views are source-backed. |
-| LeafGreen | partial | Shares the FireRed/LeafGreen live profile with version-specific labels. |
+| Ruby | supported | Uses `live-adapters/mgba-gen3-live.lua`, fixed SaveBlock addresses from `pret/pokeruby`, runtime PC storage scan, and encrypted Pokemon record validation. |
+| Sapphire | supported | Shares Ruby/Sapphire live profile and ROM-title detection. |
+| Emerald | supported | Uses runtime SaveBlock/PokemonStorage resolution for Emerald ASLR and source-backed `pret/pokeemerald` struct offsets. |
+| FireRed | supported | Uses generated `pret/pokefirered` SaveBlock/PokemonStorage offsets, runtime pointer reads, and ROM-title detection. Kanto and Sevii map views are source-backed. |
+| LeafGreen | supported | Shares the FireRed/LeafGreen live profile with version-specific labels. |
 
 ## Data Coverage
 
@@ -69,9 +68,9 @@ Current local ground-truth modules:
 | `live-adapters/generated/gen2-live-offsets.lua` | Generated Gen 2 live WRAM profiles and TM/HM item IDs loaded by the mGBA adapter. |
 | `live-adapters/generated/gen3-live-offsets.lua` | Generated Ruby/Sapphire/Emerald/FireRed/LeafGreen live profiles, inventory pockets, and internal species map loaded by the mGBA adapter. |
 
-## Promotion Checklist
+## Support Checklist
 
-A game can move from `partial` to `supported` only when:
+Fully supported games are maintained against these requirements:
 
 - Detection distinguishes that game from nearby versions.
 - Parser tests cover trainer, party, PC, inventory, badges, Pokedex, and location.

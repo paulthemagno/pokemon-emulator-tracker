@@ -9,7 +9,7 @@ import { useSaveData } from "@/hooks/use-save-data";
 import { useLiveData } from "@/hooks/use-live-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Bot, FileArchive, Gamepad2, Info, MessageSquare, Radio } from "lucide-react";
+import { X, Bot, FileArchive, Gamepad2, Github, Info, MessageSquare, Radio } from "lucide-react";
 import { mergeLiveWithSavePcBoxes } from "@/lib/pokemon/pc-box-merge";
 
 const Dashboard = dynamic(
@@ -346,7 +346,18 @@ export default function Home() {
       <footer className="relative z-10 border-t border-border mt-12">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <p>Pokemon Emulator Tracker - Track game progress from saves and live emulator memory</p>
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+              <p>Pokemon Emulator Tracker - Track game progress from saves and live emulator memory</p>
+              <a
+                href="https://github.com/paulthemagno/pokemon-emulator-tracker"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 hover:text-foreground"
+              >
+                <Github className="h-4 w-4" aria-hidden="true" />
+                View source on GitHub
+              </a>
+            </div>
             <p className="text-xs">
               Pokemon is a trademark of Nintendo/Game Freak. This is a fan-made tool.
             </p>
