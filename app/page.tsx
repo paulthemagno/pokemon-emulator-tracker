@@ -96,7 +96,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="grid items-center gap-2 lg:grid-cols-[1fr_auto_1fr]">
             <div className="flex items-center gap-3">
               <img
                 src="/logo.png"
@@ -109,7 +109,19 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground">Live emulator and save progress dashboard</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="sm" className="justify-self-center font-mono tracking-tight">
+              <a
+                href="https://github.com/paulthemagno/pokemon-emulator-tracker"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="View the Pokemon Emulator Tracker repository by paulthemagno on GitHub"
+                title="View the repository by paulthemagno on GitHub"
+              >
+                <Github className="h-4 w-4" />
+                paulthemagno
+              </a>
+            </Button>
+            <div className="flex items-center gap-2 justify-self-end">
               <Button
                 variant={showChatbot ? 'default' : 'secondary'}
                 size="sm"
@@ -346,18 +358,7 @@ export default function Home() {
       <footer className="relative z-10 border-t border-border mt-12">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
-              <p>Pokemon Emulator Tracker - Track game progress from saves and live emulator memory</p>
-              <a
-                href="https://github.com/paulthemagno/pokemon-emulator-tracker"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 hover:text-foreground"
-              >
-                <Github className="h-4 w-4" aria-hidden="true" />
-                View source on GitHub
-              </a>
-            </div>
+            <p>Pokemon Emulator Tracker - Track game progress from saves and live emulator memory</p>
             <p className="text-xs">
               Pokemon is a trademark of Nintendo/Game Freak. This is a fan-made tool.
             </p>
