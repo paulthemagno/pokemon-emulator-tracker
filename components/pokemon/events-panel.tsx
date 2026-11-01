@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { GameEventProgress, GameProgressFacts } from "@/lib/pokemon/types";
+import { isEventStatusActive } from "@/lib/pokemon/event-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ function formatImportance(value?: string): string {
 
 function formatFlowStatus(flag: GameEventProgress["flags"][number]): string {
   if (flag.flowStatus === "initial") return "Initial game state";
+  if (flag.flowStatus === "state" && flag.category === "League challenge state") return flag.rawSet ? "Defeated this attempt" : "No victory recorded this attempt";
   if (flag.flowStatus === "state" && flag.stateKind === "visibility") return flag.rawSet ? "Hidden" : "Visible";
   if (flag.flowStatus === "state") return flag.rawSet ? "State active" : "State inactive";
   if (flag.completed) return "Completed";
@@ -105,8 +107,8 @@ export function EventsPanel({ events, progressFacts }: EventsPanelProps) {
       .filter((flag) => scope === "all" || flag.important)
       .filter((flag) => {
         if (mode === "all") return true;
-        if (mode === "done") return flag.completed;
-        return !flag.completed;
+        if (mode === "done") return isEventStatusActive(flag);
+        return !isEventStatusActive(flag);
       })
       .filter((flag) => {
         if (!normalizedQuery) return true;
@@ -324,7 +326,7 @@ export function EventsPanel({ events, progressFacts }: EventsPanelProps) {
                         <Badge variant="outline" className="rounded-full capitalize">
                           {formatImportance(flag.importance)}
                         </Badge>
-                        <Badge variant={flag.completed ? "default" : "secondary"} className="rounded-full">
+                        <Badge variant={isEventStatusActive(flag) ? "default" : "secondary"} className="rounded-full">
                           {formatFlowStatus(flag)}
                         </Badge>
                       </div>

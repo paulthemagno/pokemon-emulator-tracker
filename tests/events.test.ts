@@ -4,6 +4,53 @@ import assert from "node:assert/strict";
 import { parseEventProgress, normalizeLiveEventBytes } from "../lib/pokemon/events";
 import { GEN1_EVENT_FLAGS, GEN2_EVENT_FLAGS, GEN3_EVENT_FLAGS } from "../lib/pokemon/knowledge/event-flags";
 import { getGeneratedEventGuide } from "../lib/pokemon/knowledge/event-guides";
+import { buildProgressFacts } from "../lib/pokemon/progress-facts";
+import { isEventStatusActive } from "../lib/pokemon/event-status";
+
+for (const game of ["emerald", "ruby", "sapphire"] as const) {
+  test(`${game} Elite Four flags describe an attempt without counting as permanent milestones`, () => {
+    const layout = game === "emerald" ? GEN3_EVENT_FLAGS.emerald : GEN3_EVENT_FLAGS.rubySapphire;
+    const members = layout.entries.filter((entry) => /^FLAG_DEFEATED_ELITE_4_/.test(entry.key));
+    assert.equal(members.length, 4);
+    const bytes = new Uint8Array(Math.ceil(layout.flagCount / 8));
+    for (const member of members.slice(0, 2)) {
+      bytes[Math.floor(member.id / 8)] |= 1 << (member.id % 8);
+    }
+    const progress = normalizeLiveEventBytes({ bytes: Array.from(bytes) }, 3, game)!;
+    for (const [index, member] of members.entries()) {
+      const flag = progress.flags.find((entry) => entry.key === member.key)!;
+      assert.equal(flag.category, "League challenge state");
+      assert.equal(flag.important, false);
+      assert.equal(flag.rawSet, index < 2);
+      assert.equal(isEventStatusActive(flag), index < 2);
+      assert.equal(flag.completed, false);
+      assert.equal(flag.flowStatus, "state");
+      assert.match(flag.description ?? "", /Hall of Fame resets/);
+      assert.match(flag.notCompletedMeaning ?? "", /reset/);
+      assert.ok(flag.sourceRefs?.some((url) => url.endsWith("/data/scripts/hall_of_fame.inc")));
+    }
+    assert.equal(progress.completedCount, 0);
+    assert.equal(progress.importantCompletedCount, 0);
+    const facts = buildProgressFacts({ generation: 3, game, source: "live", events: progress, raw: { eliteFourState: 2 } });
+    assert.equal(facts?.facts.find((fact) => fact.key === "hoenn-league-run")?.value, "Challenge Glacia");
+
+    // Hall of Fame clears the attempt bits while permanent game-clear stays set.
+    bytes.fill(0);
+    const gameClear = layout.entries.find((entry) => entry.key === "FLAG_SYS_GAME_CLEAR")!;
+    bytes[Math.floor(gameClear.id / 8)] |= 1 << (gameClear.id % 8);
+    const afterHallOfFame = parseEventProgress(bytes, layout, "save", 0);
+    for (const member of members) {
+      const flag = afterHallOfFame.flags.find((entry) => entry.key === member.key)!;
+      assert.equal(flag.rawSet, false);
+      assert.equal(isEventStatusActive(flag), false);
+      assert.equal(flag.flowStatus, "state");
+      assert.equal(flag.important, false);
+    }
+    const afterFacts = buildProgressFacts({ generation: 3, game, source: "save", events: afterHallOfFame, raw: { eliteFourState: 0 } });
+    assert.equal(afterFacts?.facts.some((fact) => fact.key === "hoenn-league-run"), false);
+    assert.equal(afterFacts?.facts.find((fact) => fact.key === "main-story-progress")?.value, "Main story completed");
+  });
+}
 
 test("parseEventProgress reads source-backed event flags from save bytes", () => {
   const layout = GEN1_EVENT_FLAGS.redBlue;
