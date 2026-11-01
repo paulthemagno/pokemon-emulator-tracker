@@ -219,7 +219,9 @@ export function parseEventProgress(
     const generatedGuide = getGeneratedEventGuide(layout.gameProfile, entry.key);
     const autoDescription = autoDescribeSourceFlag(entry);
     const rawSet = readBit(data, flagStartOffset, entry.id);
-    const technicalStateDescription = describeTechnicalState(entry, rawSet);
+    const technicalStateDescription = entry.category === "League challenge state" && guidance?.description
+      ? guidance.description
+      : describeTechnicalState(entry, rawSet);
     return {
       id: entry.id,
       key: entry.key,
@@ -239,8 +241,8 @@ export function parseEventProgress(
         ? "script-guided" as const
         : generatedGuide?.descriptionKind ?? "source-symbol" as const,
       location: generatedGuide?.location,
-      completionMeaning: generatedGuide?.completionMeaning,
-      notCompletedMeaning: generatedGuide?.notCompletedMeaning,
+      completionMeaning: guidance?.completionMeaning ?? generatedGuide?.completionMeaning,
+      notCompletedMeaning: guidance?.notCompletedMeaning ?? generatedGuide?.notCompletedMeaning,
       actionHint: guidance?.actionHint,
       flowSteps: guidance?.steps ?? generatedGuide?.steps ?? autoDescription.steps,
       prerequisites: guidance?.prerequisites,

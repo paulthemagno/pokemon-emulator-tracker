@@ -1,5 +1,7 @@
 export interface EventGuidance {
   description?: string;
+  completionMeaning?: string;
+  notCompletedMeaning?: string;
   actionHint?: string;
   steps?: string[];
   prerequisites?: string[];
@@ -106,6 +108,23 @@ const GEN1_OAK_SEQUENCE: Record<string, EventGuidance> = {
     sourceRefs: [POKERED_FIGHTING_DOJO],
   },
 };
+
+function hoennLeagueRunGuidance(repo: string, commit: string, sidneyKey: string): Record<string, EventGuidance> {
+  const base = `https://github.com/pret/${repo}/blob/${commit}`;
+  return Object.fromEntries([
+    [sidneyKey, "Sidney", "SidneysRoom"],
+    ["FLAG_DEFEATED_ELITE_4_PHOEBE", "Phoebe", "PhoebesRoom"],
+    ["FLAG_DEFEATED_ELITE_4_GLACIA", "Glacia", "GlaciasRoom"],
+    ["FLAG_DEFEATED_ELITE_4_DRAKE", "Drake", "DrakesRoom"],
+  ].map(([key, name, room]) => [key, {
+    description: `${name}'s battle flag belongs to the current League attempt. The Hall of Fame resets it, so an unset bit does not mean you have never defeated ${name}.`,
+    completionMeaning: `${name} is recorded as defeated in the current League attempt.`,
+    notCompletedMeaning: `No victory over ${name} is recorded in the current attempt, or the League flags have been reset after the Hall of Fame.`,
+    steps: [`Defeat ${name} during a League attempt to set this flag.`, "The Hall of Fame resets the four Elite Four battle flags. Use the main-story Champion milestone (FLAG_SYS_GAME_CLEAR) for permanent League completion."],
+    normalMissingReason: "This flag can be unset after completing the League. It tracks a single attempt rather than permanent story completion.",
+    sourceRefs: [`${base}/data/maps/EverGrandeCity_${room}/scripts.inc`, `${base}/data/event_scripts.s`, `${base}/data/scripts/hall_of_fame.inc`],
+  }]));
+}
 
 const GEN2_LEAGUE_RUN_STATE: Record<string, EventGuidance> = {
   EVENT_BEAT_ELITE_4_WILL: {
@@ -269,6 +288,7 @@ export const EVENT_GUIDANCE_BY_PROFILE: Record<string, Record<string, EventGuida
     },
   },
   "ruby-sapphire-en": {
+    ...hoennLeagueRunGuidance("pokeruby", "63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1", "FLAG_DEFEATED_ELITE_4_SYDNEY"),
     FLAG_KYOGRE_ESCAPED_SEAFLOOR_CAVERN: {
       description: "Kyogre has left Seafloor Cavern as part of the late Hoenn story crisis.",
       actionHint: "Finish the Seafloor Cavern room 9 story scene after the Archie battle.",
@@ -285,6 +305,7 @@ export const EVENT_GUIDANCE_BY_PROFILE: Record<string, Record<string, EventGuida
     },
   },
   "emerald-en": {
+    ...hoennLeagueRunGuidance("pokeemerald", "0d3100185e0b13faabfc589fc402dd46f83c1d6a", "FLAG_DEFEATED_ELITE_4_SIDNEY"),
     GUIDE_MIRAGE_TOWER: {
       description: "Mirage Tower is an Emerald-only optional location in the Route 111 desert.",
       actionHint: "Bring the Mach Bike and a Pokemon that can use Rock Smash, then cross the cracked floors at speed and climb to 4F.",

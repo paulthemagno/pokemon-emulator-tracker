@@ -167,7 +167,7 @@ function categorize(name, section = "", comment = "") {
   if (/^(?:FLAG|EVENT)_HIDE_/.test(name)) return "Map objects";
   if (/^FLAG_DECORATION_\d+$/.test(name)) return "Map objects";
   if (/^FLAG_SYS_/.test(name)) return "System state";
-  if (/EVENT_BEAT_ELITE_4_|EVENT_BEAT_CHAMPION_LANCE|_ROOM_ENTRANCE_CLOSED|_ROOM_EXIT_OPEN/.test(name)) return "League challenge state";
+  if (/EVENT_BEAT_ELITE_4_|EVENT_BEAT_CHAMPION_LANCE|^FLAG_DEFEATED_ELITE_4_(?:SIDNEY|SYDNEY|PHOEBE|GLACIA|DRAKE)$|_ROOM_ENTRANCE_CLOSED|_ROOM_EXIT_OPEN/.test(name)) return "League challenge state";
   if (/LANCES_ROOM_LOCK_DOOR|HALL_OF_FAME_DEX_RATING/.test(name)) return "Map objects";
   if (/STARTER_DOLL|BIRCH_AIDE_MET|MATCH_CALL/.test(name)) return "Optional rewards";
   if (/BEAT_MEWTWO|CAUGHT_(?:LUGIA|HO_OH)|DEFEATED_(?:KYOGRE|GROUDON|RAYQUAZA|HO_OH|LUGIA)|SET_WHEN_FOUGHT_HO_OH|SOLVED_HO_OH_PUZZLE|WALL_OPENED_IN_.*_CHAMBER/.test(name)) return "Optional rewards";
@@ -190,6 +190,7 @@ function categorize(name, section = "", comment = "") {
 
 function stateKindFor(name) {
   if (/^(?:FLAG|EVENT)_HIDE_|^FLAG_DECORATION_\d+$/.test(name)) return "visibility";
+  if (/^FLAG_DEFEATED_ELITE_4_(?:SIDNEY|SYDNEY|PHOEBE|GLACIA|DRAKE)$/.test(name)) return "system";
   if (/^FLAG_SYS_/.test(name)) return "system";
   return undefined;
 }
