@@ -5,6 +5,30 @@ The app supports two data modes:
 - Save file upload/watch mode: works with most emulators, updates when the `.sav` changes on disk.
 - Live memory adapters: expose emulator RAM through a local HTTP API so the UI can update HP, party, level, and other fields while the game is running.
 
+## Automatic ROM recognition (mGBA)
+
+All three adapters use `rom-identity.lua` and the generated
+`generated/rom-identities.lua` catalog. Keep these files alongside the adapter.
+GBA game codes and GB/GBC product codes or known legacy Red/Blue header checksums
+identify the title and EN/IT/DE/FR/ES language. Header checksums and revisions are
+checked; unknown games, languages and unsupported revisions return an explicit
+error instead of selecting another game. The snapshot status includes identity,
+language, revision, and a ROM CRC32 when available. Header matching is not ROM
+hack certification.
+
+The identity selects the normal English profile or the reviewed European RAM
+overrides: Gen 1 core WRAM fields, RS active party, and FR/LG SaveBlock/storage
+pointers. Emerald and Gen 2 retain their existing Western profile. Changing ROM,
+language, revision, or resetting clears adapter caches, including when the title
+stays the same. The app also prevents merging snapshots from different identities.
+
+Run `corepack pnpm generate:pokemon-knowledge` after editing
+`lib/pokemon/knowledge/sources/rom-identities.json`, then reload the Lua script.
+The automated Lua tests simulate headers and memory profiles; they do not replace
+real-emulator checks for every localized release. Accented names and non-Western
+encodings still need further coverage. See
+[recognition and verification details](../docs/multilingual-game-detection.md).
+
 ## BizHawk
 
 Run `pokemon-memory-reader` in BizHawk as described in its repository. This app polls:
@@ -29,7 +53,7 @@ The offset profile is loaded from `live-adapters/generated/gen3-live-offsets.lua
 
 The script polls the local socket on a short wall-clock throttle and builds snapshots lazily when a client request arrives. Runtime SaveBlock and PokemonStorage scans are incremental, so the adapter does not sweep all EWRAM in one frame while the emulator is running. Ruby/Sapphire PC storage uses generated priority candidates plus structural validation, rather than a full runtime EWRAM sweep. The candidates are validated against the official `struct PokemonStorage` layout: `currentBox`, `boxes`, `boxNames`, and wallpaper bytes. Candidates with only empty or invalid records are rejected instead of being forced. GBA live reads prefer mGBA absolute bus reads and only fall back to the WRAM memory domain, because the exposed WRAM domain can vary across mGBA builds.
 
-If you switch between Ruby/Sapphire, Emerald, FireRed, and LeafGreen while the Lua script is still loaded, the adapter re-reads the ROM title and clears cached runtime addresses before building the next snapshot.
+When the loaded ROM identity changes, including language/revision changes within the same title, the adapter clears cached runtime addresses before building the next snapshot.
 
 For Gen 3 PC storage debugging, use:
 

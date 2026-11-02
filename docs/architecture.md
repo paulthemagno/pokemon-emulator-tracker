@@ -28,6 +28,23 @@ mGBA + Pokemon Gold/Silver/Crystal
 
 The UI should consume normalized `SaveData` and avoid caring whether the source is a save file or live memory.
 
+## Game recognition
+
+`game-detection.ts` validates international GB save lists/checksums and resolves
+only compatible title hints. The Gen 3 parser detects RS/Emerald/FRLG from a
+complete valid slot. Ambiguous pairs return `candidates` through `/api/parse`;
+the UI resubmits the file with a compatible `game` selection. No data is rendered
+under an invented default title. The same SaveData model feeds the existing UI.
+
+mGBA adapters share `live-adapters/rom-identity.lua`. Header identity selects
+language-specific profile overrides from the generated ROM catalog. Lifecycle
+and identity changes clear caches. Snapshot `status.identity` is normalized as
+`SaveData.romIdentity`, shown in the dashboard, and prevents cross-ROM live-data
+merges. The catalog and source pins live in
+`lib/pokemon/knowledge/sources/rom-identities.json`; the knowledge generator emits
+`live-adapters/generated/rom-identities.lua`. See
+[multilingual detection](multilingual-game-detection.md) for limits and tests.
+
 ## Data provenance
 
 Pokemon gameplay data should be local at runtime and should have a documented source trail. The source policy lives in:

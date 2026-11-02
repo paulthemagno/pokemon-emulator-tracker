@@ -74,6 +74,11 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
           <h2 className="text-2xl font-black tracking-normal text-foreground">
             {isLive ? "Live Data" : "Save Data"}
           </h2>
+          {saveData.romIdentity && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {saveData.game} · {saveData.romIdentity.language.toUpperCase()} · Rev {saveData.romIdentity.revision ?? 0}
+            </p>
+          )}
           {filename && (
             <p className="mt-1 text-sm text-muted-foreground font-mono">{filename}</p>
           )}

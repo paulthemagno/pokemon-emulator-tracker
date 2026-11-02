@@ -42,7 +42,7 @@ const ChatbotPanel = dynamic(
 );
 
 export default function Home() {
-  const { saveData, isLoading, error, filename, uploadFile, clearData, lastUpdated } =
+  const { saveData, isLoading, error, filename, uploadFile, clearData, lastUpdated, gameCandidates, selectGame } =
     useSaveData();
   const live = useLiveData(250);
   const [showInfo, setShowInfo] = useState(false);
@@ -207,8 +207,17 @@ export default function Home() {
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
         {/* Error Display */}
         {error && (
-          <div className="mb-6 rounded-lg bg-destructive/10 border border-destructive/20 p-4">
-            <p className="text-sm text-destructive">{error}</p>
+          <div className={`mb-6 rounded-lg border p-4 ${gameCandidates.length ? "bg-card/60 border-border" : "bg-destructive/10 border-destructive/20"}`}>
+            <p className={`text-sm ${gameCandidates.length ? "text-foreground" : "text-destructive"}`}>{error}</p>
+            {gameCandidates.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2" aria-label="Choose save game">
+                {gameCandidates.map(game => (
+                  <Button key={game} variant="outline" onClick={() => selectGame(game)}>
+                    {game === "firered" ? "FireRed" : game === "leafgreen" ? "LeafGreen" : game.charAt(0).toUpperCase() + game.slice(1)}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

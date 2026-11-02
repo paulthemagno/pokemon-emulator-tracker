@@ -28,6 +28,25 @@ This file records the sources currently represented in `lib/pokemon/knowledge/`.
 | `pokemonHomeTypeIcons` | media | https://archives.bulbagarden.net/wiki/Category:Type_icons | Local type icons in `public/type-icons/`, using the Pokémon HOME type icon sprite files archived as game sprites | URL only |
 | `pokemonGameCovers` | media | https://archives.bulbagarden.net/wiki/Category:Game_covers | Local game cover images in `public/game-covers/` for the current-game UI tile | URL only |
 
+## Game detection references
+
+`lib/pokemon/knowledge/sources/rom-identities.json` pins the new detection and
+language-profile references; its generated projection is
+`live-adapters/generated/rom-identities.lua`.
+
+| Source | Commit | Scope |
+| --- | --- | --- |
+| [mGBA](https://github.com/mgba-emu/mgba) | `efecc23ec176195687e488374a471353c3661d1e` | Demo ROM product codes, CRC32 API usage, English profiles |
+| [pokemon-access](https://github.com/nuive/pokemon-access) | `2deb98f38a4e6674ff60af6f9419be22865f1f39` | Legacy GB header-checksum identities and European Gen 1 RAM anchors |
+| [PokeLua](https://github.com/Real96/PokeLua) | `2fedf75f891aec925808f7f6c8a7d92d666af500` | Western Gen 3 party and runtime pointer differences |
+| [PKHeX](https://github.com/kwsch/PKHeX) | `0660d1e1f4924b8478daec73281bb8071a82ad19` | Save family detection, international GB checksum layouts and Yellow inference |
+
+These are technical community sources, not official Game Freak documentation.
+The shared save layouts continue to use the PRET pins above. The European Gen 1
+core WRAM projection is derived from the contiguous shared layout and checked
+against localized player/rival/badge/map anchors; full localized field coverage
+still requires real-emulator validation. No global map coordinate shift is used.
+
 ## Pinning Rules
 
 For pret-based generated data, replace `commit pin pending` with an exact commit SHA before marking a dataset as stable. Secondary web references are acceptable for initial scaffolding but should be replaced or cross-checked with pret extraction scripts where practical.

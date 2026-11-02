@@ -267,6 +267,7 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
   return {
     generation,
     game,
+    romIdentity: snapshot.status?.identity?.key ? snapshot.status.identity : undefined,
     trainer: {
       name: String(player.name ?? "Live Trainer"),
       gender: normalizeTrainerGender(player.gender),

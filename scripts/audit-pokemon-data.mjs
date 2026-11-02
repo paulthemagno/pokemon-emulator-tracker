@@ -68,6 +68,8 @@ const requiredKnowledgeFiles = [
   "live-adapters/generated/gen1-live-offsets.lua",
   "live-adapters/generated/gen2-live-offsets.lua",
   "live-adapters/generated/gen3-live-offsets.lua",
+  "live-adapters/generated/rom-identities.lua",
+  "lib/pokemon/knowledge/sources/rom-identities.json",
   "lib/pokemon/knowledge/index.ts",
   "lib/pokemon/knowledge/sources/provenance.json",
   "lib/pokemon/knowledge/sources/inventory-layouts.json",

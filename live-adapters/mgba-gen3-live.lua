@@ -11,7 +11,7 @@ local RSE_NATIONAL_MAGIC = 0xDA
 local DEX_MODE_NATIONAL = 1
 local SNAPSHOT_REFRESH_SECONDS = 0.25
 local HEAVY_SECTION_REFRESH_SECONDS = 1.25
-local ADAPTER_REVISION = "gen3-story-context-2026-06-11"
+local ADAPTER_REVISION = "gen3-rom-identity-v1"
 
 local function script_directory()
   local info = debug and debug.getinfo and debug.getinfo(1, "S")
@@ -25,6 +25,9 @@ end
 
 local generated = dofile(script_directory() .. "generated/gen3-live-offsets.lua")
 local profiles = generated.profiles
+local RomIdentity = dofile(script_directory() .. "rom-identity.lua")
+local romIdentity = nil
+local lastIdentityKey = nil
 
 local function band(a, b)
   if bit32 and bit32.band then return bit32.band(a, b) end
@@ -206,59 +209,37 @@ local function decode_string(address, length)
   return table.concat(parts)
 end
 
-local function get_rom_title()
-  local title = ""
-  if emu and emu.getGameTitle then
-    local ok, value = pcall(function() return emu:getGameTitle() end)
-    if ok and value then title = tostring(value) end
-  end
-  if title == "" then
-    local chars = {}
-    for i = 0, 11 do
-      local b = 0
-      if emu and emu.read8 then
-        pcall(function() b = emu:read8(0x080000A0 + i) end)
-      end
-      if b >= 32 and b <= 126 then chars[#chars + 1] = string.char(b) end
-    end
-    title = table.concat(chars)
-  end
-  detectedRomTitle = title
-  return title
-end
-
 local function get_game()
-  local title = string.upper(get_rom_title())
-  local previousGame = detectedGame
-  if title:find("EMER") then detectedGame = "emerald"
-  elseif title:find("SAPP") or title:find("AXP") then detectedGame = "sapphire"
-  elseif title:find("RUBY") or title:find("AXV") then detectedGame = "ruby"
-  elseif title:find("FIRE") or title:find("BPRE") or title:find("BPR") then detectedGame = "firered"
-  elseif title:find("LEAF") or title:find("BPGE") or title:find("BPG") then detectedGame = "leafgreen"
-  else detectedGame = "emerald" end
-  if previousGame and previousGame ~= detectedGame then
-    activeProfile = nil
-    blockCache = nil
-    cachedSnapshotBody = nil
-    cachedHeavySections = nil
+  local identity = RomIdentity.read(emu, 3)
+  if lastIdentityKey ~= identity.key then
+    activeProfile, blockCache = nil, nil
+    cachedSnapshotBody, cachedHeavySections = nil, nil
     cachedHeavySectionsAt = 0
     cachedHeavySectionsGame = nil
+    ewram = nil
     saveBlockScanCursorByProfile = {}
     saveBlockScanBestByProfile = {}
     runtimePointerAddressByProfile = {}
     storageScanCursorByProfile = {}
     storageScanBestByProfile = {}
+    lastIdentityKey = identity.key
   end
+  romIdentity = identity
+  detectedGame, detectedRomTitle = identity.game, identity.romTitle
   return detectedGame
+end
+
+local function get_rom_title()
+  get_game()
+  return detectedRomTitle
 end
 
 local function get_profile()
   local game = get_game()
-  local expectedKey = "ruby_sapphire"
-  if game == "emerald" then expectedKey = "emerald" end
-  if game == "firered" or game == "leafgreen" then expectedKey = "fire_red_leaf_green" end
-  if activeProfile and activeProfile.key == expectedKey then return activeProfile end
-  activeProfile = profiles[expectedKey]
+  local key = game == "emerald" and "emerald"
+    or (game == "firered" or game == "leafgreen") and "fire_red_leaf_green"
+    or "ruby_sapphire"
+  if not activeProfile then activeProfile = RomIdentity.profile(profiles[key], romIdentity) end
   return activeProfile
 end
 
@@ -1097,6 +1078,7 @@ local function build_snapshot()
       profile = p.key,
       game = get_game(),
       romTitle = get_rom_title(),
+      identity = romIdentity,
       ok = get_ewram() ~= nil,
       saveBlock1 = blocks.saveBlock1,
       saveBlock2 = blocks.saveBlock2,
@@ -1119,6 +1101,7 @@ local function build_snapshot()
 end
 
 local function snapshot_json(force)
+  get_game() -- Check ROM identity before serving a cached snapshot.
   local currentTime = now_seconds()
   if not force and cachedSnapshotBody and (currentTime - cachedSnapshotAt) < SNAPSHOT_REFRESH_SECONDS then
     return cachedSnapshotBody
@@ -1203,4 +1186,14 @@ elseif callbacks and callbacks.add then
   end)
 else
   log("Adapter started server but callbacks:add is missing; polling will not run")
+end
+
+if callbacks and callbacks.add then
+  local function reset_identity()
+    RomIdentity.reset()
+    lastIdentityKey = nil
+    cachedSnapshotBody = nil
+  end
+  callbacks:add("start", reset_identity)
+  callbacks:add("reset", reset_identity)
 end

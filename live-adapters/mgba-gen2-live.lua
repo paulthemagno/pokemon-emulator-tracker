@@ -124,6 +124,9 @@ end
 local generatedOffsets = dofile(script_directory() .. "generated/gen2-live-offsets.lua")
 GEN2_MACHINE_ITEM_IDS = generatedOffsets.machineItemIds
 OFFSET_PROFILES = generatedOffsets.profiles
+local RomIdentity = dofile(script_directory() .. "rom-identity.lua")
+local romIdentity = nil
+local lastIdentityKey = nil
 
 local function temp_directory()
   local tmp = os and os.getenv and os.getenv("TMPDIR")
@@ -344,6 +347,7 @@ local function build_snapshot()
     profile = offsets.key,
     game = get_game(),
     romTitle = detectedRomTitle,
+      identity = romIdentity,
     ok = get_wram() ~= nil,
     sram = get_sram() ~= nil,
     sramSize = get_sram_size(),
@@ -450,95 +454,25 @@ local function read_sram_offset_name(offset)
   return result
 end
 
-local function read_rom_title()
-  if detectedRomTitle ~= nil then return detectedRomTitle end
-  local chars = {}
-
-  if emu and emu.read8 then
-    for address = 0x0134, 0x0143 do
-      local ok, value = pcall(function() return emu:read8(address) end)
-      if not ok or not value or value == 0 then break end
-      if value >= 32 and value <= 126 then
-        table.insert(chars, string.char(value))
-      end
-    end
-  end
-
-  detectedRomTitle = table.concat(chars):gsub("%s+$", "")
-  return detectedRomTitle
-end
-
-local function game_from_rom_title(title)
-  local upper = string.upper(title or "")
-  if upper:find("CRYSTAL", 1, true) or upper:find("CRYSTL", 1, true) then return "crystal" end
-  if upper:find("POKEMON C", 1, true) then return "crystal" end
-  if upper:find("SILVER", 1, true) or upper:find("SLV", 1, true) then return "silver" end
-  if upper:find("POKEMON S", 1, true) then return "silver" end
-  if upper:find("GOLD", 1, true) or upper:find("GLD", 1, true) then return "gold" end
-  if upper:find("POKEMON G", 1, true) then return "gold" end
-  return nil
-end
-
-local function is_reasonable_trainer_name(name)
-  return name ~= nil and #name > 0 and #name <= NAME_SIZE and name:match("^[%w %-%._'!?&]+$") ~= nil
-end
-
-local function bcd_byte_score(value)
-  local high = math.floor(value / 16)
-  local low = value % 16
-  return (high <= 9 and low <= 9) and 1 or -1
-end
-
-local function score_offset_profile(profile)
-  local score = 0
-  local partyCount = read8(profile.partyCount)
-  if partyCount >= 0 and partyCount <= 6 then score = score + 3 else score = score - 6 end
-
-  if partyCount > 0 then
-    local species = read8(profile.partyMon1)
-    if species > 0 and species <= GEN2_NUM_SPECIES then score = score + 3 else score = score - 3 end
-  end
-
-  if is_reasonable_trainer_name(read_name(profile.trainerName)) then score = score + 2 end
-
-  if profile.moneyFormat == "bcd" then
-    score = score + bcd_byte_score(read8(profile.money))
-    score = score + bcd_byte_score(read8(profile.money + 1))
-    score = score + bcd_byte_score(read8(profile.money + 2))
-  else
-    local moneyVal = read8(profile.money) * 0x10000 + read8(profile.money + 1) * 0x100 + read8(profile.money + 2)
-    if moneyVal <= 999999 then score = score + 2 else score = score - 2 end
-  end
-
-  local mapGroup = read8(profile.mapGroup)
-  local mapNumber = read8(profile.mapNumber)
-  if mapGroup > 0 and mapGroup < 32 then score = score + 1 else score = score - 1 end
-  if mapNumber > 0 and mapNumber < 128 then score = score + 1 else score = score - 1 end
-
-  return score
-end
-
 get_offset_profile = function()
-  if activeOffsetProfile then return activeOffsetProfile end
-
-  local title = read_rom_title()
-  local game = game_from_rom_title(title)
-  detectedGame = game
-
-  if game == "crystal" then
-    activeOffsetProfile = OFFSET_PROFILES.crystal
-  elseif game == "gold" or game == "silver" then
-    activeOffsetProfile = OFFSET_PROFILES.gold_silver
-    activeOffsetProfile.game = game
-  else
-    local crystalScore = score_offset_profile(OFFSET_PROFILES.crystal)
-    local goldSilverScore = score_offset_profile(OFFSET_PROFILES.gold_silver)
-    activeOffsetProfile = goldSilverScore > crystalScore and OFFSET_PROFILES.gold_silver or OFFSET_PROFILES.crystal
-    detectedGame = activeOffsetProfile.game
+  local identity = RomIdentity.read(emu, 2)
+  if lastIdentityKey ~= identity.key then
+    activeOffsetProfile = nil
+    cachedSnapshotBody, cachedSnapshotData = nil, nil
+    wram, sram = nil, nil
+    sramReadMode = "domain"
+    lastSramHealth = "unknown"
+    pcCache = nil
+    pcCacheRemaining = 0
+    boxNamesAddressCache = nil
+    lastIdentityKey = identity.key
   end
-
-  log("Detected Gen 2 profile: " .. activeOffsetProfile.key .. " (" .. (detectedGame or "unknown") .. ")"
-    .. (title ~= "" and (" from ROM title " .. title) or ""))
+  romIdentity = identity
+  detectedGame, detectedRomTitle = identity.game, identity.romTitle
+  if not activeOffsetProfile then
+    activeOffsetProfile = RomIdentity.profile(OFFSET_PROFILES[(identity.game == "crystal" and "crystal" or "gold_silver")], identity)
+    log("Detected Pokemon: " .. identity.game .. " / " .. identity.language .. " / revision " .. identity.revision)
+  end
   return activeOffsetProfile
 end
 
@@ -1092,6 +1026,7 @@ read_cached_pc_data = function()
 end
 
 local function refresh_snapshot_cache(force)
+  get_offset_profile() -- Check ROM identity before serving a cached snapshot.
   local currentTime = now_seconds()
   if not force and cachedSnapshotBody and (currentTime - cachedSnapshotAt) < SNAPSHOT_REFRESH_SECONDS then
     return cachedSnapshotData, cachedSnapshotBody
@@ -1179,4 +1114,14 @@ else
   else
     log("Adapter started server but callbacks:add is missing; polling will not run")
   end
+end
+
+if callbacks and callbacks.add then
+  local function reset_identity()
+    RomIdentity.reset()
+    lastIdentityKey = nil
+    cachedSnapshotBody = nil
+  end
+  callbacks:add("start", reset_identity)
+  callbacks:add("reset", reset_identity)
 end

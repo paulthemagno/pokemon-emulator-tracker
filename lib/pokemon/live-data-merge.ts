@@ -10,6 +10,7 @@ function hasPokemonInBox(box: PCBox | undefined) {
 
 function areCompatibleLiveSnapshots(previous: SaveData, next: SaveData) {
   if (previous.generation !== next.generation) return false;
+  if (previous.romIdentity?.key !== next.romIdentity?.key) return false;
   if (previous.game === next.game) return true;
 
   const redBlue = new Set(["red", "blue"]);

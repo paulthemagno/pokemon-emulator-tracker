@@ -351,3 +351,9 @@ test("normalizeLiveSnapshot decodes reviewed progressRaw values without exposing
   );
   assert.equal(data.progressFacts?.facts.some((fact) => fact.key === "littleroot-intro-phase"), false);
 });
+
+test("live normalization preserves ROM identity for language and revision changes", () => {
+  const identity = { key: "BPGI:0:01020304", gameCode: "BPGI", language: "it", revision: 0, crc32: "01020304", matchedBy: "header" };
+  const result = normalizeLiveSnapshot({ generation: 3, game: "leafgreen", status: { identity }, player: {} });
+  assert.deepEqual(result.romIdentity, identity);
+});

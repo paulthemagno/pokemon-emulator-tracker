@@ -26,7 +26,8 @@ async function fetchJson(url: string) {
     headers: { Connection: "close" },
   }).finally(() => clearTimeout(timeout));
   if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`);
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.error || `${url} returned ${response.status}`);
   }
   return response.json();
 }
@@ -34,9 +35,9 @@ async function fetchJson(url: string) {
 async function fetchSnapshot(baseUrl: string, useLegacyFallback: boolean) {
   try {
     return await fetchJson(`${baseUrl}/snapshot`);
-  } catch {
+  } catch (error) {
     if (!useLegacyFallback) {
-      throw new Error(`Unable to connect to live source at ${baseUrl}`);
+      throw new Error(`Unable to read live source at ${baseUrl}: ${error instanceof Error ? error.message : "unknown error"}`);
     }
 
     const [status, player, party, bag] = await Promise.allSettled([

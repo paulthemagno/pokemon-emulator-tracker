@@ -38,6 +38,7 @@ import {
 } from "../data/gen3-kanto-dex";
 import { getGen3UnownFormFromPersonality, getUnownFormLabel } from "../forms";
 import { getMaxMovePP } from "../data/move-pp";
+import { selectSaveGame } from "../game-detection";
 
 // Gen 3 save structure constants
 const SECTION_SIZE = 0x1000; // 4KB per section
@@ -268,18 +269,18 @@ function getSaveBlock1(sections: Map<number, Section>, layout: Gen3SaveLayout): 
   );
 }
 
-function detectGame(filename = ""): Gen3GameVersion {
-  const lowerFilename = filename.toLowerCase();
-  if (/\bleaf\s*green\b|leafgreen|lg\b/.test(lowerFilename)) return "leafgreen";
-  if (/\bfire\s*red\b|firered|fr\b/.test(lowerFilename)) return "firered";
-  if (/\bemerald\b|pokemon-em\b|pokeemerald/.test(lowerFilename)) return "emerald";
-  if (/\bsapphire\b|pokemon-sa\b|pokesapphire/.test(lowerFilename)) return "sapphire";
-  if (/\bruby\b|pokemon-ru\b|pokeruby/.test(lowerFilename)) return "ruby";
-
-  // A raw Gen 3 save does not carry a reliable title string in the section data.
-  // Use the Ruby/Sapphire layout as the conservative unlabelled default because
-  // it is unencrypted for money/item quantities.
-  return "ruby";
+function detectGame(sections: Map<number, Section>, filename: string, override?: GameVersion): Gen3GameVersion {
+  if (sections.size !== SECTION_COUNT || [...sections.values()].some(section => !section.valid)) {
+    throw new Error("No complete valid Gen 3 save slot found. Export an intact in-game battery save.");
+  }
+  const trainer = sections.get(SECTION_TRAINER_INFO)!.data;
+  const marker = new DataView(trainer.buffer, trainer.byteOffset).getUint32(0xac, true);
+  // PKHeX GetVersionG3SAV: FR/LG fixed marker, RS Battle Tower data,
+  // Emerald encryption key plus data beyond the RS SaveBlock2 extent.
+  const candidates: Gen3GameVersion[] = marker === 1 ? ["firered", "leafgreen"]
+    : marker !== 0 && trainer.slice(0x890, 0xf2c).some(byte => byte !== 0)
+      ? ["emerald"] : ["ruby", "sapphire"];
+  return selectSaveGame(candidates, filename, override) as Gen3GameVersion;
 }
 
 function parseTrainerInfo(
@@ -946,7 +947,7 @@ function parseLocation(sections: Map<number, Section>, game: string): SaveData["
   };
 }
 
-export function parseGen3Save(buffer: ArrayBuffer, filename = ""): SaveData {
+export function parseGen3Save(buffer: ArrayBuffer, filename = "", override?: GameVersion): SaveData {
   const data = new Uint8Array(buffer);
 
   // Validate save size (should be 128KB)
@@ -957,7 +958,7 @@ export function parseGen3Save(buffer: ArrayBuffer, filename = ""): SaveData {
   const sections = chooseBestSections(data);
 
   // Detect game version
-  const game = detectGame(filename);
+  const game = detectGame(sections, filename, override);
 
   const generation: Gen3Generation = {
     gen: 3,

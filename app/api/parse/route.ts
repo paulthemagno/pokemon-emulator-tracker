@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseSaveFile, isValidSaveFile } from "@/lib/pokemon/parsers";
 
+import type { GameVersion } from "@/lib/pokemon/types";
+
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
     const buffer = await file.arrayBuffer();
 
     // Parse the save file
-    const result = parseSaveFile(buffer, file.name);
+    const result = parseSaveFile(buffer, file.name, (formData.get("game") || undefined) as GameVersion | undefined);
 
     if (result.success) {
       return NextResponse.json({
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       return NextResponse.json(
-        { success: false, error: result.error },
+        { success: false, error: result.error, candidates: result.candidates },
         { status: 400 }
       );
     }

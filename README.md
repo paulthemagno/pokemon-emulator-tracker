@@ -187,10 +187,13 @@ See [docs/game-support-matrix.md](docs/game-support-matrix.md) for the detailed 
 3. Inspect trainer data, party, Pokédex, PC boxes, inventory, badges, and map.
 4. Re-upload the save after saving in-game to refresh the dashboard.
 
-Filename hints matter when a raw save layout does not uniquely identify the game:
-
-- Gen 1: include `red`, `blue`, or `yellow` in generic filenames.
-- Gen 3: include `ruby`, `sapphire`, `emerald`, `firered`, or `leafgreen` in generic filenames.
+The parser identifies the save format from its contents and validates checksums.
+Names in English, Italian, German, French and Spanish can resolve titles within
+that format, but cannot force an incompatible parser. A file named `unlabeled.sav`
+works too: if the save only identifies a pair (Red/Blue, Gold/Silver,
+Ruby/Sapphire or FireRed/LeafGreen), choose the exact game in the prompt.
+Saves with unsupported or damaged layouts produce an error instead of defaulting
+to Red or Ruby. Japanese/Korean save layouts are not supported yet.
 
 The parser normalizes uploaded saves into the same model used by live mode, so the UI behaves the same after upload or live polling.
 
