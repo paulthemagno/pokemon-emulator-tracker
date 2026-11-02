@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import type { GameContextSnapshot } from "../types";
+import { packPokemonContext } from "../context-packer";
 import { ITEM_DESCRIPTIONS } from "../../pokemon/data/item-descriptions";
 import { MOVE_DESCRIPTIONS } from "../../pokemon/data/move-descriptions";
 import { MOVES } from "../../pokemon/data/moves";
@@ -294,7 +295,7 @@ const trainerStatusToolDataSchema = z.object({
   trainerName: z.string().optional(),
   location: z.string().optional(),
   money: z.number().optional(),
-  badges: z.array(z.unknown()).optional(),
+  badges: z.union([z.number(), z.array(z.unknown())]).optional(),
   pokedexSeen: z.number().optional(),
   pokedexOwned: z.number().optional(),
   gameTitle: z.string().optional(),
@@ -448,7 +449,7 @@ function readGeneratedRows<T extends readonly unknown[]>(filename: string): read
   const filePath = path.join(process.cwd(), "lib/pokemon/data", filename);
   const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as { rows?: T[] };
   const rows = parsed.rows ?? [];
-  console.log(
+  console.error(
     `[CHATBOT TOOLS] Loaded ${filename}: rows=${rows.length} in ${Date.now() - startedAt}ms`
   );
   return rows;
@@ -1177,7 +1178,7 @@ const REFERENCE_TOOLS = new Set([
   "search_game_guidance",
 ]);
 
-console.log(
+console.error(
   [
     "[CHATBOT TOOLS] Registry initialized:",
     `moves=${MOVES.length}`,
@@ -1405,12 +1406,14 @@ export function getChatToolDefinitions(): ChatToolDefinition[] {
       type: "function",
       function: {
         name: "get_pokemon_details",
-        description: "Get detailed info for one party Pokemon by name or 1-based index.",
+        description: "Get full details for a party or PC Pokemon. Indices are 1-based; use boxIndex with slotIndex or pokemonName for a PC Pokemon.",
         parameters: {
           type: "object",
           properties: {
             pokemonName: { type: "string" },
             partyIndex: { type: "number" },
+            boxIndex: { type: "integer", minimum: 1 },
+            slotIndex: { type: "integer", minimum: 1 },
           },
           required: [],
         },
@@ -1425,6 +1428,24 @@ export function getChatToolDefinitions(): ChatToolDefinition[] {
           type: "object",
           properties: { pokemonName: { type: "string" } },
           required: ["pokemonName"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_game_state",
+        description: "Inspect complete selected save/live data on demand: PC boxes, event flags with provenance, trainer, inventory pockets, party, Pokedex, progress facts, or location. Start with summary. Missing parser fields are unavailable, not zero.",
+        parameters: {
+          type: "object",
+          properties: {
+            section: { type: "string", enum: ["summary", "trainer", "party", "pcBoxes", "inventory", "events", "pokedex", "progressFacts", "location"] },
+            boxIndex: { type: "integer", minimum: 1, description: "For pcBoxes: select a 1-based box; omit for box summaries." },
+            query: { type: "string", description: "Filter Pokemon, items, or event flag keys/labels. Canonical English names." },
+            offset: { type: "integer", minimum: 0 },
+            limit: { type: "integer", minimum: 1, maximum: 100 },
+          },
+          required: [],
         },
       },
     },
@@ -2378,6 +2399,59 @@ export function executeChatTool(
   const activeContext = context as GameContextSnapshot;
 
   switch (toolName) {
+    case "get_game_state": {
+      const state = activeContext.fullState;
+      if (!state) return failure(toolName, "NOT_FOUND", "Full state is not available in this context. Reload the tracker page to share the complete selected save/live state.");
+      const section = typeof args.section === "string" ? args.section : "summary";
+      const query = typeof args.query === "string" ? normalizeForSearch(args.query) : "";
+      const offset = Math.max(0, Math.floor(parseNumber(args.offset) ?? 0));
+      const limit = Math.min(100, Math.max(1, Math.floor(parseNumber(args.limit) ?? 20)));
+      const page = <T,>(rows: T[]) => ({ totalMatches: rows.length, offset, returned: rows.slice(offset, offset + limit).length,
+        hasMore: offset + limit < rows.length, entries: rows.slice(offset, offset + limit) });
+      const matches = (value: unknown) => !query || normalizeForSearch(String(value ?? "")).includes(query);
+      let result: Record<string, unknown>;
+      switch (section) {
+        case "summary": result = { generation: state.generation, game: state.game,
+          availableFields: Object.keys(state), partyCount: state.party.length, boxCount: state.pcBoxes.length,
+          boxedPokemon: state.pcBoxes.reduce((n, box) => n + box.pokemon.filter(Boolean).length, 0),
+          eventFlagCount: state.events?.flags.length ?? null,
+          note: "Choose a section to inspect the retained parser output. Fields not present in availableFields, including coins when not parsed, are unavailable." }; break;
+        case "trainer": result = { trainer: state.trainer }; break;
+        case "party": result = page(state.party.map((pokemon, index) => ({ partyIndex: index + 1,
+          ...packPokemonContext(pokemon, state.generation), pokemon })).filter(p => matches(`${p.name} ${p.species}`))); break;
+        case "pcBoxes": {
+          const boxIndex = parseNumber(args.boxIndex);
+          if (boxIndex === undefined) {
+            result = page(state.pcBoxes.map((box, index) => ({ boxIndex: index + 1, name: box.name,
+              capacity: box.capacity, isCurrent: box.isCurrent, count: box.pokemon.filter(Boolean).length,
+              matchingPokemon: box.pokemon.flatMap((p, slot) => p && query && matches(`${p.nickname} ${p.speciesName}`)
+                ? [{ slotIndex: slot + 1, name: p.nickname, species: p.speciesName, level: p.level }] : []),
+            })).filter(box => !query || matches(box.name) || box.matchingPokemon.length > 0));
+          } else {
+            const box = Number.isInteger(boxIndex) ? state.pcBoxes[boxIndex - 1] : undefined;
+            if (!box) return failure(toolName, "NOT_FOUND", "PC box not found.");
+            result = { boxIndex, name: box.name, capacity: box.capacity, isCurrent: box.isCurrent, diagnostics: box.diagnostics,
+              ...page(box.pokemon.flatMap((p, slot) => p ? [{ slotIndex: slot + 1,
+                ...packPokemonContext(p, state.generation), pokemon: p }] : [])
+                .filter(p => matches(`${p.name} ${p.species}`))) };
+          }
+          break;
+        }
+        case "inventory": result = page(state.inventory.flatMap(p => p.items.map(item => ({ ...item, pocket: p.name })))
+          .filter(item => matches(`${item.name} ${item.pocket}`))); break;
+        case "events": {
+          if (!state.events) return failure(toolName, "NOT_FOUND", "Event flags are not available from this source.");
+          const { flags, ...summary } = state.events;
+          result = { ...summary, ...page(flags.filter(flag => matches(`${flag.key} ${flag.label}`))),
+            interpretation: "rawSet is a memory bit, not automatically quest completion. Preserve completed, stateKind, initiallySet, and script guidance when explaining flags." }; break;
+        }
+        case "pokedex": result = { pokedex: state.pokedex ?? null }; break;
+        case "progressFacts": result = { progressFacts: state.progressFacts ?? null }; break;
+        case "location": result = { location: state.location }; break;
+        default: return failure(toolName, "INVALID_ARGUMENT", `Unknown section: ${section}`);
+      }
+      return success(toolName, { section, ...result }, [{ kind: "save-state", name: "Complete selected parser/normalizer state" }]);
+    }
     case "get_trainer_status":
       return success(
         toolName,
@@ -2396,7 +2470,9 @@ export function executeChatTool(
     case "get_story_context":
       return success(
         toolName,
-        { facts: activeContext.progressFacts ?? [] },
+        { facts: activeContext.progressFacts ?? [], eventFlagsAvailable: Boolean(activeContext.fullState?.events),
+          eventFlagCount: activeContext.fullState?.events?.flags.length ?? null,
+          eventLookup: "Use get_game_state section=events with query for individual flags and source-backed guidance." },
         [{ kind: "save-state", name: "Current loaded game state" }]
       );
     case "get_party_overview":
@@ -2437,15 +2513,23 @@ export function executeChatTool(
         typeof args.pokemonName === "string" ? normalizeForSearch(args.pokemonName) : "";
       const requestedIndex = parseNumber(args.partyIndex);
       const index = requestedIndex === undefined ? -1 : Math.floor(requestedIndex) - 1;
-      const selected =
+      const boxIndex = parseNumber(args.boxIndex);
+      const box = boxIndex === undefined ? undefined : activeContext.fullState?.pcBoxes[boxIndex - 1];
+      const slot = parseNumber(args.slotIndex);
+      const rawPokemon = boxIndex === undefined ? (
+        index >= 0 ? activeContext.fullState?.party[index] : activeContext.fullState?.party.find(p =>
+          normalizeForSearch(p.nickname) === byName || normalizeForSearch(p.speciesName) === byName)
+      ) : box?.pokemon.find((p, i) => p && (slot !== undefined ? i === slot - 1
+        : normalizeForSearch(p.nickname) === byName || normalizeForSearch(p.speciesName) === byName));
+      const selected = rawPokemon && activeContext.fullState ? packPokemonContext(rawPokemon, activeContext.fullState.generation) : boxIndex === undefined ? (
         (index >= 0 && index < detailed.length ? detailed[index] : undefined) ??
         detailed.find(
           (pokemon) =>
             normalizeForSearch(pokemon.name) === byName ||
             normalizeForSearch(pokemon.species) === byName
-        );
+        )) : undefined;
       if (!selected) {
-        return failure(toolName, "NOT_FOUND", "Pokemon not found in current party.");
+        return failure(toolName, "NOT_FOUND", "Pokemon not found in the requested party/PC location.");
       }
       return success(
         toolName,
@@ -2461,6 +2545,9 @@ export function executeChatTool(
           nature: selected.nature,
           heldItem: selected.heldItem,
           moves: selected.moves,
+          ...(rawPokemon ? { pokemon: rawPokemon, stats: rawPokemon.stats, ivs: rawPokemon.ivs,
+            evs: rawPokemon.evs, happiness: rawPokemon.happiness, isShiny: rawPokemon.isShiny,
+            isEgg: rawPokemon.isEgg, boxIndex: boxIndex ?? null } : {}),
         },
         [{ kind: "save-state", name: "Current loaded game state" }]
       );
@@ -2488,6 +2575,13 @@ export function executeChatTool(
           totalItemCount: filtered.reduce((sum, item) => sum + item.quantity, 0),
           returnedItems: items.length,
           items,
+          heldItems: (activeContext.fullState ? [
+            ...activeContext.fullState.party.map((p, i) => ({ p, location: `party ${i + 1}` })),
+            ...activeContext.fullState.pcBoxes.flatMap((box, b) => box.pokemon.flatMap((p, slot) => p
+              ? [{ p, location: `box ${b + 1} slot ${slot + 1}` }] : [])),
+          ] : []).filter(({ p }) => p.heldItemName && (!query || normalizeForSearch(p.heldItemName).includes(query)))
+            .slice(0, requestedLimit === undefined ? 100 : Math.max(1, Math.floor(requestedLimit))).map(({ p, location }) => ({ name: p.heldItemName, id: p.heldItem,
+              pokemon: p.nickname || p.speciesName, location })),
         },
         [{ kind: "save-state", name: "Current loaded game state" }]
       );

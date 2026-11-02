@@ -23,6 +23,7 @@ async function fetchJson(url: string) {
   const response = await fetch(url, {
     cache: "no-store",
     signal: controller.signal,
+    headers: { Connection: "close" },
   }).finally(() => clearTimeout(timeout));
   if (!response.ok) {
     throw new Error(`${url} returned ${response.status}`);
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const now = Date.now();
-    if (lastSuccess && now - lastFailureAt < 500) {
+    if (searchParams.get("fresh") !== "1" && lastSuccess && now - lastFailureAt < 500) {
       return NextResponse.json({ success: true, ...lastSuccess, stale: true });
     }
 
