@@ -274,14 +274,16 @@ function MiniMap({
   if (generation === 3) {
     const label = getMapLabel(locationName);
     const isFRLG = isFireRedLeafGreen(game);
-    const landmark = isFRLG ? getGen3FRLGMapLandmark(mapGroup, mapId) : getGen3MapLandmark(mapGroup, mapId);
-    const point = landmark
-      ? isFRLG
-        ? getGen3FRLGRegionMapPixel(landmark, typeof location === "string" ? undefined : location)
-        : getGen3RegionMapPixel(landmark, typeof location === "string" ? undefined : location)
-      : null;
+    const frlgLandmark = isFRLG ? getGen3FRLGMapLandmark(mapGroup, mapId) : undefined;
+    const hoennLandmark = isFRLG ? undefined : getGen3MapLandmark(mapGroup, mapId);
+    const landmark = frlgLandmark ?? hoennLandmark;
+    const point = frlgLandmark
+      ? getGen3FRLGRegionMapPixel(frlgLandmark, typeof location === "string" ? undefined : location)
+      : hoennLandmark
+        ? getGen3RegionMapPixel(hoennLandmark, typeof location === "string" ? undefined : location)
+        : null;
     const mapLabel = landmark?.name ? landmark.name.replace(/\s+/g, " ") : label;
-    const frlgMapAsset = isFRLG && landmark ? GEN3_FRLG_MAP_ASSETS[landmark.mapView] : GEN3_FRLG_MAP_ASSETS.kanto;
+    const frlgMapAsset = frlgLandmark ? GEN3_FRLG_MAP_ASSETS[frlgLandmark.mapView] : GEN3_FRLG_MAP_ASSETS.kanto;
     const mapSrc = isFRLG ? frlgMapAsset.src : "/maps/hoenn-map-emerald.svg";
     const mapAlt = isFRLG ? frlgMapAsset.alt : "Hoenn region map from Pokemon Emerald";
     const mapTitle = isFRLG ? `${frlgMapAsset.label} Map` : "Hoenn Map";

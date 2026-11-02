@@ -55,6 +55,11 @@ test("parseSaveFile passes the Gen 1 filename through for Red Blue Yellow game d
   const data = new Uint8Array(SAVE_SIZE);
   writeText(data, 0x2598, "ASH", 11);
 
+  data[0x2f2d] = 0xff;
+  let checksum = 0;
+  for (let i = 0x2598; i < 0x3523; i++) checksum += data[i];
+  data[0x3523] = (~checksum) & 0xff;
+
   assert.equal(parseSaveFile(data.buffer, "pokemon-red.sav").success, true);
 
   const red = parseSaveFile(data.buffer, "pokemon-red.sav");

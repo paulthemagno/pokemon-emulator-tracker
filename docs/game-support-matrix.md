@@ -8,19 +8,26 @@ Status labels:
 
 ## Save Upload
 
+The game-level statuses below do not certify every language or ROM revision.
+Save layouts are content-detected; exact paired titles use compatible localized
+filename hints or a user choice. Live adapters recognize Western ROM headers and
+apply generated European overrides where needed. Localized releases still need
+real-emulator and text-decoding verification. See [multilingual detection research](multilingual-game-detection.md)
+for the current detection limits, reviewed references, and remaining verification coverage.
+
 | Game | Generation | Save parser | Detection | Party | PC boxes | Inventory | Badges | Pokedex | Location | Main technical source |
 | --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Red | 1 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokered`, Gen 1 save references |
-| Blue | 1 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokered`, Gen 1 save references |
-| Yellow | 1 | supported | filename-based | supported | supported | supported | supported | supported | supported | Shared US Gen 1 save layout plus Yellow RAM references |
+| Red | 1 | supported | content + title choice | supported | supported | supported | supported | supported | supported | `pret/pokered`, Gen 1 save references |
+| Blue | 1 | supported | content + title choice | supported | supported | supported | supported | supported | supported | `pret/pokered`, Gen 1 save references |
+| Yellow | 1 | supported | content + title choice | supported | supported | supported | supported | supported | supported | Shared US Gen 1 save layout plus Yellow RAM references |
 | Gold | 2 | supported | supported | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` plus Gen 2 profile checks |
 | Silver | 2 | supported | supported | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` plus Gen 2 profile checks |
 | Crystal | 2 | supported | supported | supported | supported | supported | supported | supported | supported | `pret/pokecrystal` |
-| Ruby | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
-| Sapphire | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
-| Emerald | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokeemerald` |
-| FireRed | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokefirered` |
-| LeafGreen | 3 | supported | filename-based | supported | supported | supported | supported | supported | supported | `pret/pokefirered` |
+| Ruby | 3 | supported | content + title choice | supported | supported | supported | supported | supported | supported | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
+| Sapphire | 3 | supported | content + title choice | supported | supported | supported | supported | supported | supported | `pret/pokeruby`, `pret/pokeemerald` Hoenn order |
+| Emerald | 3 | supported | content + title choice | supported | supported | supported | supported | supported | supported | `pret/pokeemerald` |
+| FireRed | 3 | supported | content + title choice | supported | supported | supported | supported | supported | supported | `pret/pokefirered` |
+| LeafGreen | 3 | supported | content + title choice | supported | supported | supported | supported | supported | supported | `pret/pokefirered` |
 
 ## Live Adapter
 

@@ -20,6 +20,12 @@ Usually update one or more of:
 - `docs/source-lockfile.md`
 - `AGENTS.md`
 
+## Public Repository Hygiene
+
+Use synthetic test fixtures and neutral examples. Do not copy user save data,
+conversation-specific examples, personal paths, or session verification notes
+into code, tests, or documentation intended for publication.
+
 ## Current Project Shape
 
 This is a Next/React app for Pokemon save tracking. It has two data sources:

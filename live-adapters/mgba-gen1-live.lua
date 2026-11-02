@@ -134,6 +134,9 @@ end
 
 local generatedOffsets = dofile(script_directory() .. "generated/gen1-live-offsets.lua")
 OFFSET_PROFILES = generatedOffsets.profiles
+local RomIdentity = dofile(script_directory() .. "rom-identity.lua")
+local romIdentity = nil
+local lastIdentityKey = nil
 
 local function temp_directory()
   local tmp = os and os.getenv and os.getenv("TMPDIR")
@@ -378,63 +381,26 @@ local function should_dump_snapshot(override)
   return false
 end
 
-local function read_rom_title()
-  if detectedRomTitle ~= nil then return detectedRomTitle end
-  local chars = {}
-  if emu and emu.read8 then
-    for address = 0x0134, 0x0143 do
-      local ok, value = pcall(function() return emu:read8(address) end)
-      if not ok or not value or value == 0 then break end
-      if value >= 32 and value <= 126 then table.insert(chars, string.char(value)) end
-    end
-  end
-  detectedRomTitle = table.concat(chars):gsub("%s+$", "")
-  return detectedRomTitle
-end
-
-local function game_from_rom_title(title)
-  local upper = string.upper(title or "")
-  if upper:find("YELLOW", 1, true) or upper:find("YEL", 1, true) then return "yellow" end
-  if upper:find("BLUE", 1, true) or upper:find("BLU", 1, true) then return "blue" end
-  if upper:find("RED", 1, true) then return "red" end
-  return nil
-end
-
-local function score_profile(profile)
-  local score = 0
-  local partyCount = read8(profile.partyCount)
-  if partyCount >= 0 and partyCount <= 6 then score = score + 4 else score = score - 8 end
-  if partyCount > 0 then
-    local species = read8(profile.partyData)
-    if GEN1_INDEX_TO_NATIONAL[species] then score = score + 3 else score = score - 3 end
-  end
-  local name = read_name(profile.playerName)
-  if is_valid_name(name) then score = score + 2 else score = score - 2 end
-  local money = read_bcd3(profile.money)
-  if money >= 0 and money <= 999999 then score = score + 2 else score = score - 2 end
-  return score
-end
-
 function get_offset_profile()
-  if activeOffsetProfile then return activeOffsetProfile end
-  local title = read_rom_title()
-  local game = game_from_rom_title(title)
-  detectedGame = game
-
-  if game == "yellow" then
-    activeOffsetProfile = OFFSET_PROFILES.yellow
-  elseif game == "red" or game == "blue" then
-    activeOffsetProfile = OFFSET_PROFILES.red_blue
-    activeOffsetProfile.game = game
-  else
-    local yellowScore = score_profile(OFFSET_PROFILES.yellow)
-    local redBlueScore = score_profile(OFFSET_PROFILES.red_blue)
-    activeOffsetProfile = yellowScore > redBlueScore and OFFSET_PROFILES.yellow or OFFSET_PROFILES.red_blue
-    detectedGame = activeOffsetProfile.game
+  local identity = RomIdentity.read(emu, 1)
+  if lastIdentityKey ~= identity.key then
+    activeOffsetProfile = nil
+    cachedSnapshotBody, cachedSnapshotData = nil, nil
+    wram, sram = nil, nil
+    sramReadMode = "domain"
+    lastSramHealth = "unknown"
+    sramBoxShift = 0
+    sramAccessMode = "domain-linear"
+    lastBoxRawCounts = {}
+    lastCurrentBoxDataOffset = 0
+    lastIdentityKey = identity.key
   end
-
-  log("Detected Gen 1 profile: " .. activeOffsetProfile.key .. " (" .. (detectedGame or "unknown") .. ")"
-    .. (title ~= "" and (" from ROM title " .. title) or ""))
+  romIdentity = identity
+  detectedGame, detectedRomTitle = identity.game, identity.romTitle
+  if not activeOffsetProfile then
+    activeOffsetProfile = RomIdentity.profile(OFFSET_PROFILES[(identity.game == "yellow" and "yellow" or "red_blue")], identity)
+    log("Detected Pokemon: " .. identity.game .. " / " .. identity.language .. " / revision " .. identity.revision)
+  end
   return activeOffsetProfile
 end
 
@@ -796,6 +762,7 @@ local function build_box_debug()
     game = get_game(),
     profile = offsets.key,
     romTitle = detectedRomTitle,
+      identity = romIdentity,
     currentBoxNumber = currentBoxNumber,
     currentBoxNumberRaw = read8(offsets.currentBoxNumber),
     sram = get_sram() ~= nil,
@@ -820,6 +787,7 @@ local function build_snapshot()
       profile = offsets.key,
       game = get_game(),
       romTitle = detectedRomTitle,
+      identity = romIdentity,
       ok = get_wram() ~= nil,
       sram = get_sram() ~= nil,
       sramSize = get_sram_size(),
@@ -849,6 +817,7 @@ local function build_snapshot()
 end
 
 local function refresh_snapshot_cache(force)
+  get_offset_profile() -- Check ROM identity before serving a cached snapshot.
   local currentTime = now_seconds()
   if not force and cachedSnapshotBody and (currentTime - cachedSnapshotAt) < SNAPSHOT_REFRESH_SECONDS then
     return cachedSnapshotData, cachedSnapshotBody
@@ -967,4 +936,14 @@ else
   else
     log("Adapter started server but callbacks:add is missing; polling will not run")
   end
+end
+
+if callbacks and callbacks.add then
+  local function reset_identity()
+    RomIdentity.reset()
+    lastIdentityKey = nil
+    cachedSnapshotBody = nil
+  end
+  callbacks:add("start", reset_identity)
+  callbacks:add("reset", reset_identity)
 end

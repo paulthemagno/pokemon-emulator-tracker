@@ -203,6 +203,8 @@ function buildGen3Save(layout: Gen3SaveLayout, options: {
   }
 
   const trainerBase = slotBase + layout.sectionIds.trainerInfo * SECTION_SIZE;
+  if (layout === GEN3_SAVE_LAYOUTS.fireRedLeafGreen) view.setUint32(trainerBase + 0xac, 1, true);
+  if (layout === GEN3_SAVE_LAYOUTS.emerald) save[trainerBase + 0x890] = 1;
   view.setUint8(trainerBase + layout.offsets.trainerGender, 0);
   view.setUint16(trainerBase + layout.offsets.trainerId, 12345, true);
   view.setUint16(trainerBase + layout.offsets.trainerId + 2, 54321, true);
@@ -563,6 +565,7 @@ test("parseSaveFile trusts Gen 3 owned Pokedex flags even when seen mirrors are 
   const trainerBase = layout.sectionIds.trainerInfo * SECTION_SIZE;
   setSpeciesFlag(bytes, trainerBase + layout.offsets.pokedexSeen, 4);
   setSpeciesFlag(bytes, trainerBase + layout.offsets.pokedexOwned, 4);
+  new DataView(save).setUint16(trainerBase + 0xff6, checksumGen3Section(bytes, trainerBase, 0), true);
 
   const result = parseSaveFile(save, "Pokemon FireRed.sav");
   assert.equal(result.success, true);
@@ -601,4 +604,41 @@ test("Gen 3 internal species IDs map to National Dex IDs", () => {
   assert.equal(getGen3NationalSpeciesId(283), 258);
   assert.equal(getGen3NationalSpeciesId(410), 386);
   assert.equal(getGen3NationalSpeciesId(252), 201);
+});
+
+test("Gen 3 content detection accepts anonymous/localized saves and ignores incompatible filename hints", () => {
+  const emerald = buildGen3Save(GEN3_SAVE_LAYOUTS.emerald, {
+    money: 123456, securityKey: 0x11223344, itemId: 13, itemQuantity: 7, badgeCount: 3,
+  });
+  for (const filename of ["unlabeled.sav", "Pokemon Ruby.sav", "Pokemon Smeraldo.sav", "Pokemon Smaragd.sav"]) {
+    const r = parseSaveFile(emerald, filename);
+    assert.ok(r.success);
+    if (r.success) {
+      assert.equal(r.data.game, "emerald");
+      assert.equal(r.data.trainer.money, 123456);
+    }
+  }
+  const leafgreen = buildGen3Save(GEN3_SAVE_LAYOUTS.fireRedLeafGreen, {
+    money: 54321, securityKey: 0xabcdef01, itemId: 4, itemQuantity: 12, badgeCount: 8,
+  });
+  for (const filename of ["Pokemon Verde Foglia.sav", "Pokemon Blattgrün.sav", "Pokemon LeafGreen.sav"]) {
+    const r = parseSaveFile(leafgreen, filename);
+    assert.ok(r.success);
+    if (r.success) {
+      assert.equal(r.data.game, "leafgreen");
+      assert.equal(r.data.trainer.money, 54321);
+    }
+  }
+  for (const filename of ["unlabeled.sav", "Pokemon Ruby.sav"]) {
+    const r = parseSaveFile(leafgreen, filename);
+    assert.equal(r.success, false);
+    if (!r.success) assert.deepEqual(r.candidates, ["firered", "leafgreen"]);
+  }
+  const selected = parseSaveFile(leafgreen, "unlabeled.sav", "leafgreen");
+  assert.ok(selected.success);
+  if (selected.success) assert.equal(selected.data.trainer.money, 54321);
+  assert.equal(parseSaveFile(leafgreen, "unlabeled.sav", "ruby").success, false);
+  const corrupt = new Uint8Array(leafgreen.slice(0));
+  corrupt[0x20] ^= 1;
+  assert.equal(parseSaveFile(corrupt.buffer, "Pokemon LeafGreen.sav").success, false);
 });

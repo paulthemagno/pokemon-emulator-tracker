@@ -203,6 +203,14 @@ export interface GameProgressFacts {
 export interface SaveData {
   generation: Generation;
   game: GameVersion;
+  romIdentity?: {
+    key: string;
+    language: string;
+    gameCode?: string;
+    revision?: number;
+    crc32?: string;
+    matchedBy?: string;
+  };
   trainer: TrainerInfo;
   pokedex?: {
     seenSpecies: number[];

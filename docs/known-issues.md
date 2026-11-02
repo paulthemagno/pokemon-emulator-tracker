@@ -1,15 +1,22 @@
 # Known Issues
 
+- Save detection now validates content/checksums and requests an exact title when
+  only a family can be determined. Live adapters select Western language profiles
+  from ROM headers. Full field/encoding coverage still needs real-save and mGBA
+  verification across localized releases; Japanese/Korean layouts and arbitrary
+  ROM hacks are not supported. See
+  [multilingual detection](multilingual-game-detection.md).
+
 ## Gen 1 and Gen 3 support gaps
 
 Gen 1 has a first supported pass for Red/Blue/Yellow save parsing and mGBA live mode. Gen 3 save parsing and Ruby/Sapphire/Emerald/FireRed/LeafGreen live mode exist but are not yet at the same confidence level as Gen 1/2.
 
 Known examples:
 
-- Gen 1 Red/Blue/Yellow save detection is filename-based; extensionless or generically named saves default to Red.
+- Gen 1 save contents distinguish supported layouts; Red/Blue and early-game Yellow can remain ambiguous and require a title choice.
 - Gen 1 PC box names remain generic because Gen 1 boxes are not player-named.
 - Gen 1 live PC boxes depend on mGBA exposing readable SRAM. When SRAM is unavailable, the UI can still merge live current-box data with an uploaded save file.
-- Gen 3 game detection is filename-based because raw `.sav` section data does not expose a reliable game title string. Use filenames containing `ruby`, `sapphire`, `emerald`, `firered`, or `leafgreen`.
+- Gen 3 content detection identifies RS/Emerald/FRLG families using the reviewed sector heuristic. Exact paired titles require a compatible filename hint or a user choice. Edited saves or exceptional marker/key values may remain unrecognized; no universal title ID is assumed.
 - Ruby/Sapphire/Emerald's four Elite Four battle flags track a single League attempt and are cleared by the Hall of Fame reset. They appear under `League challenge state` in all save states, outside key-event completion counts, with explicit attempt status. A set battle bit highlights the badge and appears in the completed filter; an unset bit appears in the missing filter, without adding either to permanent completion counts. An unset flag does not prove that the member has never been defeated. Permanent League completion is shown by the main-story Champion milestone using `FLAG_SYS_GAME_CLEAR`; the raw battle bits remain available to the current League phase card. Sources: the pinned PRET `data/event_scripts.s` reset routine and `data/scripts/hall_of_fame.inc`.
 - Gen 3 SaveBlock1/SaveBlock2, inventory, badge flags, Pokédex flag arrays, and PC storage geometry now come from pinned `pret/pokeruby`, `pret/pokeemerald`, and `pret/pokefirered` sources, but fixture coverage with real saves is still needed before marking Gen 3 stable.
 - Gen 3 Ruby/Sapphire/Emerald/FireRed/LeafGreen live mode uses generated source-backed offsets. Continue regression-testing the Lua adapter against real mGBA sessions across all five games when offsets or adapter behavior change.

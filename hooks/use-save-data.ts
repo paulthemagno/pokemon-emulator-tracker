@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import useSWR from "swr";
-import { SaveData } from "@/lib/pokemon/types";
+import { SaveData, GameVersion } from "@/lib/pokemon/types";
 
 interface UseSaveDataOptions {
   autoRefresh?: boolean;
@@ -11,6 +11,8 @@ interface UseSaveDataOptions {
 
 interface UseSaveDataReturn {
   saveData: SaveData | null;
+  gameCandidates: GameVersion[];
+  selectGame: (game: GameVersion) => void;
   isLoading: boolean;
   error: string | null;
   filename: string | null;
@@ -22,9 +24,10 @@ interface UseSaveDataReturn {
   stopWatching: () => void;
 }
 
-async function parseSaveFile(file: File): Promise<SaveData> {
+async function parseSaveFile(file: File, game?: GameVersion): Promise<SaveData> {
   const formData = new FormData();
   formData.append("file", file);
+  if (game) formData.append("game", game);
 
   const response = await fetch("/api/parse", {
     method: "POST",
@@ -34,7 +37,7 @@ async function parseSaveFile(file: File): Promise<SaveData> {
   const result = await response.json();
 
   if (!result.success) {
-    throw new Error(result.error || "Failed to parse save file");
+    throw Object.assign(new Error(result.error || "Failed to parse save file"), { candidates: result.candidates });
   }
 
   return result.data;
@@ -43,6 +46,8 @@ async function parseSaveFile(file: File): Promise<SaveData> {
 export function useSaveData(options: UseSaveDataOptions = {}): UseSaveDataReturn {
   const { autoRefresh = false, refreshInterval = 2000 } = options;
 
+  const [selectedGame, setSelectedGame] = useState<GameVersion | undefined>();
+  const [uploadId, setUploadId] = useState(0);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [filename, setFilename] = useState<string | null>(null);
   const [isWatching, setIsWatching] = useState(false);
@@ -58,16 +63,19 @@ export function useSaveData(options: UseSaveDataOptions = {}): UseSaveDataReturn
     isLoading,
     mutate,
   } = useSWR(
-    currentFile ? `save-file-${filename}` : null,
-    () => (currentFile ? parseSaveFile(currentFile) : null),
+    currentFile ? ["save-file", filename, uploadId, selectedGame] : null,
+    () => (currentFile ? parseSaveFile(currentFile, selectedGame) : null),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
       dedupingInterval: 1000,
+      shouldRetryOnError: (parseError) => !parseError.candidates?.length,
     }
   );
 
   const uploadFile = useCallback(async (file: File) => {
+    setSelectedGame(undefined);
+    setUploadId(id => id + 1);
     setCurrentFile(file);
     setFilename(file.name);
     setLastUpdated(Date.now());
@@ -106,6 +114,8 @@ export function useSaveData(options: UseSaveDataOptions = {}): UseSaveDataReturn
 
   return {
     saveData: saveData ?? null,
+    gameCandidates: error?.candidates ?? [],
+    selectGame: setSelectedGame,
     isLoading,
     error: error?.message ?? null,
     filename,

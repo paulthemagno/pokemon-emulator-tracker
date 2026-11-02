@@ -220,3 +220,15 @@ test("live polling resets stale state when switching incompatible games", () => 
   assert.deepEqual(merged.party, []);
   assert.deepEqual(merged.pcBoxes, []);
 });
+
+test("switching language or revision of the same live title does not retain the previous ROM's data", () => {
+  const previous = live([box(1, [pokemon(25)], true)]);
+  previous.romIdentity = { key: "red-en-rev0", language: "en", revision: 0 };
+  previous.party = [pokemon(25)];
+  previous.trainer.money = 999999;
+  for (const key of ["red-it-rev0", "red-en-rev1"]) {
+    const next = live([]);
+    next.romIdentity = { key, language: key.includes("it") ? "it" : "en" };
+    assert.equal(mergeLiveData(previous, next), next);
+  }
+});
