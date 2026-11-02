@@ -71,6 +71,9 @@ An optional Ollama, OpenRouter, or BYOK assistant can answer questions about the
 
 Requires Node.js and Corepack.
 
+The header displays the app version from `package.json`. Increment its `version`
+field for each release; the UI uses that value automatically on the next build.
+
 ```bash
 corepack enable
 corepack pnpm install

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
+import { version } from "@/package.json";
 import { FileUpload } from "@/components/pokemon/file-upload";
 import { LiveSourceCard } from "@/components/pokemon/live-source-card";
 import { SupportedGamesStrip } from "@/components/pokemon/supported-games-strip";
@@ -108,7 +109,12 @@ export default function Home() {
                 draggable={false}
               />
               <div>
-                <h1 className="font-bold text-lg text-foreground">Pokemon Emulator Tracker</h1>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h1 className="font-bold text-lg text-foreground">Pokemon Emulator Tracker</h1>
+                  <Badge variant="outline" className="font-mono text-[10px]" aria-label={`App version ${version}`}>
+                    v{version}
+                  </Badge>
+                </div>
                 <p className="text-xs text-muted-foreground">Live emulator and save progress dashboard</p>
               </div>
             </div>
