@@ -20,6 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Save%20Upload-Gen%201--3-4caf50?style=flat-square" alt="Save upload supports Gen 1 to 3" />
   <img src="https://img.shields.io/badge/mGBA%20Live-Local%20Only-1f6feb?style=flat-square" alt="mGBA live is local only" />
+  <a href="#connect-your-agent-mcp"><img src="https://img.shields.io/badge/MCP-Codex%20%7C%20Claude%20%7C%20More-8b5cf6?style=flat-square" alt="Connect Codex, Claude Code, or another local MCP client" /></a>
   <img src="https://img.shields.io/badge/Ollama%20%2F%20OpenRouter%20%2F%20BYOK-Optional%20LLM-f97316?style=flat-square" alt="Ollama, OpenRouter, and BYOK are optional LLM providers" />
   <img src="https://img.shields.io/badge/Games-RBY%20GSC%20RSE%20FRLG-a855f7?style=flat-square" alt="Supported games include RBY GSC RSE and FRLG" />
 </p>
@@ -29,7 +30,8 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#save-file-workflow">Save Files</a> •
   <a href="#live-emulator-workflow">Live mGBA</a> •
-  <a href="#local-llm-assistant">LLM Assistant</a>
+  <a href="#connect-your-agent-mcp">Connect your agent</a> •
+  <a href="#llm-assistant">LLM Assistant</a>
 </p>
 
 <p align="center">
@@ -44,15 +46,17 @@ It supports two main workflows:
 - **Live emulator tracking:** connect mGBA through a local Lua adapter and watch the dashboard update while the game is running.
 
 An optional Ollama, OpenRouter, or BYOK assistant can answer questions about the currently loaded save or live session.
+**Already use Codex, Claude Code, or another local MCP client? [Connect your agent](#connect-your-agent-mcp)** to ask about your team, PC boxes, items, and progress directly in its chat. No model API key needs to be entered into this app.
 
 ## Contents
 
 - [Dashboard Overview](#dashboard-overview)
 - [Quick Start](#quick-start)
+- [Connect Your Agent (MCP)](#connect-your-agent-mcp)
 - [Supported Games](#supported-games)
 - [Save File Workflow](#save-file-workflow)
 - [Live Emulator Workflow](#live-emulator-workflow)
-- [Local LLM Assistant](#local-llm-assistant)
+- [LLM Assistant](#llm-assistant)
 - [Test and Audit](#test-and-audit)
 - [Data Sources](#data-sources)
 - [Project Docs](#project-docs)
@@ -111,6 +115,59 @@ http://192.168.1.83:3000
 ```
 
 </details>
+
+## Connect Your Agent (MCP)
+
+Use your existing agent's chat as a Pokemon companion. The local MCP server exposes the same read-only tools as the built-in assistant, including the selected save/live state and local Pokemon reference data. Your agent handles the model and its own account requirements; the tracker does not require an LLM API key for this connection.
+
+1. Follow [Quick Start](#quick-start) and keep the app running locally.
+2. Open **http://localhost:3000** and **upload a save** or [start live mGBA tracking](#live-emulator-workflow). Keep that page open; MCP follows the game selected there.
+3. In a second terminal, **from the repository root**, run the command for your installed client below. These examples use a macOS/Linux shell and save absolute paths to this checkout.
+
+**Codex**
+
+```bash
+codex mcp add pokemon-tracker -- node --import "$(pwd)/node_modules/tsx/dist/loader.mjs" "$(pwd)/scripts/pokemon-mcp.ts"
+```
+
+Check registration with `codex mcp list`.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport stdio pokemon-tracker -- node --import "$(pwd)/node_modules/tsx/dist/loader.mjs" "$(pwd)/scripts/pokemon-mcp.ts"
+```
+
+Check the connection with `/mcp` inside Claude Code. This registers it for your local project.
+
+**Other clients that support local stdio MCP**
+
+Add a server named `pokemon-tracker` in your client's MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "pokemon-tracker": {
+      "command": "node",
+      "args": [
+        "--import",
+        "/absolute/path/to/pokemon-emulator-tracker/node_modules/tsx/dist/loader.mjs",
+        "/absolute/path/to/pokemon-emulator-tracker/scripts/pokemon-mcp.ts"
+      ]
+    }
+  }
+}
+```
+
+Replace both paths with your checkout's absolute paths. On Windows, use forward slashes such as `C:/projects/pokemon-emulator-tracker/...`. The JSON wrapper/settings location depends on your client. If a desktop client cannot find `node`, use its absolute executable path in `command`.
+
+Reload your client's MCP connections or start a new chat if the tools do not appear. Then ask:
+
+> Use pokemon-tracker to read my current game. Show my party and money, say whether the data comes from a save file or live memory, and report its age.
+
+Uploaded saves are static until re-uploaded. Live selections refresh when queried; cached live readings are labelled and require `allowStale: true` to inspect. The hosted demo and cloud-only clients cannot connect to this local stdio server. You do not need to open the built-in **Chat AI** or run the MCP process manually: your client launches it.
+
+If no game is selected, focus the tracker tab and load a save or enable **Start Live**. For a different port, troubleshooting, and tool details, see [Local MCP companion](docs/local-mcp.md). Client setup references: [Codex MCP](https://developers.openai.com/codex/mcp/) and [Claude Code MCP](https://code.claude.com/docs/en/mcp).
 
 ## Supported Games
 
@@ -333,6 +390,7 @@ Event descriptions combine pinned PRET source occurrences with reviewed walkthro
 
 ## Project Docs
 
+- [docs/local-mcp.md](docs/local-mcp.md): connecting external agents via MCP, freshness, and available tools.
 - [live-adapters/README.md](live-adapters/README.md): using and debugging the mGBA scripts.
 - [docs/architecture.md](docs/architecture.md): stable technical data flow.
 - [docs/game-support-matrix.md](docs/game-support-matrix.md): per-game support status.

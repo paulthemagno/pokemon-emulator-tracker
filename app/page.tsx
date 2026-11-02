@@ -7,6 +7,7 @@ import { LiveSourceCard } from "@/components/pokemon/live-source-card";
 import { SupportedGamesStrip } from "@/components/pokemon/supported-games-strip";
 import { useSaveData } from "@/hooks/use-save-data";
 import { useLiveData } from "@/hooks/use-live-data";
+import { useMcpContext } from "@/hooks/use-mcp-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Bot, FileArchive, Gamepad2, Github, Info, MessageSquare, Radio } from "lucide-react";
@@ -55,6 +56,8 @@ export default function Home() {
   }, [hasActiveLiveData, live.data, saveData]);
   const activeFilename = hasActiveLiveData ? "Live emulator memory" : filename;
   const activeUpdated = hasActiveLiveData ? live.lastUpdated : lastUpdated;
+  useMcpContext(activeSaveData, hasActiveLiveData ? 'live' : 'file', activeFilename,
+    activeUpdated, hasActiveLiveData && Boolean(live.error));
 
   const handleFileSelect = useCallback(
     async (file: File) => {

@@ -1,5 +1,9 @@
 # LLM Pokemon Agent
 
+External local assistants can reuse this tool registry through the read-only stdio MCP server. It follows the dashboard's selected uploaded save or live session through the local browser-context bridge. See [Local MCP companion](local-mcp.md) for registration, source selection, freshness rules, and knowledge limitations. It uses the same tool implementations as the providers below and requires no additional LLM API key.
+
+Both internal providers and MCP receive the complete selected parser/normalizer state under `GameContextSnapshot.fullState`. Existing detail/inventory tools use it for PC Pokemon, stats, IVs/EVs, and held items; `get_game_state` exposes paginated sections including full event records and their provenance. The full state is retained for tool execution, excluded from model prompt formatting, and omitted from persisted chat context.
+
 This document is the single reference for chatbot runtime setup and for improving answer
 quality with source-backed Pokemon knowledge. It covers local provider configuration, tool
 calling, PokeAPI extraction, walkthrough ingestion, retrieval, provenance, and the order in

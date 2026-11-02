@@ -60,6 +60,8 @@ export interface ConversationState {
  * Game context packed from live or save data for LLM conversation
  */
 export interface GameContextSnapshot {
+  /** Complete selected parser/normalizer output for on-demand tools, not prompt text. */
+  fullState?: import('../pokemon/types').SaveData;
   trainerName: string;
   location: string;
   money: number;

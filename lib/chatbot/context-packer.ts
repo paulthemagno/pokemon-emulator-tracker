@@ -3,7 +3,39 @@
  */
 
 import type { GameContextSnapshot } from './types';
-import type { SaveData } from '../pokemon/types';
+import type { Pokemon, SaveData } from '../pokemon/types';
+import { getSpeciesById } from '../pokemon/data/species';
+import { MOVES } from '../pokemon/data/moves';
+
+const moveById = new Map(MOVES.map(move => [move.id, move]));
+const specialTypes = new Set(['fire', 'water', 'grass', 'electric', 'ice', 'psychic', 'dragon', 'dark']);
+
+export function packPokemonContext(p: Pokemon, generation: number) {
+  const species = getSpeciesById(p.species);
+  // Steel and Dark did not exist in Gen 1; Magnemite's historical type differs.
+  const types = p.types?.length ? p.types : species?.types.filter(type => generation !== 1 || type !== 'steel') ?? [];
+  return {
+    name: p.nickname || p.speciesName || species?.name || 'Unknown',
+    species: p.speciesName || species?.name || 'Unknown',
+    level: p.level || 0, hp: p.currentHP || 0, maxHp: p.maxHP || 0,
+    types, status: p.status || 'none', ability: p.abilityName, nature: p.natureName,
+    heldItem: p.heldItemName,
+    speciesId: p.species, stats: p.stats, ivs: p.ivs, evs: p.evs,
+    moves: (p.moves || []).map(m => {
+      const reference = moveById.get(m.id);
+      const type = m.type ?? reference?.type ?? 'Unknown';
+      const power = m.power ?? reference?.power ?? undefined;
+      return {
+        id: m.id, name: m.name || reference?.name || 'Unknown', type,
+        category: !power || m.id === 237 || type === 'Unknown'
+          ? 'Unknown' : specialTypes.has(type.toLowerCase()) ? 'Special' : 'Physical',
+        power, accuracy: m.accuracy ?? reference?.accuracy ?? undefined,
+        pp: m.pp ?? 0, maxPp: m.maxPP ?? reference?.pp ?? 0,
+        referenceScope: 'Local cross-game move table; historical power/accuracy may differ.',
+      };
+    }),
+  };
+}
 
 /**
  * Pack game state from SaveData into a snapshot for chatbot context
@@ -17,29 +49,10 @@ export function packGameContext(saveData: SaveData | null): GameContextSnapshot 
   const inventoryItems = saveData.inventory.flatMap((section) => section.items);
 
   // Build detailed party info
-  const partyPokemonDetailed = (saveData.party || []).map((p) => ({
-    name: p.nickname || p.speciesName || 'Unknown',
-    species: p.speciesName || 'Unknown',
-    level: p.level || 0,
-    hp: p.currentHP || 0,
-    maxHp: p.maxHP || 0,
-    types: p.types || [],
-    status: p.status || 'none',
-    ability: p.abilityName,
-    nature: p.natureName,
-    heldItem: p.heldItemName,
-    moves: (p.moves || []).map((m) => ({
-      name: m.name || 'Unknown',
-      type: m.type || 'Unknown',
-      category: 'Physical', // Could be determined from move data
-      power: m.power || undefined,
-      accuracy: m.accuracy || undefined,
-      pp: m.pp || 0,
-      maxPp: m.maxPP || 0,
-    })),
-  }));
+  const partyPokemonDetailed = (saveData.party || []).map(p => packPokemonContext(p, saveData.generation));
 
   return {
+    fullState: saveData,
     trainerName: saveData.trainer?.name || 'Unknown',
     location: saveData.location?.name || 'Unknown Location',
     money: saveData.trainer?.money || 0,
@@ -104,6 +117,6 @@ export function areContextsEqual(
 export function snapshotContextForStorage(
   context: GameContextSnapshot
 ): Omit<GameContextSnapshot, 'screenshot'> {
-  const { screenshot, ...rest } = context;
+  const { screenshot, fullState, ...rest } = context;
   return rest;
 }

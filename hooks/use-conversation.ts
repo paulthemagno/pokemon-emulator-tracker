@@ -43,7 +43,8 @@ export function useConversation(options: UseConversationOptions = {}) {
         const now = Date.now();
         const state: ConversationState = {
           messages: messagesToSave,
-          gameContext: contextToSave,
+          // Full parser state is for current tool calls, not conversation history.
+          gameContext: contextToSave ? (({ fullState, ...compact }) => compact)(contextToSave) : undefined,
           createdAt: now,
           updatedAt: now,
         };
