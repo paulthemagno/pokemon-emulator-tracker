@@ -2,6 +2,10 @@
 
 These notes are for Codex or other agents picking up work in this repository.
 
+## Branch Names
+
+Use conventional branch prefixes such as `feat/`, `fix/`, `chore/`, `docs/`, or `refactor/`, matching the work. Never use the `codex/` prefix.
+
 ## Main Rule
 
 If you change setup, live adapters, maps, coordinates, endpoints, source data, or user workflow, update the relevant docs in the same change.
