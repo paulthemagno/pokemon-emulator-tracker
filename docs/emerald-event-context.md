@@ -1,6 +1,6 @@
 # Emerald event context and interpretation
 
-The event catalog retains source-defined bits, including trainer victories, registrations, gifts, optional rewards, and daily state. The separate [reviewed variable reference](emerald-progress-variables.md) documents 18 numeric quest values. Neither collection is an exhaustive list of quests or proof that an unfinished activity is currently available.
+The event catalog retains source-defined bits, including trainer victories, registrations, gifts, optional rewards, and daily state. The [reviewed variable metadata](../lib/pokemon/knowledge/sources/progress-variables.json) contains the definitions, descriptions, and sources for 18 numeric quest variables. Neither collection is an exhaustive list of quests or proof that an unfinished activity is currently available.
 
 All references below use the project's pinned `pret/pokeemerald` commit `0d3100185e0b13faabfc589fc402dd46f83c1d6a`. Per-flag descriptions and links are exposed in `get_game_state(section="events")` and maintained in `lib/pokemon/data/event-guidance.ts`. Variable IDs are extracted from source and documented by the generator.
 
