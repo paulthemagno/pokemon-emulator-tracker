@@ -1435,11 +1435,11 @@ export function getChatToolDefinitions(): ChatToolDefinition[] {
       type: "function",
       function: {
         name: "get_game_state",
-        description: "Inspect complete selected save/live data on demand: PC boxes, event flags with provenance, trainer, inventory pockets, party, Pokedex, progress facts, or location. Start with summary. Missing parser fields are unavailable, not zero.",
+        description: "Inspect selected save/live data on demand: PC boxes, catalogued event/trainer flags with provenance, trainer, inventory pockets, party, Pokedex, progress facts, reviewed raw quest variables, or location. Start with summary. Missing parser fields are unavailable, not zero. Event flags are not a complete quest checklist; unset trainer bits may be alternative or unavailable teams.",
         parameters: {
           type: "object",
           properties: {
-            section: { type: "string", enum: ["summary", "trainer", "party", "pcBoxes", "inventory", "events", "pokedex", "progressFacts", "location"] },
+            section: { type: "string", enum: ["summary", "trainer", "party", "pcBoxes", "inventory", "events", "pokedex", "progressFacts", "progressVariables", "location"] },
             boxIndex: { type: "integer", minimum: 1, description: "For pcBoxes: select a 1-based box; omit for box summaries." },
             query: { type: "string", description: "Filter Pokemon, items, or event flag keys/labels. Canonical English names." },
             offset: { type: "integer", minimum: 0 },
@@ -2443,10 +2443,22 @@ export function executeChatTool(
           if (!state.events) return failure(toolName, "NOT_FOUND", "Event flags are not available from this source.");
           const { flags, ...summary } = state.events;
           result = { ...summary, ...page(flags.filter(flag => matches(`${flag.key} ${flag.label}`))),
-            interpretation: "rawSet is a memory bit, not automatically quest completion. Preserve completed, stateKind, initiallySet, and script guidance when explaining flags." }; break;
+            coverage: {
+              scope: "Catalogued flags only; not an exhaustive activity or quest list.",
+              trainerRecordCount: flags.filter(flag => flag.trainerId !== undefined).length,
+              limitations: ["Non-boolean quest phases, choices, counters, and special-mode records require separate reviewed progress data.",
+                "Unset trainer bits can represent alternative, unused, unavailable, or technical teams; do not list them all as missing quests."],
+            },
+            interpretation: "rawSet is a memory bit, not automatically quest completion. Preserve completed, stateKind, initiallySet, trainerId, and script guidance when explaining flags. An absent catalog entry is unknown, not incomplete. totalCount counts records, not quests." }; break;
         }
         case "pokedex": result = { pokedex: state.pokedex ?? null }; break;
         case "progressFacts": result = { progressFacts: state.progressFacts ?? null }; break;
+        case "progressVariables": {
+          if (!state.progressVariables) return failure(toolName, "NOT_FOUND", "Reviewed progress variables are unavailable. Reparse the save or reload the updated live adapter; missing values are not zero.");
+          result = { ...page(state.progressVariables.filter(variable => matches(`${variable.key} ${variable.symbol} ${variable.description}`))),
+            interpretation: "Exact reviewed raw quest variables, not automatic completion or availability. Preserve descriptions and sources. Zero can be an initialized/default state; do not infer a choice or completed quest from zero alone." };
+          break;
+        }
         case "location": result = { location: state.location }; break;
         default: return failure(toolName, "INVALID_ARGUMENT", `Unknown section: ${section}`);
       }
@@ -2472,7 +2484,9 @@ export function executeChatTool(
         toolName,
         { facts: activeContext.progressFacts ?? [], eventFlagsAvailable: Boolean(activeContext.fullState?.events),
           eventFlagCount: activeContext.fullState?.events?.flags.length ?? null,
-          eventLookup: "Use get_game_state section=events with query for individual flags and source-backed guidance." },
+          eventLookup: "Use get_game_state section=events with query for individual flags and source-backed guidance.",
+          progressVariableCount: activeContext.fullState?.progressVariables?.length ?? null,
+          progressVariableLookup: "Use get_game_state section=progressVariables for documented raw sidequest phases and choices; missing values are unavailable, not zero." },
         [{ kind: "save-state", name: "Current loaded game state" }]
       );
     case "get_party_overview":

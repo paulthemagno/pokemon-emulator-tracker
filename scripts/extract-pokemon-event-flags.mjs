@@ -50,6 +50,8 @@ const PINNED_SOURCES = {
     repo: "pret/pokeemerald",
     commit: "0d3100185e0b13faabfc589fc402dd46f83c1d6a",
     eventPath: "include/constants/flags.h",
+    trainerPath: "include/constants/opponents.h",
+    rematchPath: "include/constants/rematches.h",
     initEventsPath: "data/scripts/new_game.inc",
   },
   pokefirered: {
@@ -163,7 +165,13 @@ function humanizeFlagName(name) {
 
 function categorize(name, section = "", comment = "") {
   const text = `${name} ${section} ${comment}`.toLowerCase();
+  if (name === "FLAG_LEGENDARIES_IN_SOOTOPOLIS") return "Story phase state";
+  if (/^FLAG_NEVER_SET_/.test(name)) return "Unused/unknown";
+  if (/^FLAG_DAILY_/.test(name)) return "Daily state";
+  if (/^FLAG_REGISTERED_/.test(name)) return "Trainer registration";
+  if (/^FLAG_MYSTERY_GIFT_/.test(name)) return "Mystery Gift state";
   if (text.includes("unused") || text.includes("never set") || text.includes("unknown")) return "Unused/unknown";
+  if (/^FLAG_0x[0-9a-f]+$/i.test(name)) return "Unreviewed flag state";
   if (/^(?:FLAG|EVENT)_HIDE_/.test(name)) return "Map objects";
   if (/^FLAG_DECORATION_\d+$/.test(name)) return "Map objects";
   if (/^FLAG_SYS_/.test(name)) return "System state";
@@ -189,6 +197,9 @@ function categorize(name, section = "", comment = "") {
 }
 
 function stateKindFor(name) {
+  if (name === "FLAG_LEGENDARIES_IN_SOOTOPOLIS") return "system";
+  if (/^FLAG_0x[0-9a-f]+$/i.test(name)) return "system";
+  if (/^FLAG_(DAILY_|REGISTERED_|MYSTERY_GIFT_)/.test(name)) return "system";
   if (/^(?:FLAG|EVENT)_HIDE_|^FLAG_DECORATION_\d+$/.test(name)) return "visibility";
   if (/^FLAG_DEFEATED_ELITE_4_(?:SIDNEY|SYDNEY|PHOEBE|GLACIA|DRAKE)$/.test(name)) return "system";
   if (/^FLAG_SYS_/.test(name)) return "system";
@@ -196,6 +207,7 @@ function stateKindFor(name) {
 }
 
 function importanceFor(name, category) {
+  if (category === "Story phase state") return "routine";
   if (category === "League challenge state" || category === "System state") return "routine";
   if (category === "Story: Main" || category === "Story: Gyms and League" || category === "Story: Rival") return "story";
   if (category === "Key items and unlocks") return "unlock";
@@ -206,6 +218,7 @@ function importanceFor(name, category) {
 }
 
 function isImportant(name, category) {
+  if (["Story phase state", "Daily state", "Trainer registration", "Mystery Gift state", "Unreviewed flag state"].includes(category)) return false;
   if (category === "Unused/unknown" || category === "Daily" || category === "Items" || category === "Trainers" || category === "Map objects" || category === "System state" || category === "Optional rewards" || category === "League challenge state") return false;
   if (/FOLLOWED_OAK_INTO_LAB|OAK_ASKED_TO_CHOOSE_MON|GOT_STARTER|OAK_GOT_PARCEL|GOT_OAKS_PARCEL|GOT_A_POKEMON_FROM_ELM|GOT_(?:CYNDAQUIL|TOTODILE|CHIKORITA)_FROM_ELM|GOT_MYSTERY_EGG_FROM_MR_POKEMON|GAVE_MYSTERY_EGG_TO_ELM|RESCUED_BIRCH/.test(name)) return true;
   return /BADGE|GYM|ELITE|CHAMPION|POKEDEX|POKENAV|HM[0-9]|_HM\d|TICKET|RIVAL|WALLY|ROCKET|AQUA|MAGMA|DEVON|SILPH|GIOVANNI|LANCE|WALLACE|KYOGRE_ESCAPED|WALLACE_GOES_TO_SKY_PILLAR|SUICUNE|GAME_CLEAR|HALL_OF_FAME|SS_TICKET|MACHINE_PART|POWER_TO_KANTO|OPENED_MT_SILVER|RED_IN_MT_SILVER/.test(name);
@@ -271,7 +284,7 @@ function parseAsmEvents(source) {
 function parseCExpression(expression, constants) {
   const js = expression
     .replace(/\/\*.*?\*\//g, "")
-    .replace(/\b([A-Z_][A-Z0-9_]*)\b/g, (name) => {
+    .replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (name) => {
       if (Object.hasOwn(constants, name)) return String(constants[name]);
       throw new Error(`Unknown constant ${name}`);
     });
@@ -291,7 +304,7 @@ function parseCFlags(source, seed = {}) {
       continue;
     }
 
-    const match = line.match(/^#define\s+([A-Z0-9_]+)\s+(.+?)(?:\s*\/\/\s*(.*))?$/);
+    const match = line.match(/^#define\s+([A-Za-z0-9_]+)\s+(.+?)(?:\s*\/\/\s*(.*))?$/);
     if (!match) continue;
     const [, key, rawExpression, comment = ""] = match;
     if (!key.startsWith("FLAG_") || key.startsWith("FLAG_TEMP") || key.startsWith("FLAG_SPECIAL")) {
@@ -328,6 +341,46 @@ function parseCFlags(source, seed = {}) {
   return {
     flagCount: Math.max(...entries.map((entry) => entry.id)) + 1,
     entries,
+  };
+}
+
+// Trainer victory bits are an indexed range, not individual FLAG_* defines.
+// Keep technical/unused teams visible as raw records without suggesting quests.
+function parseEmeraldTrainerFlags(flagsSource, opponentsSource, source) {
+  const startMatch = flagsSource.match(/^#define\s+TRAINER_FLAGS_START\s+(0x[0-9a-f]+|\d+)/mi);
+  const countMatch = opponentsSource.match(/^#define\s+MAX_TRAINERS_COUNT\s+(\d+)/m);
+  const definedMatch = opponentsSource.match(/^#define\s+TRAINERS_COUNT\s+(\d+)/m);
+  if (!startMatch || !countMatch || !definedMatch) throw new Error("Missing Emerald trainer flag bounds");
+  const start = Number(startMatch[1]);
+  const count = Number(countMatch[1]);
+  const definedCount = Number(definedMatch[1]);
+  const ids = new Set();
+  const entries = [];
+  for (const match of opponentsSource.matchAll(/^#define\s+(TRAINER_[A-Z0-9_]+)\s+(\d+)\s*(?:\/\/[^\n]*)?$/gm)) {
+    const [, key, value] = match;
+    const trainerId = Number(value);
+    if (key === "TRAINER_NONE") continue;
+    if (trainerId <= 0 || trainerId >= definedCount || trainerId >= count || ids.has(trainerId)) {
+      throw new Error(`Invalid or duplicate Emerald trainer ID: ${key} = ${trainerId}`);
+    }
+    ids.add(trainerId);
+    entries.push({
+      id: start + trainerId,
+      key,
+      trainerId,
+      label: `Trainer battle: ${humanizeFlagName(key.replace(/^TRAINER_/, ""))}`,
+      category: "Trainer battle records",
+      importance: "routine",
+      important: false,
+    });
+  }
+  if (entries.length !== definedCount - 1) throw new Error("Incomplete Emerald trainer ID extraction");
+  const base = `https://github.com/${source.repo}/blob/${source.commit}`;
+  return {
+    entries,
+    metadata: { start, count, sourceRefs: [
+      `${base}/${source.trainerPath}`, `${base}/${source.eventPath}`, `${base}/src/battle_setup.c`,
+    ] },
   };
 }
 
@@ -368,7 +421,28 @@ async function buildGame(args, key, profile, generation, parser) {
       : key === "pokefirered"
         ? { SYS_FLAGS: 0x800 }
         : {};
+  if (source.rematchPath) {
+    const enumSource = (await readSource(args, key, source.rematchPath)).replace(/\/\/[^\n]*/g, "");
+    for (const block of enumSource.matchAll(/\benum\s*\{([\s\S]*?)\}/g)) {
+      let value = -1;
+      for (const declaration of block[1].split(",")) {
+        const match = declaration.trim().match(/^([A-Z_][A-Z0-9_]*)(?:\s*=\s*(.+))?$/);
+        if (!match) continue;
+        value = match[2] ? parseCExpression(match[2], cSeed) : value + 1;
+        cSeed[match[1]] = value;
+      }
+    }
+    if (!Number.isInteger(cSeed.REMATCH_TABLE_ENTRIES)) throw new Error("Missing rematch enum dependency");
+  }
   const parsed = parser(eventSource, cSeed);
+  if (source.trainerPath) {
+    const trainers = parseEmeraldTrainerFlags(eventSource, await readSource(args, key, source.trainerPath), source);
+    if (trainers.metadata.start + trainers.metadata.count > parsed.flagCount) {
+      throw new Error("Emerald trainer range exceeds the existing event byte coverage");
+    }
+    parsed.entries.push(...trainers.entries);
+    parsed.trainerFlags = trainers.metadata;
+  }
   const initiallySetEvents = source.initEventsPath
     ? parseInitiallySetEvents(await readSource(args, key, source.initEventsPath))
     : new Set();
@@ -377,6 +451,7 @@ async function buildGame(args, key, profile, generation, parser) {
     gameProfile: profile,
     sourceKey: source.sourceKey,
     flagCount: parsed.flagCount,
+    ...(parsed.trainerFlags ? { trainerFlags: parsed.trainerFlags } : {}),
     entries: parsed.entries.map((entry) => {
       if (!initiallySetEvents.has(entry.key)) return entry;
       return {
@@ -442,8 +517,13 @@ const args = parseArgs(process.argv.slice(2));
 const provenance = await readJson("provenance.json");
 for (const [key, source] of Object.entries(PINNED_SOURCES)) {
   if (args[key]) {
-    provenance[source.sourceKey].commit = await getCommit(args[key]);
-    provenance[source.sourceKey].path = [source.eventPath, source.wramPath, source.initEventsPath].filter(Boolean).join(", ");
+    const commit = await getCommit(args[key]);
+    if (source.trainerPath && commit !== source.commit) throw new Error("Emerald trainer extraction requires the pinned source commit");
+    provenance[source.sourceKey].commit = commit;
+    provenance[source.sourceKey].path = [...new Set([
+      ...(provenance[source.sourceKey].path ?? "").split(", ").filter(Boolean),
+      source.eventPath, source.trainerPath, source.rematchPath, source.wramPath, source.initEventsPath,
+    ].filter(Boolean))].join(", ");
   }
 }
 

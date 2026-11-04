@@ -21,7 +21,8 @@
     "search:pokemon-guide-embeddings": "node scripts/search-pokemon-guide-embeddings.mjs",
     "extract:pokemon-events": "node scripts/extract-pokemon-event-flags.mjs",
     "extract:pokemon-event-contexts": "node scripts/extract-pokemon-event-contexts.mjs",
-    "extract:pokemon-knowledge": "node scripts/extract-pokemon-knowledge-from-pret.mjs"
+    "extract:pokemon-knowledge": "node scripts/extract-pokemon-knowledge-from-pret.mjs",
+    "extract:pokemon-progress-variables": "node scripts/extract-pokemon-progress-variables.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.2",

@@ -180,3 +180,9 @@ merges live data with the uploaded save file when both are present: party/traine
 non-current PC boxes come from the save file. Re-upload or refresh the save after changing stored boxes in-game.
 During one live session, the UI also keeps previously observed Gen 1 current boxes in memory, so switching PC boxes in
 game does not immediately erase boxes already seen through WRAM.
+
+## Emerald optional progress context
+
+The updated Gen 3 adapter transmits `progressVariablesRaw`, an allowlist of 18 reviewed Emerald `SaveBlock1.vars` values generated from pinned PRET symbols. This is separate from `progressRaw`, which backs existing interpreted story facts. Save uploads read the same allowlist. The MCP exposes the documented values through `get_game_state(section="progressVariables")`; see [variable meanings and evidence](../docs/emerald-progress-variables.md).
+
+The generated event range also includes Emerald's daily-state tail. Reload `mgba-gen3-live.lua` after updating this adapter or its generated profile. Older snapshots omit the new variables and unread daily bits; the normalizer preserves that absence rather than inventing zero values. Other games retain their own profiles and do not receive Emerald-specific variable IDs.

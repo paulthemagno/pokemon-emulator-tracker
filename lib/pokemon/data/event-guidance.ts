@@ -30,6 +30,125 @@ const POKEEMERALD_SEAFLOOR =
   "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/maps/SeafloorCavern_Room9/scripts.inc";
 const POKEEMERALD_MIRAGE_TOWER =
   "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/maps/MirageTower_4F/scripts.inc";
+const POKEEMERALD_VICTORY_ROAD =
+  "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/maps/VictoryRoad_1F/scripts.inc";
+const POKEEMERALD_BATTLE_SETUP =
+  "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/src/battle_setup.c";
+
+const EMERALD_WALLY_TEAMS: Record<string, EventGuidance> = {
+  TRAINER_WALLY_VR_1: {
+    description: "Victory over Wally's first Victory Road team, before the Pokemon League. This does not prove a post-League rematch.",
+    completionMeaning: "Set: Wally's pre-League Victory Road team was defeated.",
+    notCompletedMeaning: "Not set: this specific pre-League team has no recorded victory bit.",
+    sourceRefs: [POKEEMERALD_VICTORY_ROAD, POKEEMERALD_BATTLE_SETUP],
+  },
+  ...Object.fromEntries([2, 3, 4, 5].map((team) => [`TRAINER_WALLY_VR_${team}`, {
+    description: team === 2
+      ? "Victory over Wally's first post-League team at the Victory Road exit. This encounter appears after entering the Hall of Fame."
+      : `Victory over Wally's post-League rematch team ${team - 1} at the Victory Road exit. The rematch table selects this specific stronger team.`,
+    completionMeaning: "Set: this specific post-League Wally team was defeated; this confirms a post-League victory.",
+    notCompletedMeaning: "Not set: no victory over this specific team is recorded. Check the other post-League Wally team bits before saying he has never been defeated after the League.",
+    normalMissingReason: "Later teams depend on rematch progression and readiness. An unset bit is not proof that this team can be challenged now.",
+    steps: ["After entering the Hall of Fame, speak to Wally near the Victory Road exit. Later teams require the rematch system to make another battle available."],
+    sourceRefs: [POKEEMERALD_VICTORY_ROAD, POKEEMERALD_BATTLE_SETUP],
+  }])),
+};
+
+const emeraldScript = (map: string) =>
+  `https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/maps/${map}/scripts.inc`;
+
+// Reviewed against each map's outcome branches, not inferred from flag names.
+const EMERALD_OPTIONAL_CONTEXT: Record<string, EventGuidance> = {
+  ...Object.fromEntries([
+    ["REGIROCK", "DesertRuins"], ["REGICE", "IslandCave"], ["REGISTEEL", "AncientTomb"],
+    ["RAYQUAZA", "SkyPillar_Top"], ["KYOGRE", "MarineCave_End"], ["GROUDON", "TerraCave_End"],
+  ].map(([species, map]) => [`FLAG_DEFEATED_${species}`, {
+    description: `${species} encounter outcome marker. The map script sets this on both the defeat and capture completion paths; this flag alone does not prove capture.`,
+    completionMeaning: "Set: the encounter outcome is recorded. This does not distinguish capture from defeating the Pokemon.",
+    notCompletedMeaning: "Not set: this encounter outcome is not recorded by this bit; this does not establish current encounter availability.",
+    normalMissingReason: "Keep encounter flags separate from Pokedex ownership and current party/PC records. Pokedex ownership can also result from a trade, and visibility flags alone are not capture proof.",
+    steps: [],
+    sourceRefs: [emeraldScript(map)],
+  }])),
+  ...Object.fromEntries([
+    ["MEW", "FarawayIsland_Interior"], ["HO_OH", "NavelRock_Top"], ["LUGIA", "NavelRock_Bottom"],
+    ["LATIAS_OR_LATIOS", "SouthernIsland_Interior"],
+  ].flatMap(([species, map]) => [
+    [`FLAG_CAUGHT_${species}`, {
+      description: species === "LATIAS_OR_LATIOS"
+        ? "Capture-side record for the Southern Island stationary Latias/Latios encounter. This is not the roaming legendary's capture flag."
+        : `Capture-side record for the ${species} encounter on this map. It is distinct from the defeated flag and does not prove the Pokemon is still owned.`,
+      completionMeaning: "Set: the map's capture-side completion was recorded.",
+      notCompletedMeaning: "Not set: capture at this map is not recorded by this bit. It does not rule out obtaining the species by another method.",
+      normalMissingReason: "These encounters require their map's access conditions; do not treat event-only island encounters as mandatory unfinished quests.",
+      steps: [], sourceRefs: [emeraldScript(map)],
+    }],
+    [`FLAG_DEFEATED_${species}`, {
+      description: `Defeat-side record for ${species} on this map, separate from its FLAG_CAUGHT_* record. This does not prove capture.`,
+      completionMeaning: "Set: the script's defeat branch was recorded, not its capture branch.",
+      notCompletedMeaning: "Not set: this defeat branch is not recorded. Check the separate capture bit and map access conditions.",
+      steps: [], sourceRefs: [emeraldScript(map)],
+    }],
+  ])),
+  FLAG_DEFEATED_DEOXYS: {
+    description: "Birth Island Deoxys defeat-side record, set on the B_OUTCOME_WON branch. It is not capture proof.",
+    completionMeaning: "Set: Deoxys was defeated in the Birth Island encounter.",
+    notCompletedMeaning: "Not set: the defeat-side event is not recorded; this is not proof of capture or encounter availability.",
+    sourceRefs: [emeraldScript("BirthIsland_Exterior")],
+  },
+  FLAG_BATTLED_DEOXYS: {
+    description: "Birth Island outcome marker set on the completion path after the script excludes defeat and fleeing. It is not simply an 'ever encountered Deoxys' counter; inspect it alongside the separate defeat flag and Pokedex.",
+    completionMeaning: "Set: this specific post-battle script path was recorded.",
+    notCompletedMeaning: "Not set: this path is not recorded. Do not infer that Deoxys has never been encountered.",
+    sourceRefs: [emeraldScript("BirthIsland_Exterior")],
+  },
+  FLAG_EXCHANGED_SCANNER: {
+    description: "Captain Stern accepted the Scanner in exchange for a Deep Sea Tooth or Deep Sea Scale. Both reward branches set the same flag, so it does not retain which reward was chosen.",
+    completionMeaning: "Set: the Scanner exchange succeeded.",
+    notCompletedMeaning: "Not set: the exchange is not recorded; check whether the Scanner has been collected and is in the bag.",
+    sourceRefs: [emeraldScript("SlateportCity_Harbor")],
+  },
+  FLAG_WINGULL_SENT_ON_ERRAND: {
+    description: "The Fortree house Wingull errand was started. This is not proof the mail was delivered or the Mental Herb reward was collected.",
+    sourceRefs: [emeraldScript("FortreeCity_House4")],
+  },
+  FLAG_WINGULL_DELIVERED_MAIL: {
+    description: "The Mossdeep house interaction recorded Wingull delivering the mail. The Mental Herb reward is a separate return interaction in Fortree.",
+    sourceRefs: [emeraldScript("MossdeepCity_House2"), emeraldScript("FortreeCity_House4")],
+  },
+  FLAG_RECEIVED_MENTAL_HERB: {
+    description: "The Mental Herb reward for the Wingull errand was successfully collected from the Fortree boy. This receipt does not imply the item remains in the bag.",
+    sourceRefs: [emeraldScript("FortreeCity_House4")],
+  },
+  FLAG_GOT_BASEMENT_KEY_FROM_WATTSON: {
+    description: "Wattson gave the Basement Key to start the New Mauville generator errand. Generator shutdown and collecting TM Thunderbolt are separate facts.",
+    sourceRefs: [emeraldScript("MauvilleCity")],
+  },
+  FLAG_GOT_TM_THUNDERBOLT_FROM_WATTSON: {
+    description: "Wattson's TM Thunderbolt reward was successfully received after stopping the New Mauville generator. The receipt remains useful even if the TM was used.",
+    sourceRefs: [emeraldScript("MauvilleCity"), emeraldScript("NewMauville_Inside")],
+  },
+  FLAG_RECEIVED_EXP_SHARE: {
+    description: "Mr. Stone's Exp. Share reward for delivering Steven's letter was successfully received. Delivering the letter and claiming this reward are separate events.",
+    sourceRefs: [emeraldScript("RustboroCity_DevonCorp_3F")],
+  },
+  FLAG_RECEIVED_BELDUM: {
+    description: "The gift Beldum in Steven's Mossdeep house was received. This is a gift receipt, not a wild capture or proof of current ownership.",
+    sourceRefs: [emeraldScript("MossdeepCity_StevensHouse")],
+  },
+  FLAG_RECEIVED_CASTFORM: {
+    description: "The Weather Institute gift Castform was received. This is distinct from clearing the Institute battles and from currently owning Castform.",
+    sourceRefs: [emeraldScript("Route119_WeatherInstitute_2F")],
+  },
+  FLAG_RECEIVED_LAVARIDGE_EGG: {
+    description: "The Lavaridge gift Egg was accepted. This flag does not record whether that Egg has hatched.",
+    sourceRefs: [emeraldScript("LavaridgeTown")],
+  },
+  FLAG_RECEIVED_REVIVED_FOSSIL_MON: {
+    description: "A revived fossil Pokemon was received from Devon. The scientist can revive another fossil; combine this history flag with the current resurrection phase and selected fossil variable.",
+    sourceRefs: [emeraldScript("RustboroCity_DevonCorp_2F")],
+  },
+};
 const BULBAPEDIA_MIRAGE_TOWER =
   "https://bulbapedia.bulbagarden.net/w/index.php?title=Mirage_Tower&oldid=4566304";
 const POKEFIRERED_SILPH =
@@ -305,6 +424,26 @@ export const EVENT_GUIDANCE_BY_PROFILE: Record<string, Record<string, EventGuida
     },
   },
   "emerald-en": {
+    ...EMERALD_WALLY_TEAMS,
+    ...EMERALD_OPTIONAL_CONTEXT,
+    FLAG_SYS_GAME_CLEAR: {
+      description: "Permanent Pokemon League completion, set by GameClear when entering the Hall of Fame.",
+      completionMeaning: "Set: the League has been completed and Hall of Fame entry is recorded.",
+      notCompletedMeaning: "Not set: permanent League completion is not recorded by this flag.",
+      steps: [],
+      sourceRefs: [
+        "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/src/post_battle_event_funcs.c",
+        "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/scripts/hall_of_fame.inc",
+      ],
+    },
+    FLAG_LEGENDARIES_IN_SOOTOPOLIS: {
+      description: "Resettable Sootopolis crisis-scene state, set at Seafloor Cavern and cleared after Rayquaza ends the crisis.",
+      completionMeaning: "Set: the crisis scene is active, not permanently completed.",
+      notCompletedMeaning: "Not set: the scene is inactive, either before it starts or after it ends.",
+      normalMissingReason: "The script clears this bit after resolving the crisis. It is not a permanent prerequisite for earlier completed events.",
+      steps: [],
+      sourceRefs: [POKEEMERALD_SEAFLOOR, emeraldScript("SootopolisCity")],
+    },
     ...hoennLeagueRunGuidance("pokeemerald", "0d3100185e0b13faabfc589fc402dd46f83c1d6a", "FLAG_DEFEATED_ELITE_4_SIDNEY"),
     GUIDE_MIRAGE_TOWER: {
       description: "Mirage Tower is an Emerald-only optional location in the Route 111 desert.",
@@ -340,15 +479,15 @@ export const EVENT_GUIDANCE_BY_PROFILE: Record<string, Record<string, EventGuida
       description: "Kyogre has left Seafloor Cavern during Emerald's weather crisis.",
       actionHint: "Finish the Seafloor Cavern room 9 story scene; the script then moves the crisis to Sootopolis.",
       steps: ["Reach Seafloor Cavern room 9.", "Finish the story scene there.", "Let the weather crisis move to Sootopolis."],
-      prerequisites: ["FLAG_LEGENDARIES_IN_SOOTOPOLIS"],
-      sourceRefs: [POKEEMERALD_SEAFLOOR],
+      normalMissingReason: "The crisis-scene bit is cleared later in Sootopolis; it is not a permanent prerequisite for this recorded event.",
+      sourceRefs: [POKEEMERALD_SEAFLOOR, emeraldScript("SootopolisCity")],
     },
     FLAG_GROUDON_ESCAPED_SEAFLOOR_CAVERN: {
       description: "Groudon has left Seafloor Cavern during Emerald's weather crisis.",
       actionHint: "Finish the Seafloor Cavern room 9 story scene; the weather crisis continues in Sootopolis.",
       steps: ["Reach Seafloor Cavern room 9.", "Finish the story scene there.", "Let the weather crisis move to Sootopolis."],
-      prerequisites: ["FLAG_LEGENDARIES_IN_SOOTOPOLIS"],
-      sourceRefs: [POKEEMERALD_SEAFLOOR],
+      normalMissingReason: "The crisis-scene bit is cleared later in Sootopolis; it is not a permanent prerequisite for this recorded event.",
+      sourceRefs: [POKEEMERALD_SEAFLOOR, emeraldScript("SootopolisCity")],
     },
   },
   "firered-leafgreen-en": {
@@ -400,5 +539,21 @@ export const EVENT_GUIDANCE_BY_PROFILE: Record<string, Record<string, EventGuida
 };
 
 export function getEventGuidance(gameProfile: string, key: string): EventGuidance | undefined {
+  if (gameProfile === "emerald-en" && /^FLAG_(REGISTERED_|DAILY_|MYSTERY_GIFT_)/.test(key)) {
+    const daily = key.startsWith("FLAG_DAILY_");
+    const registered = key.startsWith("FLAG_REGISTERED_");
+    const base = "https://github.com/pret/pokeemerald/blob/0d3100185e0b13faabfc589fc402dd46f83c1d6a/";
+    return {
+      description: daily ? "Resettable daily state, not lifetime activity completion."
+        : registered ? "Trainer registration state, not a victory or current rematch-readiness flag."
+          : "Internal Mystery Gift state; specific gameplay meaning is unresolved.",
+      completionMeaning: "Set: this technical state bit is active; it is not counted as a completed quest.",
+      notCompletedMeaning: daily ? "Not set: inactive in the current daily period; the activity may have been completed on a previous day."
+        : "Not set: this internal state is inactive. It does not establish an unfinished quest.",
+      steps: [],
+      sourceRefs: [base + "include/constants/flags.h", base + (registered ? "src/battle_setup.c" : "src/event_data.c"),
+        ...(registered ? [base + "include/constants/rematches.h", base + "src/pokenav_match_call_data.c"] : [])],
+    };
+  }
   return EVENT_GUIDANCE_BY_PROFILE[gameProfile]?.[key];
 }

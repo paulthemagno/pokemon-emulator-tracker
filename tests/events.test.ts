@@ -1,11 +1,151 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseEventProgress, normalizeLiveEventBytes } from "../lib/pokemon/events";
+import { parseEventProgress, normalizeLiveEventBytes, normalizeEventProgress } from "../lib/pokemon/events";
 import { GEN1_EVENT_FLAGS, GEN2_EVENT_FLAGS, GEN3_EVENT_FLAGS } from "../lib/pokemon/knowledge/event-flags";
 import { getGeneratedEventGuide } from "../lib/pokemon/knowledge/event-guides";
 import { buildProgressFacts } from "../lib/pokemon/progress-facts";
 import { isEventStatusActive } from "../lib/pokemon/event-status";
+
+test("Emerald League completion and resolved weather crisis do not create false missing milestones", () => {
+  const layout = GEN3_EVENT_FLAGS.emerald;
+  const bytes = new Uint8Array(Math.ceil(layout.flagCount / 8));
+  for (const key of ["FLAG_SYS_GAME_CLEAR", "FLAG_KYOGRE_ESCAPED_SEAFLOOR_CAVERN"]) {
+    const entry = layout.entries.find(flag => flag.key === key)!;
+    bytes[Math.floor(entry.id / 8)] |= 1 << (entry.id % 8);
+  }
+  const progress = normalizeLiveEventBytes({ bytes: Array.from(bytes) }, 3, "emerald")!;
+  const league = progress.flags.find(flag => flag.key === "FLAG_SYS_GAME_CLEAR")!;
+  assert.match(league.description!, /League has been completed/);
+  assert.match(league.completionMeaning!, /Hall of Fame/);
+  const crisis = progress.flags.find(flag => flag.key === "FLAG_LEGENDARIES_IN_SOOTOPOLIS")!;
+  assert.equal(crisis.rawSet, false);
+  assert.equal(crisis.completed, false);
+  assert.equal(crisis.important, false);
+  assert.equal(crisis.stateKind, "system");
+  assert.match(crisis.description!, /script clears this bit/);
+  const escaped = progress.flags.find(flag => flag.key === "FLAG_KYOGRE_ESCAPED_SEAFLOOR_CAVERN")!;
+  assert.equal(escaped.completed, true);
+  assert.deepEqual(escaped.missingPrerequisites, []);
+  assert.ok(crisis.sourceRefs?.some(ref => ref.endsWith("data/maps/SootopolisCity/scripts.inc")));
+});
+
+test("Emerald legendary outcome guidance separates capture, defeat, and stationary/roaming records", () => {
+  const layout = GEN3_EVENT_FLAGS.emerald;
+  const bytes = new Uint8Array(Math.ceil(layout.flagCount / 8));
+  for (const key of ["FLAG_DEFEATED_RAYQUAZA", "FLAG_CAUGHT_LATIAS_OR_LATIOS", "FLAG_EXCHANGED_SCANNER"]) {
+    const definition = layout.entries.find(entry => entry.key === key)!;
+    bytes[Math.floor(definition.id / 8)] |= 1 << (definition.id % 8);
+  }
+  const flags = normalizeLiveEventBytes({ bytes: Array.from(bytes) }, 3, "emerald")!.flags;
+  const rayquaza = flags.find(entry => entry.key === "FLAG_DEFEATED_RAYQUAZA")!;
+  assert.equal(rayquaza.completed, true);
+  assert.match(rayquaza.description!, /both the defeat and capture/);
+  assert.match(rayquaza.completionMeaning!, /does not distinguish capture/);
+  const lati = flags.find(entry => entry.key === "FLAG_CAUGHT_LATIAS_OR_LATIOS")!;
+  assert.match(lati.description!, /Southern Island/);
+  assert.match(lati.description!, /not the roaming/);
+  const scanner = flags.find(entry => entry.key === "FLAG_EXCHANGED_SCANNER")!;
+  assert.match(scanner.description!, /does not retain which reward/);
+  assert.equal(scanner.descriptionKind, "script-guided");
+  assert.ok(scanner.sourceRefs?.some(ref => ref.endsWith("data/maps/SlateportCity_Harbor/scripts.inc")));
+});
+
+test("source-extracted registration and daily flags remain technical/resettable context", () => {
+  const layout = GEN3_EVENT_FLAGS.emerald;
+  const registrations = layout.entries.filter(entry => entry.key.startsWith("FLAG_REGISTERED_"));
+  for (const profile of Object.values(GEN3_EVENT_FLAGS)) {
+    const technical = profile.entries.filter(entry => ["Daily state", "Trainer registration", "Mystery Gift state", "Unreviewed flag state"].includes(entry.category));
+    assert.ok(technical.every(entry => entry.important === false));
+    assert.ok(technical.filter(entry => entry.category === "Unreviewed flag state")
+      .every(entry => !/unused|never written/i.test(entry.note ?? "")));
+  }
+  // Steven's separate PokéNav flag predates the indexed Match Call range.
+  assert.equal(registrations.filter(entry => entry.id >= 0x15c && entry.id < 0x15c + 78).length, 78);
+  assert.equal(registrations.find(entry => entry.key === "FLAG_REGISTERED_ROSE")?.id, 0x15c);
+  assert.equal(layout.entries.filter(entry => entry.key.startsWith("FLAG_DAILY_")).length, 12);
+  const bytes = new Uint8Array(Math.ceil(layout.flagCount / 8));
+  bytes[Math.floor(0x92a / 8)] |= 1 << (0x92a % 8);
+  const flags = normalizeLiveEventBytes({ bytes: Array.from(bytes) }, 3, "emerald")!.flags;
+  const lottery = flags.find(entry => entry.key === "FLAG_DAILY_PICKED_LOTO_TICKET")!;
+  assert.equal(lottery.rawSet, true);
+  assert.equal(lottery.completed, false);
+  assert.match(lottery.description!, /daily reset/);
+  assert.ok(lottery.sourceRefs?.some(ref => ref.endsWith("src/event_data.c")));
+  const registration = flags.find(entry => entry.key === "FLAG_REGISTERED_ROSE")!;
+  assert.match(registration.description!, /distinct from defeating/);
+  assert.equal(registration.stateKind, "system");
+  const legacy = normalizeLiveEventBytes({ bytes: Array(Math.ceil(0x8e5 / 8)).fill(0) }, 3, "emerald")!;
+  assert.equal(legacy.flags.some(entry => entry.key === lottery.key), false);
+});
+
+test("Emerald catalog covers every defined nonzero trainer ID at its source-backed bit index", () => {
+  const layout = GEN3_EVENT_FLAGS.emerald;
+  const trainers = layout.entries.filter(entry => entry.trainerId !== undefined);
+  assert.equal(trainers.length, 854);
+  assert.deepEqual(trainers.map(entry => entry.trainerId), Array.from({ length: 854 }, (_, i) => i + 1));
+  assert.equal(layout.trainerFlags?.start, 0x500);
+  assert.equal(layout.trainerFlags?.count, 864);
+  assert.equal(new Set(trainers.map(entry => entry.id)).size, trainers.length);
+  const ordinaryIds = new Set(layout.entries.filter(entry => entry.trainerId === undefined).map(entry => entry.id));
+  for (const entry of trainers) {
+    assert.equal(entry.id, 0x500 + entry.trainerId!);
+    assert.ok(entry.id < layout.flagCount);
+    assert.equal(ordinaryIds.has(entry.id), false);
+    assert.equal(entry.importance, "routine");
+    assert.equal(entry.important, false);
+  }
+  assert.equal(trainers.some(entry => entry.key === "TRAINER_NONE"), false);
+  assert.equal(GEN3_EVENT_FLAGS.rubySapphire.entries.some(entry => entry.trainerId !== undefined), false);
+  assert.equal(GEN3_EVENT_FLAGS.fireRedLeafGreen.entries.some(entry => entry.trainerId !== undefined), false);
+});
+
+test("Emerald pre-League Wally victory is independent of post-League teams in save and live parsing", () => {
+  const layout = GEN3_EVENT_FLAGS.emerald;
+  const bytes = new Uint8Array(Math.ceil(layout.flagCount / 8));
+  const setBit = (id: number) => { bytes[Math.floor(id / 8)] |= 1 << (id % 8); };
+  const byKey = (progress: ReturnType<typeof parseEventProgress>, key: string) => progress.flags.find(f => f.key === key)!;
+  setBit(0x500 + 519); // TRAINER_WALLY_VR_1 from pinned opponents.h
+  let progress = normalizeLiveEventBytes({ bytes: Array.from(bytes) }, 3, "emerald")!;
+  assert.equal(byKey(progress, "TRAINER_WALLY_VR_1").completed, true);
+  assert.equal(byKey(progress, "TRAINER_WALLY_VR_2").completed, false);
+  assert.match(byKey(progress, "TRAINER_WALLY_VR_1").description!, /does not prove a post-League/);
+  const milestonesBefore = progress.importantCompletedCount;
+
+  setBit(0x500 + 657); // first post-League Wally team
+  const saveBytes = new Uint8Array(32 + bytes.length);
+  saveBytes.set(bytes, 32);
+  progress = parseEventProgress(saveBytes, layout, "save", 32);
+  const postLeague = byKey(progress, "TRAINER_WALLY_VR_2");
+  assert.equal(postLeague.completed, true);
+  assert.equal(postLeague.trainerId, 657);
+  assert.equal(postLeague.descriptionKind, "script-guided");
+  assert.match(postLeague.completionMeaning!, /confirms a post-League victory/);
+  assert.ok(postLeague.sourceRefs?.some(url => url.includes("0d3100185e0b13faabfc589fc402dd46f83c1d6a/data/maps/VictoryRoad_1F/scripts.inc")));
+  assert.equal(byKey(progress, "TRAINER_WALLY_VR_3").rawSet, false);
+  assert.match(byKey(progress, "TRAINER_WALLY_VR_3").normalMissingReason!, /not proof.*challenged now/);
+  assert.equal(progress.importantCompletedCount, milestonesBefore);
+  assert.equal(normalizeEventProgress(progress)?.flags.find(f => f.key === postLeague.key)?.trainerId, 657);
+
+  bytes.fill(0);
+  setBit(0x500 + 660); // another post-League team must also be queryable independently
+  progress = normalizeLiveEventBytes({ bytes: Array.from(bytes) }, 3, "emerald")!;
+  assert.equal(byKey(progress, "TRAINER_WALLY_VR_2").completed, false);
+  assert.equal(byKey(progress, "TRAINER_WALLY_VR_5").completed, true);
+  assert.match(byKey(progress, "TRAINER_WALLY_VR_2").notCompletedMeaning!, /Check the other post-League/);
+});
+
+test("unreviewed trainer records do not invent quest steps or team availability", () => {
+  const layout = GEN3_EVENT_FLAGS.emerald;
+  const progress = normalizeLiveEventBytes({ bytes: Array(Math.ceil(layout.flagCount / 8)).fill(0) }, 3, "emerald")!;
+  const placeholder = progress.flags.find(f => f.key === "TRAINER_MAY_PLACEHOLDER")!;
+  assert.equal(placeholder.rawSet, false);
+  assert.equal(placeholder.important, false);
+  assert.ok(placeholder.flowSteps?.every(step => !/^(Go to|Win|Start|Speak)/.test(step)));
+  assert.match(placeholder.normalMissingReason!, /unused/);
+  assert.match(placeholder.notCompletedMeaning!, /does not establish an available unfinished quest/);
+  assert.ok(placeholder.sourceRefs?.some(url => url.endsWith("/include/constants/opponents.h")));
+});
 
 for (const game of ["emerald", "ruby", "sapphire"] as const) {
   test(`${game} Elite Four flags describe an attempt without counting as permanent milestones`, () => {

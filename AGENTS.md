@@ -140,6 +140,7 @@ corepack pnpm extract:pokemon-events -- --from-github
 corepack pnpm extract:pokemon-event-contexts -- --from-github
 corepack pnpm generate:pokemon-event-guides
 corepack pnpm generate:progress-fact-prototype
+corepack pnpm extract:pokemon-progress-variables
 ```
 
 Generated files under `lib/pokemon/knowledge/` and `live-adapters/generated/` must not be edited by hand. Update `lib/pokemon/knowledge/sources/*.json` and rerun the generator.

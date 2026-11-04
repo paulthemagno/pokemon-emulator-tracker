@@ -56,7 +56,8 @@ for the current detection limits, reviewed references, and remaining verificatio
 | Maps | Gen 1 Kanto maps, Gen 2 Pokegear maps, Gen 3 Hoenn overview map, and FireRed/LeafGreen Kanto/Sevii overview maps with marker coordinates | Continue validating edge/event maps with real saves before promoting FireRed/LeafGreen. |
 | Encounters | Generated local PokeAPI encounter snapshot exposed through `get_encounters` for Gen 1-3 LLM questions | Add PRET-backed exact encounter slots, rates, and version-specific edge cases. |
 | Story context | Main-story milestone summary for Gen 1-3; starter choices; Oak Lab; Elm Lab, Mahogany Rocket base, and Radio Tower; Littleroot, Petalburg, Sootopolis crisis, and current Hoenn League run | Expand fine-grained chapter phases only from reviewed variables/scenes or source-proven flag combinations; do not expose all raw vars. |
-| Trainers/gyms | Not first-class local data | Add gym leader/rival/E4 datasets after parser foundations are stable. |
+| Reviewed raw quest variables | Emerald save/live/MCP retains 18 source-extracted variables for roamer choice, fossil revival, New Mauville, and Trick House, with descriptions and script references | Add other games and additional reviewed quest states; do not infer completion from initialized values. |
+| Trainers/gyms | Emerald has 854 source-extracted indexed trainer battle records in save/live event data, including distinct pre/post-League Wally teams; other Gen 3 indexed ranges are not yet catalogued | Add reviewed availability/alternative-team rules and other game profiles. Battle records are not a quest checklist or a full trainer/team moveset dataset. |
 
 ## Ground Truth Modules
 

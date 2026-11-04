@@ -420,12 +420,30 @@
         {
           "sourceKey": "pretPokeemerald",
           "path": "include/constants/vars.h",
-          "patterns": ["VAR_ROAMER_POKEMON", "0 = Latias, 1 = Latios"]
+          "patterns": ["VAR_ROAMER_POKEMON", "0 = Latias, 1 = Latios", "VAR_LITTLEROOT_HOUSES_STATE_MAY", "VAR_LITTLEROOT_HOUSES_STATE_BRENDAN"]
         },
         {
           "sourceKey": "pretPokeemerald",
           "path": "data/scripts/players_house.inc",
           "patterns": ["special InitRoamer", "copyvar VAR_ROAMER_POKEMON, VAR_RESULT"]
+        }
+      ],
+      "runtimeStatus": "raw-values",
+      "rawVariables": [
+        {
+          "key": "roamerPokemon",
+          "symbol": "VAR_ROAMER_POKEMON",
+          "description": "Raw roaming species choice: 0 = Latias, 1 = Latios. Zero is also the initial value; this is not proof of a choice before the postgame TV scene finishes."
+        },
+        {
+          "key": "littlerootHouseMayState",
+          "symbol": "VAR_LITTLEROOT_HOUSES_STATE_MAY",
+          "description": "Raw player-house scene state. The TV-choice script sets this to 4 after InitRoamer; combine with the roaming flag before interpreting the species choice."
+        },
+        {
+          "key": "littlerootHouseBrendanState",
+          "symbol": "VAR_LITTLEROOT_HOUSES_STATE_BRENDAN",
+          "description": "Raw player-house scene state. The TV-choice script sets this to 4 after InitRoamer; this value alone is not a capture record."
         }
       ]
     },
@@ -460,6 +478,188 @@
           "sourceKey": "pretPokeruby",
           "path": "data/maps/RustboroCity_DevonCorp_2F/scripts.inc",
           "patterns": ["setvar VAR_WHICH_FOSSIL_REVIVED, 1", "setvar VAR_WHICH_FOSSIL_REVIVED, 2", "FLAG_RECEIVED_FOSSIL_MON"]
+        }
+      ],
+      "runtimeStatus": "raw-values-emerald-only",
+      "rawVariables": [
+        {
+          "key": "fossilResurrectionState",
+          "symbol": "VAR_FOSSIL_RESURRECTION_STATE",
+          "description": "Raw Devon revival phase: 1 = submitted and regenerating; 2 = ready to receive. State 0 is initial or reset after collection, so combine with received-fossil flag and fossil species value."
+        },
+        {
+          "key": "whichFossilRevived",
+          "symbol": "VAR_WHICH_FOSSIL_REVIVED",
+          "description": "Raw submitted fossil: 1 = Root Fossil/Lileep, 2 = Claw Fossil/Anorith. It can remain after collection and must be combined with the revival phase."
+        }
+      ]
+    },
+    {
+      "id": "emerald-new-mauville",
+      "generation": 3,
+      "games": ["emerald"],
+      "title": "New Mauville generator sidequest",
+      "kind": "quest-state",
+      "priority": "medium",
+      "runtimeStatus": "raw-values",
+      "playerValue": "Retains the exact saved sidequest state without guessing availability.",
+      "proposedDisplay": "Documented raw quest variables",
+      "llmValue": "Adds source-backed context for optional quest questions.",
+      "interpretation": "Generator shutdown and collecting the TM are separate saved facts. Do not treat the state of the generator as proof the reward was collected.",
+      "rawVariables": [
+        {
+          "key": "newMauvilleState",
+          "symbol": "VAR_NEW_MAUVILLE_STATE",
+          "description": "Raw generator state: 2 means the stop switch was activated. Combine with FLAG_GOT_BASEMENT_KEY_FROM_WATTSON and FLAG_GOT_TM_THUNDERBOLT_FROM_WATTSON to distinguish acceptance, generator shutdown, and reward collection."
+        }
+      ],
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_NEW_MAUVILLE_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/NewMauville_Inside/scripts.inc",
+          "patterns": ["setvar VAR_NEW_MAUVILLE_STATE, 2"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/MauvilleCity/scripts.inc",
+          "patterns": ["FLAG_GOT_BASEMENT_KEY_FROM_WATTSON", "FLAG_GOT_TM_THUNDERBOLT_FROM_WATTSON", "giveitem ITEM_TM_THUNDERBOLT"]
+        }
+      ]
+    },
+    {
+      "id": "emerald-trick-house",
+      "generation": 3,
+      "games": ["emerald"],
+      "title": "Trick House puzzle progression",
+      "kind": "quest-state",
+      "priority": "medium",
+      "runtimeStatus": "raw-values",
+      "playerValue": "Retains the exact saved sidequest state without guessing availability.",
+      "proposedDisplay": "Documented raw quest variables",
+      "llmValue": "Adds source-backed context for optional quest questions.",
+      "interpretation": "Retain level, puzzle phases, entrance state, and pending prize independently. Initial zero and puzzle-specific states are not proof that a puzzle is currently accessible or that its prize was collected.",
+      "rawVariables": [
+        {
+          "key": "trickHouseLevel",
+          "symbol": "VAR_TRICK_HOUSE_LEVEL",
+          "description": "Raw puzzle progression: entrance script routes values 0 through 7 to puzzles 1 through 8; 8 selects the finished-puzzles branch. Initial zero does not prove the quest has started."
+        },
+        {
+          "key": "trickHouseFoundMaster",
+          "symbol": "VAR_TRICK_HOUSE_FOUND_TRICK_MASTER",
+          "description": "Raw current-puzzle hide-and-seek flag stored as a variable. Reset for new puzzles; not permanent whole-quest completion."
+        },
+        {
+          "key": "trickHouseEntranceState",
+          "symbol": "VAR_TRICK_HOUSE_ENTRANCE_STATE",
+          "description": "Raw entrance dialogue/scene state. Interpret using the entrance script, not as a count of completed puzzles."
+        },
+        {
+          "key": "trickHousePrizePickup",
+          "symbol": "VAR_TRICK_HOUSE_PRIZE_PICKUP",
+          "description": "Raw pending-reward state: the end-room script sets 1 when the bag or decoration storage is full and the prize cannot be delivered. Reward branches clear it to 0; zero is also initial, so combine with level and entrance state."
+        },
+        {
+          "key": "trickHousePuzzle1State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_1_STATE",
+          "description": "Raw puzzle 1 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        },
+        {
+          "key": "trickHousePuzzle2State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_2_STATE",
+          "description": "Raw puzzle 2 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        },
+        {
+          "key": "trickHousePuzzle3State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_3_STATE",
+          "description": "Raw puzzle 3 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        },
+        {
+          "key": "trickHousePuzzle4State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_4_STATE",
+          "description": "Raw puzzle 4 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        },
+        {
+          "key": "trickHousePuzzle5State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_5_STATE",
+          "description": "Raw puzzle 5 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        },
+        {
+          "key": "trickHousePuzzle6State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_6_STATE",
+          "description": "Raw puzzle 6 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        },
+        {
+          "key": "trickHousePuzzle7State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_7_STATE",
+          "description": "Raw puzzle 7 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        },
+        {
+          "key": "trickHousePuzzle8State",
+          "symbol": "VAR_TRICK_HOUSE_PUZZLE_8_STATE",
+          "description": "Raw puzzle 8 script state. It is a per-puzzle phase, not a boolean or a count; consult that puzzle script and the entrance/end scripts."
+        }
+      ],
+      "evidence": [
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "include/constants/vars.h",
+          "patterns": ["VAR_TRICK_HOUSE_LEVEL", "VAR_TRICK_HOUSE_FOUND_TRICK_MASTER", "VAR_TRICK_HOUSE_ENTRANCE_STATE", "VAR_TRICK_HOUSE_PRIZE_PICKUP", "VAR_TRICK_HOUSE_PUZZLE_1_STATE", "VAR_TRICK_HOUSE_PUZZLE_2_STATE", "VAR_TRICK_HOUSE_PUZZLE_3_STATE", "VAR_TRICK_HOUSE_PUZZLE_4_STATE", "VAR_TRICK_HOUSE_PUZZLE_5_STATE", "VAR_TRICK_HOUSE_PUZZLE_6_STATE", "VAR_TRICK_HOUSE_PUZZLE_7_STATE", "VAR_TRICK_HOUSE_PUZZLE_8_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHouseEntrance/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_LEVEL, 8", "VAR_TRICK_HOUSE_FOUND_TRICK_MASTER", "VAR_TRICK_HOUSE_ENTRANCE_STATE", "VAR_TRICK_HOUSE_PRIZE_PICKUP"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHouseEnd/scripts.inc",
+          "patterns": ["addvar VAR_TRICK_HOUSE_LEVEL, 1", "setvar VAR_TRICK_HOUSE_PRIZE_PICKUP, 1"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle1/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_1_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle2/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_2_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle3/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_3_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle4/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_4_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle5/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_5_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle6/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_6_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle7/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_7_STATE"]
+        },
+        {
+          "sourceKey": "pretPokeemerald",
+          "path": "data/maps/Route110_TrickHousePuzzle8/scripts.inc",
+          "patterns": ["VAR_TRICK_HOUSE_PUZZLE_8_STATE"]
         }
       ]
     }
