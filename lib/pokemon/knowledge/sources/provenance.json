@@ -36,7 +36,7 @@
     "repo": "pret/pokered",
     "note": "Primary reproducible technical source for English Red/Blue symbolic data when a pinned checkout is used.",
     "commit": "3c814341c81307b3193a9ea890ff3a197b09b4e3",
-    "path": "ram/wram.asm, ram/sram.asm, constants/item_constants.asm"
+    "path": "ram/wram.asm, ram/sram.asm, constants/item_constants.asm, constants/event_constants.asm"
   },
   "pretPokeyellow": {
     "kind": "pret",
@@ -45,7 +45,7 @@
     "repo": "pret/pokeyellow",
     "note": "Cross-check source for English Yellow symbolic data when a pinned checkout is used.",
     "commit": "bfa7170107eea23b89febb60bfb2ce39173bf2e1",
-    "path": "ram/wram.asm, ram/sram.asm, constants/item_constants.asm"
+    "path": "ram/wram.asm, ram/sram.asm, constants/item_constants.asm, constants/event_constants.asm"
   },
   "bulbapediaGen1Save": {
     "kind": "secondary",
@@ -84,7 +84,7 @@
     "repo": "pret/pokeruby",
     "note": "Primary reproducible technical source for Ruby/Sapphire save structures when a pinned checkout is used.",
     "commit": "63a8cbf0016b351a4e68f7036fa0b77e23d2f2c1",
-    "path": "include/global.h, include/constants/flags.h, src/pokemon_storage_system.c"
+    "path": "include/global.h, include/constants/flags.h, src/pokemon_storage_system.c, data/scripts/new_game.inc"
   },
   "pretPokeemerald": {
     "kind": "pret",
@@ -93,7 +93,7 @@
     "repo": "pret/pokeemerald",
     "note": "Primary reproducible technical source for Emerald save structures when a pinned checkout is used.",
     "commit": "0d3100185e0b13faabfc589fc402dd46f83c1d6a",
-    "path": "include/global.h, include/constants/flags.h, include/pokemon_storage_system.h"
+    "path": "include/global.h, include/constants/flags.h, include/pokemon_storage_system.h, include/constants/opponents.h, data/scripts/new_game.inc, include/constants/rematches.h"
   },
   "pretPokefirered": {
     "kind": "pret",
@@ -111,7 +111,7 @@
     "repo": "pret/pokecrystal",
     "note": "Primary reproducible technical source for Gen 2 symbolic data when a pinned checkout is used.",
     "commit": "8f2162d7dd72a42f4a0a1f2afdb32d4a00d7f217",
-    "path": "constants/item_constants.asm, ram/wram.asm, ram/sram.asm"
+    "path": "constants/item_constants.asm, ram/wram.asm, ram/sram.asm, constants/event_flags.asm, engine/events/std_scripts.asm"
   },
   "pretPokegold": {
     "kind": "pret",
@@ -120,6 +120,6 @@
     "repo": "pret/pokegold",
     "note": "Primary reproducible technical source for English Gold/Silver symbolic data when a pinned checkout is used.",
     "commit": "09d2148d6d26b20840fb4997916321666ca1e953",
-    "path": "ram/wram.asm, ram/sram.asm, layout.link"
+    "path": "ram/wram.asm, ram/sram.asm, layout.link, constants/event_flags.asm, engine/events/std_scripts.asm"
   }
 }

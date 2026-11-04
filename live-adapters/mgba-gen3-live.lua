@@ -907,6 +907,16 @@ local function read_progress_values()
   }
 end
 
+local function read_reviewed_progress_variables()
+  local p = get_profile()
+  local saveBlock1 = resolve_blocks().saveBlock1 or 0
+  local values = {}
+  for key, id in pairs(p.progressVariables or {}) do
+    values[key] = read16(saveBlock1 + p.vars + (id - 0x4000) * 2)
+  end
+  return values
+end
+
 local function read_badges(saveBlock1, p)
   local badges = {}
   for i = 0, 7 do
@@ -1093,6 +1103,7 @@ local function build_snapshot()
     pokedex = heavy.pokedex,
     eventsRaw = read_event_bytes(),
     progressRaw = read_progress_values(),
+    progressVariablesRaw = read_reviewed_progress_variables(),
     party = read_party(),
     pcBoxes = heavy.pcBoxes,
     bag = heavy.bag,

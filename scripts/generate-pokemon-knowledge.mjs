@@ -19,7 +19,7 @@ function quote(value) {
   return JSON.stringify(value);
 }
 
-function formatValue(value, indent = 0) {
+function formatValue(value, indent = 0, options = {}) {
   const pad = " ".repeat(indent);
   const childPad = " ".repeat(indent + 2);
 
@@ -36,21 +36,29 @@ function formatValue(value, indent = 0) {
     if (value.every((entry) => typeof entry === "string")) {
       return `[\n${value.map((entry) => `${childPad}${quote(entry)},`).join("\n")}\n${pad}]`;
     }
-    return `[\n${value.map((entry) => `${childPad}${formatValue(entry, indent + 2)},`).join("\n")}\n${pad}]`;
+    return `[\n${value.map((entry) => `${childPad}${formatValue(entry, indent + 2, options)},`).join("\n")}\n${pad}]`;
   }
 
-  return formatObject(value, indent);
+  // Give large trainer arrays a common element type without disabling checking
+  // of individual records. Otherwise TypeScript infers an enormous union.
+  if (options.trainerRecords && value?.trainerId !== undefined) {
+    return `trainerFlag(${formatObject(value, indent)})`;
+  }
+  return formatObject(value, indent, options);
 }
 
 function formatObject(object, indent = 0, options = {}) {
   const pad = " ".repeat(indent);
   const childPad = " ".repeat(indent + 2);
+  const { satisfies, ...childOptions } = options;
   const entries = Object.entries(object).filter(([, value]) => value !== undefined);
   if (entries.length === 0) return "{}";
 
   return `{\n${entries.map(([key, value]) => {
     const renderedKey = /^[a-zA-Z_$][\w$]*$/.test(key) ? key : quote(key);
-    return `${childPad}${renderedKey}: ${formatValue(value, indent + 2)},`;
+    const renderedValue = ["label", "note"].includes(key) && typeof value === "string"
+      ? quote(value) : formatValue(value, indent + 2, childOptions);
+    return `${childPad}${renderedKey}: ${renderedValue},`;
   }).join("\n")}\n${pad}}${options.satisfies ? ` satisfies ${options.satisfies}` : ""}`;
 }
 
@@ -93,8 +101,8 @@ function withGen3LayoutSourceReferences(layout) {
   };
 }
 
-function renderObjectWithSourceRefs(object, indent = 0, satisfies) {
-  const rendered = formatObject(object, indent, satisfies ? { satisfies } : {});
+function renderObjectWithSourceRefs(object, indent = 0, satisfies, options = {}) {
+  const rendered = formatObject(object, indent, { ...options, ...(satisfies ? { satisfies } : {}) });
   return rendered.replace(/"__SOURCE__(\w+)"/g, "POKEMON_KNOWLEDGE_SOURCES.$1");
 }
 
@@ -159,6 +167,7 @@ function withEventFlagSourceReferences(layout) {
     flagStartOffset: layout.flagStartOffset,
     liveFlagStartOffset: layout.liveFlagStartOffset,
     flagCount: layout.flagCount,
+    trainerFlags: layout.trainerFlags,
     entries: layout.entries,
   };
 }
@@ -168,7 +177,7 @@ function renderEventFlags(source) {
   const gen2 = Object.fromEntries(Object.entries(source.gen2).map(([key, layout]) => [key, withEventFlagSourceReferences(layout)]));
   const gen3 = Object.fromEntries(Object.entries(source.gen3 ?? {}).map(([key, layout]) => [key, withEventFlagSourceReferences(layout)]));
 
-  return `${header}import { POKEMON_KNOWLEDGE_SOURCES, type PokemonKnowledgeSource } from "./provenance";\n\nexport type EventFlagImportance = "story" | "unlock" | "optional" | "routine";\n\nexport interface EventFlagDefinition {\n  id: number;\n  key: string;\n  label: string;\n  category: string;\n  importance: EventFlagImportance;\n  important: boolean;\n  initiallySet?: boolean;\n  stateKind?: "visibility" | "system";\n  note?: string;\n}\n\nexport interface EventFlagLayout {\n  generation: 1 | 2 | 3;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  flagStartOffset?: number;\n  liveFlagStartOffset?: number;\n  flagCount: number;\n  entries: EventFlagDefinition[];\n}\n\nexport const GEN1_EVENT_FLAGS = ${renderObjectWithSourceRefs(gen1, 0, "Record<string, EventFlagLayout>")};\n\nexport const GEN2_EVENT_FLAGS = ${renderObjectWithSourceRefs(gen2, 0, "Record<string, EventFlagLayout>")};\n\nexport const GEN3_EVENT_FLAGS = ${renderObjectWithSourceRefs(gen3, 0, "Record<string, EventFlagLayout>")};\n`;
+  return `${header}import { POKEMON_KNOWLEDGE_SOURCES, type PokemonKnowledgeSource } from "./provenance";\n\nexport type EventFlagImportance = "story" | "unlock" | "optional" | "routine";\n\nexport interface EventFlagDefinition {\n  id: number;\n  key: string;\n  label: string;\n  category: string;\n  importance: EventFlagImportance;\n  important: boolean;\n  initiallySet?: boolean;\n  trainerId?: number;\n  stateKind?: "visibility" | "system";\n  note?: string;\n}\n\nexport interface EventFlagLayout {\n  generation: 1 | 2 | 3;\n  gameProfile: string;\n  source: PokemonKnowledgeSource;\n  flagStartOffset?: number;\n  liveFlagStartOffset?: number;\n  flagCount: number;\n  trainerFlags?: { start: number; count: number; sourceRefs: string[] };\n  entries: EventFlagDefinition[];\n}\n\nexport const GEN1_EVENT_FLAGS = ${renderObjectWithSourceRefs(gen1, 0, "Record<string, EventFlagLayout>")};\n\nexport const GEN2_EVENT_FLAGS = ${renderObjectWithSourceRefs(gen2, 0, "Record<string, EventFlagLayout>")};\n\nfunction trainerFlag(flag: EventFlagDefinition): EventFlagDefinition { return flag; }\n\nexport const GEN3_EVENT_FLAGS: Record<${Object.keys(gen3).map(quote).join(" | ")}, EventFlagLayout> = ${renderObjectWithSourceRefs(gen3, 0, undefined, { trainerRecords: true })};\n`;
 }
 
 function renderEventGuides(source) {
@@ -220,7 +229,7 @@ function assertSaveOffset(value, label) {
   }
 }
 
-function validateSaveLayouts(saveLayouts) {
+function validateSaveLayouts(saveLayouts, eventFlagsForValidation) {
   for (const [profile, layout] of Object.entries(saveLayouts.gen1)) {
     assertSaveOffset(layout.offsets.currentBoxData, `gen1.${profile}.offsets.currentBoxData`);
 
@@ -338,6 +347,11 @@ function validateSaveLayouts(saveLayouts) {
   }
 
   for (const [profile, layout] of Object.entries(saveLayouts.gen3 ?? {})) {
+    const namedFlags = eventFlagsForValidation?.gen3?.[profile];
+    const flagCapacity = numericOffset(layout.offsets.vars, `${profile}.vars`) - numericOffset(layout.offsets.flags, `${profile}.flags`);
+    if (namedFlags && Math.ceil(namedFlags.flagCount / 8) > flagCapacity) {
+      throw new Error(`${profile}: extracted flags exceed SaveBlock1.flags capacity`);
+    }
     for (const [field, value] of Object.entries(layout.offsets ?? {})) {
       const offset = numericOffset(value, `gen3.${profile}.offsets.${field}`);
       const maxSectionOffset = ["boxCurrent", "boxData", "boxNames", "boxWallpapers"].includes(field)
@@ -398,7 +412,7 @@ function renderGen1LiveOffsetsLua(saveLayouts, eventFlags) {
   return `-- Generated by scripts/generate-pokemon-knowledge.mjs.\n-- Source manifests: lib/pokemon/knowledge/sources/*.json.\n-- Do not edit this file by hand; update source manifests and rerun the generator.\n\nreturn {\n  profiles = {\n    red_blue = {\n${luaProfile(saveLayouts.gen1.redBlue, { key: "red_blue", game: "red", moneyFormat: "bcd24", eventFlags: eventFlags.gen1.redBlue.liveFlagStartOffset, eventFlagCount: eventFlags.gen1.redBlue.flagCount })}\n    },\n    yellow = {\n${luaProfile(saveLayouts.gen1.yellow, { key: "yellow", game: "yellow", moneyFormat: "bcd24", eventFlags: eventFlags.gen1.yellow.liveFlagStartOffset, eventFlagCount: eventFlags.gen1.yellow.flagCount })}\n    },\n  },\n}\n`;
 }
 
-function renderGen3LiveOffsetsLua(saveLayouts, inventoryLayouts, speciesIdMaps, eventFlags) {
+function renderGen3LiveOffsetsLua(saveLayouts, inventoryLayouts, speciesIdMaps, eventFlags, progressVariables) {
   const luaPocket = (pocket) => {
     const entries = {
       name: pocket.name,
@@ -428,10 +442,10 @@ function renderGen3LiveOffsetsLua(saveLayouts, inventoryLayouts, speciesIdMaps, 
     .map((entry) => `    [${entry.internal}] = ${entry.national},`)
     .join("\n");
 
-  return `-- Generated by scripts/generate-pokemon-knowledge.mjs.\n-- Source manifests: lib/pokemon/knowledge/sources/*.json.\n-- Do not edit this file by hand; update source manifests and rerun the generator.\n\nreturn {\n  oldUnownInternalStart = ${luaValue(speciesMap.oldUnownInternalStart)},\n  oldUnownInternalEnd = ${luaValue(speciesMap.oldUnownInternalEnd)},\n  oldUnownNational = ${luaValue(speciesMap.oldUnownNational)},\n  internalToNational = {\n${speciesEntries}\n  },\n  profiles = {\n    ruby_sapphire = ${luaProfile(saveLayouts.gen3.rubySapphire, inventoryLayouts.gen3.rubySapphire, { key: "ruby_sapphire", game: "ruby", nationalMagic: 0xda, eventFlagCount: eventFlags.gen3.rubySapphire.flagCount })},\n    emerald = ${luaProfile(saveLayouts.gen3.emerald, inventoryLayouts.gen3.emerald, { key: "emerald", game: "emerald", nationalMagic: 0xda, eventFlagCount: eventFlags.gen3.emerald.flagCount })},\n    fire_red_leaf_green = ${luaProfile(saveLayouts.gen3.fireRedLeafGreen, inventoryLayouts.gen3.fireRedLeafGreen, { key: "fire_red_leaf_green", game: "firered", nationalMagic: 0xb9, eventFlagCount: eventFlags.gen3.fireRedLeafGreen.flagCount })},\n  },\n}\n`;
+  return `-- Generated by scripts/generate-pokemon-knowledge.mjs.\n-- Source manifests: lib/pokemon/knowledge/sources/*.json.\n-- Do not edit this file by hand; update source manifests and rerun the generator.\n\nreturn {\n  oldUnownInternalStart = ${luaValue(speciesMap.oldUnownInternalStart)},\n  oldUnownInternalEnd = ${luaValue(speciesMap.oldUnownInternalEnd)},\n  oldUnownNational = ${luaValue(speciesMap.oldUnownNational)},\n  internalToNational = {\n${speciesEntries}\n  },\n  profiles = {\n    ruby_sapphire = ${luaProfile(saveLayouts.gen3.rubySapphire, inventoryLayouts.gen3.rubySapphire, { key: "ruby_sapphire", game: "ruby", nationalMagic: 0xda, eventFlagCount: eventFlags.gen3.rubySapphire.flagCount })},\n    emerald = ${luaProfile(saveLayouts.gen3.emerald, inventoryLayouts.gen3.emerald, { key: "emerald", game: "emerald", nationalMagic: 0xda, eventFlagCount: eventFlags.gen3.emerald.flagCount, progressVariables: Object.fromEntries(progressVariables.profiles.emerald.entries.map(entry => [entry.key, entry.id])) })},\n    fire_red_leaf_green = ${luaProfile(saveLayouts.gen3.fireRedLeafGreen, inventoryLayouts.gen3.fireRedLeafGreen, { key: "fire_red_leaf_green", game: "firered", nationalMagic: 0xb9, eventFlagCount: eventFlags.gen3.fireRedLeafGreen.flagCount })},\n  },\n}\n`;
 }
 
-const [provenance, inventoryLayouts, itemIdRanges, saveLayouts, speciesIdMaps, eventFlags, eventGuides] = await Promise.all([
+const [provenance, inventoryLayouts, itemIdRanges, saveLayouts, speciesIdMaps, eventFlags, eventGuides, progressVariables] = await Promise.all([
   readJson("provenance.json"),
   readJson("inventory-layouts.json"),
   readJson("item-id-ranges.json"),
@@ -439,9 +453,14 @@ const [provenance, inventoryLayouts, itemIdRanges, saveLayouts, speciesIdMaps, e
   readJson("species-id-maps.json"),
   readJson("event-flags.json"),
   readJson("event-guides.json").catch(() => ({ profiles: {} })),
+  readJson("progress-variables.json"),
 ]);
 
-validateSaveLayouts(saveLayouts);
+validateSaveLayouts(saveLayouts, eventFlags);
+
+const progressVariableEntries = Object.fromEntries(Object.entries(progressVariables.profiles).map(([game, profile]) => [game, profile.entries]));
+await fs.writeFile(path.join(outputDir, "progress-variables.ts"), `${header}export interface ProgressVariableDefinition {\n  key: string;\n  symbol: string;\n  id: number;\n  candidateId: string;\n  description: string;\n  sourceRefs: string[];\n}\n\nexport const REVIEWED_PROGRESS_VARIABLES: Record<string, ProgressVariableDefinition[]> = ${formatObject(progressVariableEntries)};\n`);
+
 
 await fs.writeFile(path.join(outputDir, "provenance.ts"), renderProvenance(provenance));
 await fs.writeFile(path.join(outputDir, "inventory-layouts.ts"), renderInventoryLayouts(inventoryLayouts));
@@ -461,7 +480,7 @@ await fs.writeFile(
 );
 await fs.writeFile(
   path.join(root, "live-adapters/generated/gen3-live-offsets.lua"),
-  renderGen3LiveOffsetsLua(saveLayouts, inventoryLayouts, speciesIdMaps, eventFlags)
+  renderGen3LiveOffsetsLua(saveLayouts, inventoryLayouts, speciesIdMaps, eventFlags, progressVariables)
 );
 
 const romIdentities = await readJson("rom-identities.json");

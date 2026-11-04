@@ -18,6 +18,7 @@ import {
 } from "../data/species";
 import { parseEventProgress } from "../events";
 import { buildProgressFacts } from "../progress-facts";
+import { readProgressVariables } from "../progress-variables";
 import { GEN3_EVENT_FLAGS } from "../knowledge/event-flags";
 import { GEN3_INVENTORY_LAYOUTS, type InventoryLayout } from "../knowledge/inventory-layouts";
 import { GEN3_SAVE_LAYOUTS, type Gen3SaveLayout } from "../knowledge/save-layouts";
@@ -987,6 +988,7 @@ export function parseGen3Save(buffer: ArrayBuffer, filename = "", override?: Gam
     pcBoxes,
     inventory,
     events,
+    progressVariables: readProgressVariables(saveBlock1, profile.layout.offsets.vars, game),
     progressFacts: buildProgressFacts({
       generation: 3,
       game,

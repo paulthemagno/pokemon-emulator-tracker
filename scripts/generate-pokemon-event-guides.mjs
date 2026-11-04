@@ -270,9 +270,21 @@ function buildStateMeaning(entry) {
 function buildGuideEntry(profile, entry, contexts, onlineSources) {
   const location = eventLocation(contexts);
   const sourceRefs = unique([
+    ...(entry.trainerId !== undefined ? profile.trainerFlags?.sourceRefs ?? [] : []),
     ...contexts.slice(0, 2).map((context) => githubUrl(profile, context)),
     ...onlineSources.slice(0, 2).map((source) => source.url),
   ]);
+  if (entry.trainerId !== undefined) {
+    return {
+      description: `Indexed trainer battle record for ${entry.key}. This exact team ID is not an independent quest; availability and alternatives require reviewed script guidance.`,
+      descriptionKind: contexts.length > 0 ? "source-context" : "source-symbol",
+      location,
+      steps: [],
+      completionMeaning: "Set: this team's trainer battle bit is active. Do not infer special-mode achievements from an ordinary trainer bit.",
+      notCompletedMeaning: "Not set: this team's battle bit is inactive. This may be an alternative, unused, unavailable, or special-mode team rather than a missing quest.",
+      sourceRefs,
+    };
+  }
   const description = buildDescription(entry, contexts, location);
   const steps = buildSteps(entry, contexts, location);
   return {
@@ -304,7 +316,7 @@ for (const layout of allLayouts(eventFlags)) {
   const entries = {};
   for (const entry of layout.entries.slice(0, maxPerProfile > 0 ? maxPerProfile : layout.entries.length)) {
     entries[entry.key] = buildGuideEntry(
-      { ...contextProfile, gameProfile: layout.gameProfile, profileKey: layout.gameProfile },
+      { ...contextProfile, gameProfile: layout.gameProfile, profileKey: layout.gameProfile, trainerFlags: layout.trainerFlags },
       entry,
       contextProfile.contexts[entry.key] ?? [],
       onlineSources

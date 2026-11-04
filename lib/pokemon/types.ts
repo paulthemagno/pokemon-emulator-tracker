@@ -156,6 +156,7 @@ export interface GameEventFlag {
   completed: boolean;
   rawSet?: boolean;
   initiallySet?: boolean;
+  trainerId?: number;
   stateKind?: "visibility" | "system";
   importance?: "story" | "unlock" | "optional" | "routine";
   important?: boolean;
@@ -200,6 +201,16 @@ export interface GameProgressFacts {
   facts: GameProgressFact[];
 }
 
+export interface GameProgressVariable {
+  key: string;
+  symbol: string;
+  id: number;
+  value: number;
+  candidateId: string;
+  description: string;
+  sourceRefs: string[];
+}
+
 export interface SaveData {
   generation: Generation;
   game: GameVersion;
@@ -227,6 +238,7 @@ export interface SaveData {
   inventory: InventorySection[];
   events?: GameEventProgress;
   progressFacts?: GameProgressFacts;
+  progressVariables?: GameProgressVariable[];
   location: LocationInfo;
   valid: boolean;
   checksum?: number;

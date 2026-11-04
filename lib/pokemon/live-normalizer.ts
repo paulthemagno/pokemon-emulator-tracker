@@ -11,6 +11,7 @@ import { getMoveById } from "./data/moves";
 import { getMaxMovePP } from "./data/move-pp";
 import { getSpeciesById } from "./data/species";
 import { normalizeEventProgress, normalizeLiveEventBytes } from "./events";
+import { normalizeProgressVariables } from "./progress-variables";
 import { buildProgressFacts, normalizeProgressRaw } from "./progress-facts";
 import { getExpForLevel } from "./experience";
 import { getStatusCondition } from "./utils";
@@ -297,6 +298,7 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
     pcBoxes,
     inventory: normalizeInventory(snapshot.bag ?? snapshot.inventory, generation),
     events,
+    progressVariables: normalizeProgressVariables(snapshot.progressVariablesRaw, game),
     progressFacts: buildProgressFacts({
       generation,
       game,

@@ -45,7 +45,25 @@ function describeTechnicalState(
 
   if (flag.stateKind !== "system") return undefined;
 
+  if (flag.key.startsWith("FLAG_DAILY_")) {
+    return `${flag.label}: the raw daily-state bit is ${rawSet ? "set" : "unset"}. These flags are cleared by the game's daily reset; an unset bit does not mean the activity has never been done.`;
+  }
+  if (flag.key.startsWith("FLAG_REGISTERED_")) {
+    return `${flag.label}: this trainer-registration bit is ${rawSet ? "set" : "unset"}. Registration is distinct from defeating a team or having a rematch available now.`;
+  }
+  if (flag.key.startsWith("FLAG_MYSTERY_GIFT_")) {
+    return `${flag.label}: this internal Mystery Gift bit is ${rawSet ? "set" : "unset"}. Its gameplay meaning is not fully reviewed; do not infer a specific gift or completed quest.`;
+  }
+
   const knownDescriptions: Record<string, [string, string]> = {
+    FLAG_SYS_GAME_CLEAR: [
+      "The Pokemon League has been completed and the Hall of Fame completion is permanently recorded.",
+      "The permanent Pokemon League completion flag is not set.",
+    ],
+    FLAG_LEGENDARIES_IN_SOOTOPOLIS: [
+      "The Groudon/Kyogre crisis scene in Sootopolis is active. This is a temporary story phase, not a permanent milestone.",
+      "The Groudon/Kyogre crisis scene in Sootopolis is inactive. The script clears this bit after the crisis, so this does not mean the story is unfinished.",
+    ],
     FLAG_SYS_CLOCK_SET: [
       "The real-time clock has been initialized, enabling time-based game systems. This is normal after setting the bedroom clock.",
       "The real-time clock has not been initialized yet.",
@@ -219,6 +237,10 @@ export function parseEventProgress(
     const generatedGuide = getGeneratedEventGuide(layout.gameProfile, entry.key);
     const autoDescription = autoDescribeSourceFlag(entry);
     const rawSet = readBit(data, flagStartOffset, entry.id);
+    const trainerRecord = entry.trainerId !== undefined;
+    const trainerMissingReason = trainerRecord
+      ? "An unset trainer bit does not by itself identify a missing quest. Teams may be starter/gender alternatives, unused, special-mode records, or rematch stages not yet available. Check script-specific guidance."
+      : undefined;
     const technicalStateDescription = entry.category === "League challenge state" && guidance?.description
       ? guidance.description
       : describeTechnicalState(entry, rawSet);
@@ -229,6 +251,7 @@ export function parseEventProgress(
       category: entry.category,
       rawSet,
       initiallySet: entry.initiallySet,
+      trainerId: entry.trainerId,
       stateKind: entry.stateKind,
       completed: rawSet && !entry.initiallySet && !entry.stateKind,
       importance: entry.importance,
@@ -236,19 +259,26 @@ export function parseEventProgress(
       note: entry.note,
       description: technicalStateDescription ?? (entry.initiallySet
         ? "Initial game-state flag. The game sets this automatically when a new save is initialized; a set bit does not prove that the named action was completed."
-        : guidance?.description ?? generatedGuide?.description ?? autoDescription.description),
+        : guidance?.description ?? (trainerRecord
+          ? `Indexed trainer battle record for ${entry.key}. This bit identifies this exact team, not every battle against the character. Availability and alternative teams need script-specific checks.`
+          : generatedGuide?.description ?? autoDescription.description)),
       descriptionKind: guidance?.description
         ? "script-guided" as const
         : generatedGuide?.descriptionKind ?? "source-symbol" as const,
       location: generatedGuide?.location,
-      completionMeaning: guidance?.completionMeaning ?? generatedGuide?.completionMeaning,
-      notCompletedMeaning: guidance?.notCompletedMeaning ?? generatedGuide?.notCompletedMeaning,
+      completionMeaning: guidance?.completionMeaning ?? (trainerRecord
+        ? entry.stateKind ? "Set: this technical trainer bit is active; it is not a quest milestone." : "Set: the game records this specific trainer team as defeated."
+        : generatedGuide?.completionMeaning),
+      notCompletedMeaning: guidance?.notCompletedMeaning ?? (trainerRecord
+        ? "Not set: this team has no active victory bit. This alone does not establish an available unfinished quest."
+        : generatedGuide?.notCompletedMeaning),
       actionHint: guidance?.actionHint,
-      flowSteps: guidance?.steps ?? generatedGuide?.steps ?? autoDescription.steps,
+      flowSteps: guidance?.steps ?? (trainerRecord ? [] : generatedGuide?.steps ?? autoDescription.steps),
       prerequisites: guidance?.prerequisites,
       mutuallyExclusiveWith: guidance?.mutuallyExclusiveWith,
-      normalMissingReason: guidance?.normalMissingReason,
-      sourceRefs: mergeSourceRefs(guidance?.sourceRefs, generatedGuide?.sourceRefs),
+      normalMissingReason: guidance?.normalMissingReason ?? trainerMissingReason,
+      sourceRefs: mergeSourceRefs(guidance?.sourceRefs, generatedGuide?.sourceRefs,
+        trainerRecord ? layout.trainerFlags?.sourceRefs : undefined),
     };
   });
 
@@ -305,6 +335,7 @@ export function normalizeEventProgress(value: unknown): GameEventProgress | unde
       completed: Boolean(flag.completed),
       rawSet: flag.rawSet === undefined ? Boolean(flag.completed) : Boolean(flag.rawSet),
       initiallySet: Boolean(flag.initiallySet),
+      trainerId: Number.isInteger(flag.trainerId) && flag.trainerId > 0 ? Number(flag.trainerId) : undefined,
       stateKind: ["visibility", "system"].includes(String(flag.stateKind)) ? flag.stateKind : undefined,
       importance: ["story", "unlock", "optional", "routine"].includes(String(flag.importance))
         ? flag.importance
@@ -359,5 +390,12 @@ export function normalizeLiveEventBytes(
   if (!value || typeof value !== "object") return undefined;
   const record = value as Record<string, any>;
   if (!Array.isArray(record.bytes)) return undefined;
-  return parseEventProgress(Uint8Array.from(record.bytes.map((byte) => Number(byte) & 0xff)), getEventFlagLayout(generation, game), "live", 0);
+  const bytes = Uint8Array.from(record.bytes.map((byte) => Number(byte) & 0xff));
+  const layout = getEventFlagLayout(generation, game);
+  // Older adapters can transmit a shorter range. An unread bit is unavailable,
+  // not false, especially after adding the daily-state tail to the catalog.
+  return parseEventProgress(bytes, {
+    ...layout,
+    entries: layout.entries.filter(entry => Math.floor(entry.id / 8) < bytes.length),
+  }, "live", 0);
 }
