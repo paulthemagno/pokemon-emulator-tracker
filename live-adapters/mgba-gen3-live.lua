@@ -11,7 +11,7 @@ local RSE_NATIONAL_MAGIC = 0xDA
 local DEX_MODE_NATIONAL = 1
 local SNAPSHOT_REFRESH_SECONDS = 0.25
 local HEAVY_SECTION_REFRESH_SECONDS = 1.25
-local ADAPTER_REVISION = "gen3-rom-identity-v1"
+local ADAPTER_REVISION = "gen3-frontier-v1"
 
 local function script_directory()
   local info = debug and debug.getinfo and debug.getinfo(1, "S")
@@ -1074,6 +1074,18 @@ local function read_heavy_sections(force)
   return cachedHeavySections
 end
 
+-- Raw SaveBlock2 range; decoding and units are shared with the save parser.
+local function read_frontier_bytes()
+  local p = get_profile()
+  local base = resolve_blocks().saveBlock2
+  if not p.frontierStart or not p.frontierEnd or not base then return nil end
+  local bytes = {}
+  for offset = p.frontierStart, p.frontierEnd - 1 do
+    bytes[#bytes + 1] = read8(base + offset)
+  end
+  return bytes
+end
+
 local function build_snapshot()
   local p = get_profile()
   local blocks = resolve_blocks()
@@ -1102,6 +1114,7 @@ local function build_snapshot()
     player = read_player(),
     pokedex = heavy.pokedex,
     eventsRaw = read_event_bytes(),
+    frontierRaw = read_frontier_bytes(),
     progressRaw = read_progress_values(),
     progressVariablesRaw = read_reviewed_progress_variables(),
     party = read_party(),

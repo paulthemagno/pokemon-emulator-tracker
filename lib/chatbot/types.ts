@@ -106,6 +106,7 @@ export interface GameContextSnapshot {
     name: string;
     quantity: number;
   }>;
+  battleFrontierSummary?: string;
   progressFacts?: Array<{
     label: string;
     value: string;

@@ -394,7 +394,9 @@
         "boxCurrent": "0x0000",
         "boxData": "0x0004",
         "boxNames": "0x8344",
-        "boxWallpapers": "0x83c2"
+        "boxWallpapers": "0x83c2",
+        "frontierStart": 3292,
+        "frontierEnd": 3770
       },
       "liveMemory": {
         "saveBlock1": "scan",

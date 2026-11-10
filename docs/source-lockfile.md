@@ -315,3 +315,11 @@ Emerald's `include/constants/rematches.h` enum is an extraction dependency for t
 `extract:pokemon-progress-variables` reads the reviewed `rawVariables` selections in `progress-fact-candidates.json`, verifies evidence patterns and the checkout commit, and extracts IDs from pinned Emerald `include/constants/vars.h`. It writes `sources/progress-variables.json`; `generate:pokemon-knowledge` then creates `knowledge/progress-variables.ts` and the Lua `progressVariables` map. The script uses the existing pinned cache, or accepts `--pokeemerald /path/to/pokeemerald`. Populate the cache first with the existing PRET source-context extractor. No numeric variable IDs are maintained by hand in runtime readers.
 
 Hand-reviewed event semantics remain in `lib/pokemon/data/event-guidance.ts`, with pinned per-map scripts. See [Emerald event context](emerald-event-context.md) for capture/defeat distinctions, minor-quest rewards, daily state, and unresolved technical records. These interpretations do not establish current availability or a complete quest list.
+
+Emerald Frontier offsets and active-streak masks are extracted by `scripts/extract-pokemon-frontier.mjs` from the existing `pretPokeemerald` pin `0d3100185e0b13faabfc589fc402dd46f83c1d6a`. The manifest is `knowledge/sources/frontier-layout.json`; symbol flags reuse the pinned generated event catalog. See [field-level references](battle-frontier.md).
+
+Frontier Pass symbol sprites use `pret/pokeemerald` commit
+`0d3100185e0b13faabfc589fc402dd46f83c1d6a`: `graphics/frontier_pass/medals.png`
+and the `silver.pal`/`gold.pal` palettes. `scripts/generate-frontier-symbols.mjs`
+reproduces the 14 local SVGs in `public/frontier/` at native pixel resolution,
+using `src/frontier_pass.c` frame order. See [Battle Frontier](battle-frontier.md).

@@ -81,6 +81,8 @@ export interface Gen3SaveLayout {
     playTimeSeconds: number;
     playTimeVBlanks?: number;
     encryptionKey?: number;
+    frontierStart?: number;
+    frontierEnd?: number;
     pokedexMode: number;
     pokedexNationalMagic: number;
     location: number;
@@ -495,6 +497,8 @@ export const GEN3_SAVE_LAYOUTS = {
       boxData: 0x0004,
       boxNames: 0x8344,
       boxWallpapers: 0x83c2,
+      frontierStart: 3292,
+      frontierEnd: 3770,
     },
     sectionIds: {
       trainerInfo: 0,

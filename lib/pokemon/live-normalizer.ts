@@ -1,3 +1,4 @@
+import { parseBattleFrontier } from "./frontier";
 import type { InventorySection, PCBox, Pokemon, SaveData } from "./types";
 import { getGen1ItemName, getGen2ItemName, getGen3ItemName } from "./data/items";
 import { getGen2MapLandmark } from "./data/gen2-map-landmarks";
@@ -298,6 +299,7 @@ export function normalizeLiveSnapshot(snapshot: AnyRecord): SaveData {
     pcBoxes,
     inventory: normalizeInventory(snapshot.bag ?? snapshot.inventory, generation),
     events,
+    battleFrontier: parseBattleFrontier(snapshot.frontierRaw, game, "live", events),
     progressVariables: normalizeProgressVariables(snapshot.progressVariablesRaw, game),
     progressFacts: buildProgressFacts({
       generation,

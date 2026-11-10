@@ -541,6 +541,8 @@ return {
       boxData = 0x0004,
       boxNames = 0x8344,
       boxWallpapers = 0x83c2,
+      frontierStart = 0xcdc,
+      frontierEnd = 0xeba,
       saveBlock1 = "scan",
       saveBlock2 = "scan",
       saveBlock1Ptr = 0x03005d8c,

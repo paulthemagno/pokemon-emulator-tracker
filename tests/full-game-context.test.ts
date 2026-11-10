@@ -98,3 +98,14 @@ test('Gen 1 species enrichment uses historical typing', () => {
     party: [{ ...pokemon, species: 81, speciesName: 'Magnemite' }] };
   assert.deepEqual(packGameContext(data)?.partyPokemonDetailed?.[0].types, ['electric']);
 });
+
+test('Frontier details survive context transport and are available on demand to the chatbot', () => {
+  const battleFrontier: NonNullable<SaveData['battleFrontier']> = {source:'save', battlePoints:42, sourceRefs:['https://example.com/source'], facilities:[{id:'tower', silver:true, gold:false, records:[{mode:'singles',level:'50',streak:14,record:35,isCurrent:false,unit:'wins'}]}]};
+  const context = packGameContext({...save, battleFrontier})!;
+  const parsed = activeContextUpdateSchema.parse({sessionId:'10000000-0000-4000-8000-000000000001',sequence:1, snapshot:{source:'file',game:'emerald',filename:'fixture.sav',updatedAt:1,stale:false,context}});
+  assert.match(parsed.snapshot!.context.battleFrontierSummary!, /42 BP/);
+  const r = executeChatTool('get_game_state', {section:'battleFrontier'}, parsed.snapshot!.context);
+  assert.ok(r.ok);
+  if (r.ok) assert.deepEqual(r.data.battleFrontier, battleFrontier);
+  assert.equal(executeChatTool('get_game_state', {section:'battleFrontier'}, packGameContext(save)).ok, false);
+});

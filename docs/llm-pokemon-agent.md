@@ -941,3 +941,5 @@ New generators must also support a deterministic `--dry-run` or audit mode suita
 Fine-tuning may later improve tone, tool-selection habits, and concise source-aware explanations.
 It should be considered only after the local tools, retrieval index, evaluation cases, and
 provenance rules are stable.
+
+Emerald Battle Frontier progress is available via `get_game_state section=battleFrontier`: BP, silver/gold flags and mode/level records with provenance. A compact summary is packed into chat context. Interpret `isCurrent=false` as a previous series; preserve facility-specific units and unknown/null fields. Do not infer an ongoing battle or next Brain encounter. See [Battle Frontier](battle-frontier.md).

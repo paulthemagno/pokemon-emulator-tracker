@@ -6,6 +6,7 @@ import { TrainerCard, TrainerMapCard } from "@/components/pokemon/trainer-card";
 import { PartyDisplay } from "./party-display";
 import { PCBoxes } from "./pc-boxes";
 import { InventoryDisplay } from "./inventory-display";
+import { FrontierPanel } from "./frontier-panel";
 import { EventsPanel } from "./events-panel";
 import { PokedexPanel } from "./pokedex-panel";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,10 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
   );
   const dexCount = saveData.pokedex?.caughtCount ?? 0;
   const dexMax = saveData.pokedex?.dexMax ?? (saveData.generation === 1 ? 151 : saveData.generation === 2 ? 251 : 386);
+  const frontier = saveData.battleFrontier;
+  const symbolCount = (tier: "silver" | "gold") => frontier?.facilities.some(facility => facility[tier] === null)
+    ? "Unknown"
+    : `${frontier?.facilities.filter(facility => facility[tier] === true).length ?? 0}/7`;
   const importantEvents = saveData.events ? `${saveData.events.importantCompletedCount}/${saveData.events.importantTotalCount}` : "0/0";
 
   return (
@@ -153,6 +158,17 @@ export function Dashboard({ saveData, filename, lastUpdated, isLive = false }: D
           </TabsContent>
         </Tabs>
       </DashboardSection>
+
+      {saveData.battleFrontier && (
+        <DashboardSection
+          title="Battle Frontier"
+          summary={`${saveData.battleFrontier.battlePoints} BP · ${symbolCount("silver")} silver symbols · ${symbolCount("gold")} gold symbols`}
+          compact
+          defaultOpen={false}
+        >
+          <FrontierPanel data={saveData.battleFrontier} />
+        </DashboardSection>
+      )}
     </div>
   );
 }
