@@ -186,3 +186,5 @@ game does not immediately erase boxes already seen through WRAM.
 The updated Gen 3 adapter transmits `progressVariablesRaw`, an allowlist of 18 reviewed Emerald `SaveBlock1.vars` values generated from pinned PRET symbols. This is separate from `progressRaw`, which backs existing interpreted story facts. Save uploads read the same allowlist. The MCP exposes the documented values through `get_game_state(section="progressVariables")`; see [MCP variable lookup](../docs/local-mcp.md#reviewed-raw-quest-variables).
 
 The generated event range also includes Emerald's daily-state tail. Reload `mgba-gen3-live.lua` after updating this adapter or its generated profile. Older snapshots omit the new variables and unread daily bits; the normalizer preserves that absence rather than inventing zero values. Other games retain their own profiles and do not receive Emerald-specific variable IDs.
+
+Emerald now sends a raw Frontier SaveBlock2 range for Battle Points and all seven facilities’ records. Reload `mgba-gen3-live.lua` and its regenerated offsets to enable it. Older adapters leave Frontier data unavailable. See [exact sources and semantics](../docs/battle-frontier.md).

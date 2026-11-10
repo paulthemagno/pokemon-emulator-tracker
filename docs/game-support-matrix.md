@@ -86,3 +86,5 @@ Fully supported games are maintained against these requirements:
 - Data generation scripts or pinned source notes exist.
 - LLM tools can answer at least moves, items, party, inventory, and current location questions for that game.
 - README and architecture docs describe any game-specific limits.
+
+Emerald Battle Frontier: save/live BP, all seven symbol pairs and 26 per-mode/level streak/record rows are implemented. Ruby/Sapphire Tower counters and transient challenge state remain unavailable. See [sources and decoding](battle-frontier.md).

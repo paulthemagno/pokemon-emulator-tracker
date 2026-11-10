@@ -16,6 +16,8 @@ import {
 import {
   getSpeciesById,
 } from "../data/species";
+import { parseBattleFrontier } from "../frontier";
+import frontierLayout from "../knowledge/sources/frontier-layout.json";
 import { parseEventProgress } from "../events";
 import { buildProgressFacts } from "../progress-facts";
 import { readProgressVariables } from "../progress-variables";
@@ -988,6 +990,7 @@ export function parseGen3Save(buffer: ArrayBuffer, filename = "", override?: Gam
     pcBoxes,
     inventory,
     events,
+    battleFrontier: parseBattleFrontier(sections.get(SECTION_TRAINER_INFO)?.data.subarray(frontierLayout.start, frontierLayout.end), game, "save", events),
     progressVariables: readProgressVariables(saveBlock1, profile.layout.offsets.vars, game),
     progressFacts: buildProgressFacts({
       generation: 3,

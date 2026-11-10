@@ -1435,11 +1435,11 @@ export function getChatToolDefinitions(): ChatToolDefinition[] {
       type: "function",
       function: {
         name: "get_game_state",
-        description: "Inspect selected save/live data on demand: PC boxes, catalogued event/trainer flags with provenance, trainer, inventory pockets, party, Pokedex, progress facts, reviewed raw quest variables, or location. Start with summary. Missing parser fields are unavailable, not zero. Event flags are not a complete quest checklist; unset trainer bits may be alternative or unavailable teams.",
+        description: "Inspect selected save/live data on demand: PC boxes, catalogued event/trainer flags with provenance, trainer, inventory pockets, party, Pokedex, progress facts, reviewed raw quest variables, Emerald Battle Frontier symbols/Battle Points/records (section=battleFrontier), or location. Start with summary. Missing parser fields are unavailable, not zero. Event flags are not a complete quest checklist; unset trainer bits may be alternative or unavailable teams.",
         parameters: {
           type: "object",
           properties: {
-            section: { type: "string", enum: ["summary", "trainer", "party", "pcBoxes", "inventory", "events", "pokedex", "progressFacts", "progressVariables", "location"] },
+            section: { type: "string", enum: ["summary", "trainer", "party", "pcBoxes", "inventory", "events", "pokedex", "progressFacts", "progressVariables", "battleFrontier", "location"] },
             boxIndex: { type: "integer", minimum: 1, description: "For pcBoxes: select a 1-based box; omit for box summaries." },
             query: { type: "string", description: "Filter Pokemon, items, or event flag keys/labels. Canonical English names." },
             offset: { type: "integer", minimum: 0 },
@@ -2415,7 +2415,13 @@ export function executeChatTool(
           availableFields: Object.keys(state), partyCount: state.party.length, boxCount: state.pcBoxes.length,
           boxedPokemon: state.pcBoxes.reduce((n, box) => n + box.pokemon.filter(Boolean).length, 0),
           eventFlagCount: state.events?.flags.length ?? null,
+          battleFrontier: state.battleFrontier ? { battlePoints: state.battleFrontier.battlePoints, detailSection: "battleFrontier" } : null,
           note: "Choose a section to inspect the retained parser output. Fields not present in availableFields, including coins when not parsed, are unavailable." }; break;
+        case "battleFrontier": {
+          if (!state.battleFrontier) return failure(toolName, "NOT_FOUND", "Battle Frontier data unavailable. Supported for Emerald with the updated save parser/live adapter. Missing data is not zero.");
+          result = { battleFrontier: state.battleFrontier, note: "streak is current only when isCurrent=true, otherwise previous. Units differ by facility. Symbols with null are unknown. These records do not identify a battle currently in progress." };
+          break;
+        }
         case "trainer": result = { trainer: state.trainer }; break;
         case "party": result = page(state.party.map((pokemon, index) => ({ partyIndex: index + 1,
           ...packPokemonContext(pokemon, state.generation), pokemon })).filter(p => matches(`${p.name} ${p.species}`))); break;

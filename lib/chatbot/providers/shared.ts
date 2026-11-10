@@ -102,6 +102,7 @@ export function formatGameContext(context: GameContextSnapshot): string {
       },
       inventory: context.inventory.slice(0, 30),
       progressFacts: context.progressFacts ?? [],
+      battleFrontierSummary: context.battleFrontierSummary ?? null,
     },
     null,
     2

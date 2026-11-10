@@ -29,6 +29,7 @@ const contextSchema: z.ZodType<GameContextSnapshot> = z.object({
   pokedexSeen: z.number(), pokedexOwned: z.number(),
   pokedexSeenList: z.array(z.number()), pokedexCaughtList: z.array(z.number()),
   inventory: z.array(z.object({ name: z.string(), quantity: z.number() })),
+  battleFrontierSummary: z.string().optional(),
   progressFacts: z.array(z.object({ label: z.string(), value: z.string(), description: z.string(), nextStep: z.string().optional() })).optional(),
   timestamp: z.number(), gameTitle: z.string().optional(), battleActive: z.boolean().optional(),
 });

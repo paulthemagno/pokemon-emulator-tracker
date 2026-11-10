@@ -642,3 +642,17 @@ test("Gen 3 content detection accepts anonymous/localized saves and ignores inco
   corrupt[0x20] ^= 1;
   assert.equal(parseSaveFile(corrupt.buffer, "Pokemon LeafGreen.sav").success, false);
 });
+
+test("Emerald upload reads Frontier from section 0 without applying the money encryption key", () => {
+  const save = buildGen3Save(GEN3_SAVE_LAYOUTS.emerald, { money: 100, securityKey: 0x12345678, itemId: 4, itemQuantity: 1, badgeCount: 8 });
+  const bytes = new Uint8Array(save);
+  const view = new DataView(save);
+  view.setUint16(0xeb8, 456, true);
+  view.setUint16(0xe1e + 2, 49, true); // Pyramid open record (floors)
+  view.setUint16(0xff6, checksumGen3Section(bytes, 0, 0), true);
+  const result = parseSaveFile(save, "emerald.sav");
+  assert.equal(result.success, true);
+  assert.equal(result.data?.battleFrontier?.battlePoints, 456);
+  assert.equal(result.data?.battleFrontier?.facilities[6].records[1].record, 49);
+  assert.equal(result.data?.battleFrontier?.source, 'save');
+});

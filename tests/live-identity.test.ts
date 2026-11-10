@@ -162,3 +162,29 @@ test("production adapters reselect profiles on same-title language changes and r
     `);
   }
 });
+
+test("production Gen 3 Frontier reader uses resolved SaveBlock2 and omits unsupported profiles", () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync('live-adapters/mgba-gen3-live.lua', 'utf8') as string;
+  const reader = source.match(/local function read_frontier_bytes\(\)[\s\S]*?\nend/)![0];
+  runLua(`
+    assert(loadfile('live-adapters/mgba-gen3-live.lua'))
+    local p = dofile('live-adapters/generated/gen3-live-offsets.lua').profiles.emerald
+    local base = 0x02010000
+    local function get_profile() return p end
+    local function resolve_blocks() return {saveBlock2=base} end
+    local function read8(address)
+      assert(address >= base + 0xcdc and address < base + 0xeba)
+      if address == base + 0xeb8 then return 42 end
+      return 0
+    end
+    ${reader}
+    local bytes = read_frontier_bytes()
+    assert(#bytes == 0xeba - 0xcdc and bytes[#bytes - 1] == 42)
+    base = nil
+    assert(read_frontier_bytes() == nil)
+    base = 0x02010000
+    p = dofile('live-adapters/generated/gen3-live-offsets.lua').profiles.ruby_sapphire
+    assert(read_frontier_bytes() == nil)
+  `);
+});

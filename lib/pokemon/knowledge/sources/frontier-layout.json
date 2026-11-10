@@ -1,0 +1,202 @@
+{
+  "sourceKind": "pret",
+  "sourceName": "pret/pokeemerald",
+  "game": "emerald",
+  "extractedAt": "2026-11-08T23:57:22.738Z",
+  "sourceCommit": "0d3100185e0b13faabfc589fc402dd46f83c1d6a",
+  "sourceUrl": "https://github.com/pret/pokeemerald/tree/0d3100185e0b13faabfc589fc402dd46f83c1d6a",
+  "sourceFiles": [
+    "include/global.h",
+    "include/constants/frontier_util.h",
+    "include/constants/flags.h",
+    "src/frontier_util.c"
+  ],
+  "generator": "scripts/extract-pokemon-frontier.mjs",
+  "start": 3292,
+  "end": 3770,
+  "battlePoints": 3768,
+  "facilities": [
+    {
+      "id": "tower",
+      "current": 3296,
+      "record": 3312,
+      "unit": "wins",
+      "symbolTargets": {
+        "silver": 35,
+        "gold": 70,
+        "mode": "singles"
+      },
+      "modes": [
+        {
+          "id": "singles",
+          "masks": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "doubles",
+          "masks": [
+            16384,
+            32768
+          ]
+        },
+        {
+          "id": "multis",
+          "masks": [
+            65536,
+            131072
+          ]
+        },
+        {
+          "id": "link_multis",
+          "masks": [
+            262144,
+            524288
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dome",
+      "current": 3340,
+      "record": 3348,
+      "unit": "tournaments",
+      "symbolTargets": {
+        "silver": 5,
+        "gold": 10,
+        "mode": "singles"
+      },
+      "modes": [
+        {
+          "id": "singles",
+          "masks": [
+            4,
+            8
+          ]
+        },
+        {
+          "id": "doubles",
+          "masks": [
+            1048576,
+            2097152
+          ]
+        }
+      ]
+    },
+    {
+      "id": "palace",
+      "current": 3528,
+      "record": 3536,
+      "unit": "wins",
+      "symbolTargets": {
+        "silver": 21,
+        "gold": 42,
+        "mode": "singles"
+      },
+      "modes": [
+        {
+          "id": "singles",
+          "masks": [
+            16,
+            32
+          ]
+        },
+        {
+          "id": "doubles",
+          "masks": [
+            4194304,
+            8388608
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arena",
+      "current": 3546,
+      "record": 3550,
+      "unit": "wins",
+      "symbolTargets": {
+        "silver": 28,
+        "gold": 56,
+        "mode": "singles"
+      },
+      "modes": [
+        {
+          "id": "singles",
+          "masks": [
+            64,
+            128
+          ]
+        }
+      ]
+    },
+    {
+      "id": "factory",
+      "current": 3554,
+      "record": 3562,
+      "unit": "wins",
+      "symbolTargets": {
+        "silver": 21,
+        "gold": 42,
+        "mode": "singles"
+      },
+      "modes": [
+        {
+          "id": "singles",
+          "masks": [
+            256,
+            512
+          ]
+        },
+        {
+          "id": "doubles",
+          "masks": [
+            16777216,
+            33554432
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pike",
+      "current": 3588,
+      "record": 3592,
+      "unit": "rooms",
+      "symbolTargets": {
+        "silver": 28,
+        "gold": 140,
+        "mode": "singles"
+      },
+      "modes": [
+        {
+          "id": "singles",
+          "masks": [
+            1024,
+            2048
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pyramid",
+      "current": 3610,
+      "record": 3614,
+      "unit": "floors",
+      "symbolTargets": {
+        "silver": 21,
+        "gold": 70,
+        "mode": "singles"
+      },
+      "modes": [
+        {
+          "id": "singles",
+          "masks": [
+            4096,
+            8192
+          ]
+        }
+      ]
+    }
+  ]
+}

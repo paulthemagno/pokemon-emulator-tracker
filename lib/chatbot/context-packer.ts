@@ -83,6 +83,7 @@ export function packGameContext(saveData: SaveData | null): GameContextSnapshot 
       description: fact.description,
       nextStep: fact.nextStep,
     })),
+    battleFrontierSummary: saveData.battleFrontier ? `${saveData.battleFrontier.battlePoints} BP; silver symbols: ${saveData.battleFrontier.facilities.some(f => f.silver === null) ? "unknown" : saveData.battleFrontier.facilities.filter(f => f.silver === true).length}; gold symbols: ${saveData.battleFrontier.facilities.some(f => f.gold === null) ? "unknown" : saveData.battleFrontier.facilities.filter(f => f.gold === true).length}. Details: get_game_state section=battleFrontier.` : undefined,
     gameTitle: `Pokémon ${saveData.game?.toUpperCase() || 'Unknown'}`,
     timestamp: Date.now(),
   };
@@ -101,6 +102,7 @@ export function areContextsEqual(
     ctx1.money === ctx2.money &&
     ctx1.badges === ctx2.badges &&
     ctx1.pokedexOwned === ctx2.pokedexOwned &&
+    ctx1.battleFrontierSummary === ctx2.battleFrontierSummary &&
     JSON.stringify(ctx1.progressFacts ?? []) === JSON.stringify(ctx2.progressFacts ?? []) &&
     ctx1.partyPokemon.length === ctx2.partyPokemon.length &&
     ctx1.partyPokemon.every(

@@ -211,6 +211,18 @@ export interface GameProgressVariable {
   sourceRefs: string[];
 }
 
+export interface BattleFrontier {
+  source: "save" | "live";
+  battlePoints: number;
+  sourceRefs: string[];
+  facilities: Array<{
+    id: string;
+    silver: boolean | null;
+    gold: boolean | null;
+    records: Array<{ mode: string; level: "50" | "open"; streak: number; record: number; isCurrent: boolean; unit: string }>;
+  }>;
+}
+
 export interface SaveData {
   generation: Generation;
   game: GameVersion;
@@ -236,6 +248,7 @@ export interface SaveData {
   party: Pokemon[];
   pcBoxes: PCBox[];
   inventory: InventorySection[];
+  battleFrontier?: BattleFrontier;
   events?: GameEventProgress;
   progressFacts?: GameProgressFacts;
   progressVariables?: GameProgressVariable[];
